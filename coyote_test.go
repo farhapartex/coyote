@@ -8,6 +8,7 @@ import (
 	"testing/fstest"
 
 	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/settings"
 )
 
 func testFS() fstest.MapFS {
@@ -19,12 +20,30 @@ func testFS() fstest.MapFS {
 	}
 }
 
-func newTestApp() *App {
-	return New(Config{Templates: testFS(), Layout: "layouts/base.html"})
+func testSettings(t *testing.T, fns ...func(*settings.Settings)) settings.Settings {
+	t.Helper()
+	base := func(s *settings.Settings) {
+		s.Debug = true
+		s.SecretKey = "test-secret-key-that-is-long-enough-to-pass"
+		s.AllowedHosts = []string{"*"}
+		s.Templates.FS = testFS()
+		s.Templates.Layout = "layouts/base.html"
+		s.Auth.PBKDF2Iterations = 1000
+	}
+	s, err := settings.New(append([]func(*settings.Settings){base}, fns...)...)
+	if err != nil {
+		t.Fatalf("building settings: %v", err)
+	}
+	return s
+}
+
+func newTestApp(t *testing.T, fns ...func(*settings.Settings)) *App {
+	t.Helper()
+	return NewFrom(testSettings(t, fns...))
 }
 
 func TestRoutingAndMethods(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("pong"))
 	})
@@ -58,7 +77,7 @@ func TestRoutingAndMethods(t *testing.T) {
 }
 
 func TestGlobalMiddlewareRunsOncePerRequest(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	hits := 0
 	app.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +95,7 @@ func TestGlobalMiddlewareRunsOncePerRequest(t *testing.T) {
 }
 
 func TestGroupPrefixAndMiddleware(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	group := app.Group("/api", func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Group", "api")
@@ -104,7 +123,7 @@ func TestGroupPrefixAndMiddleware(t *testing.T) {
 }
 
 func TestRenderUsesLayoutAndContext(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.Get("/hello", func(w http.ResponseWriter, r *http.Request) {
 		app.Render(w, r, "pages/hello.html", Data{"Name": "Coyote"})
 	})
@@ -124,7 +143,7 @@ func TestRenderUsesLayoutAndContext(t *testing.T) {
 }
 
 func TestCSRFMiddleware(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	var token string
 	app.Get("/form", func(w http.ResponseWriter, r *http.Request) {
 		token = app.Sessions.CSRFToken(r)
@@ -158,7 +177,7 @@ func TestCSRFMiddleware(t *testing.T) {
 }
 
 func TestRecovererReturns500(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.Get("/boom", func(w http.ResponseWriter, r *http.Request) {
 		panic("kaboom")
 	})
@@ -170,7 +189,7 @@ func TestRecovererReturns500(t *testing.T) {
 }
 
 func TestFlashSurvivesRedirect(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.Get("/set", func(w http.ResponseWriter, r *http.Request) {
 		Flash(r, "success", "saved")
 		Redirect(w, r, "/hello")
@@ -210,7 +229,7 @@ func TestFlashSurvivesRedirect(t *testing.T) {
 }
 
 func TestRoutesAreRecorded(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.Get("/a", func(w http.ResponseWriter, r *http.Request) {})
 	app.Post("/b", func(w http.ResponseWriter, r *http.Request) {})
 	routes := app.Routes()

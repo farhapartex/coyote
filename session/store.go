@@ -12,6 +12,13 @@ type Store interface {
 	Delete(id string) error
 }
 
+type ManageableStore interface {
+	Store
+	Count() int
+	All() []*Session
+	DeleteByUserID(userID string) int
+}
+
 type MemoryStore struct {
 	mu       sync.RWMutex
 	sessions map[string]*Session

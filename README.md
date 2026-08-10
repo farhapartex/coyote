@@ -3,9 +3,10 @@
 A session-first web framework for Go, shaped like Django but sized for the standard library.
 Zero third-party dependencies — everything is built on `net/http`, `html/template`, and `crypto/*`.
 
-Stage 1 gives you sessions, authentication, HTML template rendering, and a working admin
-portal. There is no database layer yet: users and sessions live in memory behind interfaces,
-so persistence can be dropped in later without touching the handlers.
+Configuration is explicit: every project declares a `settings.go`, and the app refuses to start
+without one. Stage 1 gives you settings, sessions, authentication, HTML template rendering, and a
+working admin portal. There is no database layer yet — users and sessions live in memory behind
+interfaces, so persistence can be dropped in later without touching the handlers.
 
 ## Install
 
@@ -17,12 +18,42 @@ Requires Go 1.24 or newer (`crypto/pbkdf2`).
 
 ## Quick start
 
+Every Coyote project needs two files. First `settings.go`, which is mandatory — the app refuses
+to start without it:
+
 ```go
 package main
 
 import (
 	"embed"
 	"io/fs"
+
+	"github.com/farhapartex/coyote/settings"
+)
+
+//go:embed templates
+var templateFS embed.FS
+
+func init() {
+	templates, _ := fs.Sub(templateFS, "templates")
+
+	settings.Configure(func(s *settings.Settings) {
+		s.Debug = true
+		s.SecretKey = settings.Env("SECRET_KEY", "development-only-key-change-me-please")
+		s.AllowedHosts = []string{"127.0.0.1", "localhost"}
+		s.Server.Port = 8000
+		s.Templates.FS = templates
+		s.Admin.SiteName = "My site admin"
+	})
+}
+```
+
+Then `main.go`, which reads it:
+
+```go
+package main
+
+import (
 	"log"
 	"net/http"
 
@@ -30,21 +61,11 @@ import (
 	"github.com/farhapartex/coyote/admin"
 )
 
-//go:embed templates
-var templateFS embed.FS
-
 func main() {
-	templates, _ := fs.Sub(templateFS, "templates")
-
-	app := coyote.New(coyote.Config{
-		Addr:      ":8000",
-		Templates: templates,
-		Layout:    "layouts/base.html",
-		DevMode:   true,
-	})
+	app := coyote.New()
 
 	app.Auth.CreateUser("admin", "admin@example.com", "coyote123", true, true)
-	admin.Mount(app, admin.Options{SiteName: "My site admin"})
+	admin.Mount(app)
 
 	app.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		app.Render(w, r, "pages/home.html", coyote.Data{"Title": "Home"})
@@ -63,7 +84,8 @@ cd example
 go run .
 ```
 
-Serves on `:8000` (override with `ADDR=:9000`). Two users are seeded:
+Serves on `127.0.0.1:8000`. `example/settings.go` reads `PORT`, `HOST`, `DEBUG`, `SECRET_KEY`, and
+`ALLOWED_HOSTS` from the environment, so `PORT=9000 go run .` works. Two users are seeded:
 
 | Username | Password    | Role      |
 | -------- | ----------- | --------- |
@@ -73,15 +95,105 @@ Serves on `:8000` (override with `ADDR=:9000`). Two users are seeded:
 ## Layout
 
 ```
-coyote.go       App, config, render helpers, graceful run
+coyote.go       App, render helpers, graceful run
 router.go       ServeMux wrapper: groups, method helpers, route table
-middleware.go   logging, panic recovery, secure headers, CSRF
+middleware.go   logging, recovery, allowed hosts, secure headers, CSRF
+settings/       the settings type, defaults, validation, env helpers
 session/        Session type, Store interface, MemoryStore, cookie manager
 auth/           User, Store interface, PBKDF2 passwords, login guards
 render/         html/template engine with layouts and partials
 admin/          the built-in admin portal (embedded templates)
 example/        a small site using the framework
 ```
+
+## Settings
+
+Settings are declared in code, in one place, and validated before the server starts. There is no
+implicit configuration: `coyote.New()` panics if `settings.Configure` has not run.
+
+```
+$ go run .
+panic: coyote/settings: improperly configured: no settings have been configured
+
+	Coyote needs an explicit settings file. Create settings.go next to your main package:
+	...
+```
+
+`Configure` takes functions that mutate a `Settings` value already populated with defaults, so you
+only write what differs. Anything you leave alone keeps its default from `settings.Default()`.
+
+```go
+settings.Configure(func(s *settings.Settings) {
+	s.Debug = false
+	s.SecretKey = settings.Env("SECRET_KEY", "")
+	s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", []string{"example.com"})
+	s.Sessions.Secure = true
+	s.Sessions.Lifetime = 24 * time.Hour
+})
+```
+
+Validation runs inside `Configure`, so mistakes surface at startup — all of them at once, not one
+per restart:
+
+```
+panic: coyote/settings: improperly configured:
+  - SecretKey is empty; set a random value of at least 32 characters
+  - AllowedHosts is empty; with Debug disabled you must list the hosts this site serves
+  - Sessions.SameSite must be "lax", "strict" or "none"
+  - Admin.Prefix cannot be "/", it would take over every route
+```
+
+`Configure` may only be called once. Call it from `init()` in `settings.go` so it runs before
+`main`, mirroring how Django loads its settings module first.
+
+### Every setting and its default
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `Debug` | `false` | Enables template reload, verbose render errors, relaxed host checks |
+| `SecretKey` | none | Required. Under `Debug` an ephemeral key is generated with a warning |
+| `AllowedHosts` | none | Required unless `Debug`. `"*"` allows any, `".example.com"` matches subdomains |
+| `Server.Host` | `127.0.0.1` | |
+| `Server.Port` | `8000` | |
+| `Server.ReadTimeout` | none | |
+| `Server.WriteTimeout` | none | |
+| `Server.IdleTimeout` | `2m` | |
+| `Server.ReadHeaderTimeout` | `10s` | |
+| `Server.ShutdownTimeout` | `10s` | Grace period on SIGINT/SIGTERM |
+| `Sessions.CookieName` | `coyote_session` | |
+| `Sessions.Lifetime` | `12h` | |
+| `Sessions.Rolling` | `false` | Extend the deadline on every request |
+| `Sessions.Secure` | `false` | Set true behind HTTPS |
+| `Sessions.HTTPOnly` | `true` | |
+| `Sessions.SameSite` | `lax` | `lax`, `strict`, or `none` (requires `Secure`) |
+| `Sessions.Path` | `/` | |
+| `Sessions.Domain` | none | |
+| `Sessions.CleanupInterval` | `5m` | Expired-session sweep |
+| `Sessions.Store` | `MemoryStore` | Any `session.Store` |
+| `Auth.LoginURL` | `/admin/login` | Where guards send anonymous visitors |
+| `Auth.PasswordMinLength` | `8` | |
+| `Auth.PBKDF2Iterations` | `600000` | Lower it in tests to keep them fast |
+| `Auth.UserStore` | `MemoryStore` | Any `auth.Store` |
+| `Templates.FS` | none | An `fs.FS`, usually from `go:embed` |
+| `Templates.Dir` | none | A directory path instead of an `fs.FS`; mutually exclusive with `FS` |
+| `Templates.Layout` | `layouts/base.html` | |
+| `Templates.Shared` | `layouts/*.html`, `partials/*.html` | Parsed into every page |
+| `Templates.Funcs` | none | Extra template functions |
+| `Static.URL` | `/static/` | |
+| `Static.FS` / `Static.Dir` | none | Static files are served only when one is set |
+| `Admin.Prefix` | `/admin` | |
+| `Admin.SiteName` | `Coyote administration` | |
+| `Admin.Tagline` | none | |
+| `Logging.Level` | `info` | `debug`, `info`, `warn`, `error` |
+| `Logging.Format` | `text` | `text` or `json` |
+| `Logging.Logger` | none | Supply your own `*slog.Logger` |
+
+Reading settings from the environment is done with the helpers, in `settings.go`, where you can
+see it: `settings.Env`, `EnvBool`, `EnvInt`, `EnvDuration`, `EnvList`. The framework itself never
+reads the environment.
+
+At runtime the resolved settings are available as `app.Settings`, and the admin portal renders
+them at `/admin/settings` with `SecretKey` redacted.
 
 ## Routing
 
@@ -97,7 +209,7 @@ api := app.Group("/api", requireToken)
 api.Get("/status", status)
 
 app.Mount("/legacy", someOtherHandler)
-app.Static("/static/", staticFS)
+app.Static("/static/", staticFS)   // usually unnecessary: set Static.FS in settings instead
 ```
 
 `app.Use(mw)` adds middleware for every request. Middleware passed to `Group` applies to that
@@ -125,10 +237,9 @@ templates/
 app.Render(w, r, "pages/home.html", coyote.Data{"Title": "Home"})
 ```
 
-`Shared` defaults to `layouts/*.html` and `partials/*.html`; override it with
-`Config.SharedTemplates`. Every render is given `.User`, `.Session`, `.CSRFToken`, `.Flashes`,
-`.Path`, `.Request`, and `.Version` on top of your own data. With `DevMode: true` templates are
-re-parsed on each request.
+`Templates.Shared` defaults to `layouts/*.html` and `partials/*.html`. Every render is given
+`.User`, `.Session`, `.CSRFToken`, `.Flashes`, `.Path`, `.Request`, `.Debug`, and `.Version` on top
+of your own data. When `Debug` is true templates are re-parsed on each request.
 
 ## Sessions
 
@@ -158,8 +269,8 @@ arrives.
 
 ## Authentication
 
-Passwords are hashed with PBKDF2-SHA256, 600,000 iterations, a 16-byte random salt, in the
-Django-style `pbkdf2_sha256$iterations$salt$hash` format.
+Passwords are hashed with PBKDF2-SHA256 using `Auth.PBKDF2Iterations` (600,000 by default) and a
+16-byte random salt, in the Django-style `pbkdf2_sha256$iterations$salt$hash` format.
 
 ```go
 user, err := app.Auth.Authenticate(username, password)
@@ -174,9 +285,10 @@ Guards redirect anonymous visitors to the login page with a `?next=` parameter a
 for signed-in users who lack the role:
 
 ```go
-app.Group("/me", app.Auth.RequireLogin("/admin/login"))
-app.Group("/staff", app.Auth.RequireStaff("/admin/login"))
-app.Group("/root", app.Auth.RequireSuperuser("/admin/login"))
+login := app.Settings.Auth.LoginURL
+app.Group("/me", app.Auth.RequireLogin(login))
+app.Group("/staff", app.Auth.RequireStaff(login))
+app.Group("/root", app.Auth.RequireSuperuser(login))
 ```
 
 Users carry `IsActive`, `IsStaff`, and `IsSuperuser`; superuser implies staff.
@@ -197,16 +309,16 @@ The admin portal applies it to all of its own routes.
 
 ## Admin portal
 
+Mounting takes no options — it reads `Admin.Prefix`, `Admin.SiteName`, and `Admin.Tagline` from
+settings:
+
 ```go
-portal := admin.Mount(app, admin.Options{
-	Prefix:   "/admin",
-	SiteName: "My site admin",
-	Tagline:  "internal tools",
-})
+portal := admin.Mount(app)
 ```
 
 Provides a login screen, dashboard, user management (create, edit, search, delete, password
-reset), an active session list with revoke, and the route table. Access requires `IsStaff`.
+reset), an active session list with revoke, the route table, and a read-only settings page.
+Access requires `IsStaff`.
 Editing your own account locks the role and status fields, self-deletion is refused, the last
 active superuser cannot be removed, and changing a password revokes that user's other sessions.
 
@@ -227,7 +339,9 @@ staff guard.
 ## Security defaults
 
 - Session ids are 256 bits from `crypto/rand`; the id rotates on login.
-- Cookies are `HttpOnly` and `SameSite=Lax` by default; set `SessionSecure: true` behind HTTPS.
+- Cookies are `HttpOnly` and `SameSite=Lax` by default; set `Sessions.Secure` behind HTTPS.
+- `AllowedHosts` is enforced on every request: an unlisted `Host` header gets a 400.
+- Settings are validated at startup, so an unsafe production config fails before serving traffic.
 - `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` are set on every response.
 - Login on an unknown username still runs a hash to even out response timing.
 - `?next=` redirect targets are restricted to same-origin paths.
@@ -243,4 +357,5 @@ go test -race ./...
 ## Not here yet
 
 No database or ORM, no migrations, no form/validation layer, no signed-cookie session backend,
-no static asset pipeline, no CLI scaffolding. Those come in later stages.
+no static asset pipeline, no CLI scaffolding. `SecretKey` is validated and surfaced but nothing
+consumes it yet — it is reserved for signed cookies and tokens. Those come in later stages.

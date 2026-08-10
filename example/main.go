@@ -1,11 +1,8 @@
 package main
 
 import (
-	"embed"
-	"io/fs"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/farhapartex/coyote"
@@ -13,30 +10,8 @@ import (
 	"github.com/farhapartex/coyote/session"
 )
 
-//go:embed templates
-var templateFS embed.FS
-
-//go:embed static
-var staticFS embed.FS
-
 func main() {
-	templates, err := fs.Sub(templateFS, "templates")
-	if err != nil {
-		log.Fatal(err)
-	}
-	static, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	app := coyote.New(coyote.Config{
-		Addr:            envOr("ADDR", ":8000"),
-		Templates:       templates,
-		Layout:          "layouts/base.html",
-		DevMode:         true,
-		SessionLifetime: 8 * time.Hour,
-		SessionRolling:  true,
-	})
+	app := coyote.New()
 
 	if _, err := app.Auth.CreateUser("admin", "admin@example.com", "coyote123", true, true); err != nil {
 		log.Fatalf("seeding admin user: %v", err)
@@ -45,10 +20,7 @@ func main() {
 		log.Fatalf("seeding editor user: %v", err)
 	}
 
-	portal := admin.Mount(app, admin.Options{
-		SiteName: "Coyote demo",
-		Tagline:  "session framework preview",
-	})
+	portal := admin.Mount(app)
 	portal.Register(admin.Section{
 		Name:        "Server info",
 		Slug:        "server-info",
@@ -61,8 +33,6 @@ func main() {
 			})
 		}),
 	})
-
-	app.Static("/static/", static)
 
 	app.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		sess := session.FromRequest(r)
@@ -105,7 +75,7 @@ func main() {
 		coyote.Redirect(w, r, "/notes")
 	}, app.CSRF)
 
-	private := app.Group("/me", app.Auth.RequireLogin("/admin/login"))
+	private := app.Group("/me", app.Auth.RequireLogin(app.Settings.Auth.LoginURL))
 	private.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		app.Render(w, r, "pages/profile.html", coyote.Data{"Title": "Your profile"})
 	})
@@ -113,11 +83,4 @@ func main() {
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

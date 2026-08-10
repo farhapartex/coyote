@@ -19,25 +19,50 @@ type contextKey struct{}
 
 var userContextKey contextKey
 
-type Service struct {
-	users    Store
-	sessions *session.Manager
+type Options struct {
+	Hasher            Hasher
+	MinPasswordLength int
 }
 
-func NewService(users Store, sessions *session.Manager) *Service {
+type Service struct {
+	users             Store
+	sessions          *session.Manager
+	hasher            Hasher
+	minPasswordLength int
+}
+
+func NewService(users Store, sessions *session.Manager, opts Options) *Service {
 	if users == nil {
 		users = NewMemoryStore()
 	}
-	return &Service{users: users, sessions: sessions}
+	if opts.MinPasswordLength < 1 {
+		opts.MinPasswordLength = DefaultMinPasswordLen
+	}
+	return &Service{
+		users:             users,
+		sessions:          sessions,
+		hasher:            opts.Hasher,
+		minPasswordLength: opts.MinPasswordLength,
+	}
 }
 
 func (s *Service) Users() Store { return s.users }
 
+func (s *Service) MinPasswordLength() int { return s.minPasswordLength }
+
+func (s *Service) ValidatePassword(password string) error {
+	return ValidatePasswordLength(password, s.minPasswordLength)
+}
+
+func (s *Service) HashPassword(password string) (string, error) {
+	return s.hasher.Hash(password)
+}
+
 func (s *Service) CreateUser(username, email, password string, staff, superuser bool) (*User, error) {
-	if err := ValidatePassword(password); err != nil {
+	if err := s.ValidatePassword(password); err != nil {
 		return nil, err
 	}
-	hash, err := HashPassword(password)
+	hash, err := s.hasher.Hash(password)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +82,14 @@ func (s *Service) CreateUser(username, email, password string, staff, superuser 
 }
 
 func (s *Service) SetPassword(id, password string) error {
-	if err := ValidatePassword(password); err != nil {
+	if err := s.ValidatePassword(password); err != nil {
 		return err
 	}
 	u, err := s.users.ByID(id)
 	if err != nil {
 		return err
 	}
-	hash, err := HashPassword(password)
+	hash, err := s.hasher.Hash(password)
 	if err != nil {
 		return err
 	}
@@ -75,7 +100,7 @@ func (s *Service) SetPassword(id, password string) error {
 func (s *Service) Authenticate(username, password string) (*User, error) {
 	u, err := s.users.ByUsername(username)
 	if err != nil {
-		_, _ = HashPassword(password)
+		_, _ = s.hasher.Hash(password)
 		return nil, ErrInvalidCredentials
 	}
 	if !VerifyPassword(password, u.PasswordHash) {

@@ -44,7 +44,10 @@ func newTestService() *Service {
 		Store:    session.NewMemoryStore(0),
 		Lifetime: time.Hour,
 	})
-	return NewService(NewMemoryStore(), manager)
+	return NewService(NewMemoryStore(), manager, Options{
+		Hasher:            Hasher{Iterations: 1000},
+		MinPasswordLength: 8,
+	})
 }
 
 func TestCreateAndAuthenticate(t *testing.T) {

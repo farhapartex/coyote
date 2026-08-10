@@ -15,12 +15,6 @@ import (
 //go:embed templates
 var templateFS embed.FS
 
-type Options struct {
-	Prefix   string
-	SiteName string
-	Tagline  string
-}
-
 type Section struct {
 	Name        string
 	Slug        string
@@ -38,33 +32,28 @@ type Admin struct {
 	router    *coyote.Router
 }
 
-func Mount(app *coyote.App, opts Options) *Admin {
-	if opts.Prefix == "" {
-		opts.Prefix = "/admin"
-	}
-	opts.Prefix = "/" + strings.Trim(opts.Prefix, "/")
-	if opts.SiteName == "" {
-		opts.SiteName = "Coyote administration"
-	}
+func Mount(app *coyote.App) *Admin {
+	cfg := app.Settings.Admin
+	prefix := "/" + strings.Trim(cfg.Prefix, "/")
 
 	a := &Admin{
 		app:      app,
-		prefix:   opts.Prefix,
-		siteName: opts.SiteName,
-		tagline:  opts.Tagline,
+		prefix:   prefix,
+		siteName: cfg.SiteName,
+		tagline:  cfg.Tagline,
 		templates: render.New(render.Options{
 			FS:     templateFS,
 			Layout: "base.html",
 			Shared: []string{"templates/base.html"},
-			Reload: app.Config.DevMode,
+			Reload: app.Settings.AutoReloadTemplates(),
 		}),
 	}
 
-	group := app.Group(opts.Prefix)
+	group := app.Group(prefix)
 	group.Use(app.CSRF)
 	a.router = group
 
-	loginURL := opts.Prefix + "/login"
+	loginURL := prefix + "/login"
 	group.Get("/login", a.loginForm)
 	group.Post("/login", a.loginSubmit)
 
@@ -80,6 +69,7 @@ func Mount(app *coyote.App, opts Options) *Admin {
 	guarded.Get("/sessions", a.sessionList)
 	guarded.Post("/sessions/{id}/revoke", a.sessionRevoke)
 	guarded.Get("/routes", a.routeList)
+	guarded.Get("/settings", a.settingsView)
 
 	return a
 }
@@ -117,6 +107,19 @@ func (a *Admin) currentUser(r *http.Request) *auth.User {
 	return a.app.Auth.CurrentUser(r)
 }
 
-func (a *Admin) sessionStore() *session.MemoryStore {
-	return a.app.SessionStore()
+func (a *Admin) sessionStore() (session.ManageableStore, bool) {
+	return a.app.ManageableSessions()
+}
+
+func (a *Admin) sessionCount() int {
+	if store, ok := a.sessionStore(); ok {
+		return store.Count()
+	}
+	return -1
+}
+
+func (a *Admin) revokeUserSessions(userID string) {
+	if store, ok := a.sessionStore(); ok {
+		store.DeleteByUserID(userID)
+	}
 }

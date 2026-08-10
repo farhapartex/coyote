@@ -3,7 +3,6 @@ package coyote
 import (
 	"context"
 	"errors"
-	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -16,31 +15,16 @@ import (
 	"github.com/farhapartex/coyote/auth"
 	"github.com/farhapartex/coyote/render"
 	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/settings"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
-type Config struct {
-	Addr            string
-	Templates       fs.FS
-	Layout          string
-	SharedTemplates []string
-	TemplateFuncs   template.FuncMap
-	DevMode         bool
-	SessionName     string
-	SessionLifetime time.Duration
-	SessionSecure   bool
-	SessionRolling  bool
-	Logger          *slog.Logger
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	IdleTimeout     time.Duration
-	ShutdownTimeout time.Duration
-}
+type Settings = settings.Settings
 
 type App struct {
 	*Router
-	Config    Config
+	Settings  Settings
 	Logger    *slog.Logger
 	Sessions  *session.Manager
 	Auth      *auth.Service
@@ -48,50 +32,51 @@ type App struct {
 	Started   time.Time
 	global    []Middleware
 	server    *http.Server
-	sessions  *session.MemoryStore
+	sessions  session.Store
 }
 
-func New(cfg Config) *App {
-	if cfg.Addr == "" {
-		cfg.Addr = ":8000"
-	}
-	if cfg.Logger == nil {
-		level := slog.LevelInfo
-		if cfg.DevMode {
-			level = slog.LevelDebug
-		}
-		cfg.Logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
-	}
-	if cfg.SessionLifetime <= 0 {
-		cfg.SessionLifetime = 12 * time.Hour
-	}
-	if cfg.ShutdownTimeout <= 0 {
-		cfg.ShutdownTimeout = 10 * time.Second
+func New() *App {
+	return NewFrom(settings.Get())
+}
+
+func NewFrom(s Settings) *App {
+	logger := s.Logging.Logger
+	if logger == nil {
+		logger = newLogger(s)
 	}
 
-	store := session.NewMemoryStore(5 * time.Minute)
+	store := s.Sessions.Store
+	if store == nil {
+		store = session.NewMemoryStore(s.Sessions.CleanupInterval)
+	}
+
 	sessions := session.NewManager(session.Options{
 		Store:      store,
-		CookieName: cfg.SessionName,
-		Lifetime:   cfg.SessionLifetime,
-		Rolling:    cfg.SessionRolling,
-		Secure:     cfg.SessionSecure,
-		HTTPOnly:   true,
-		SameSite:   http.SameSiteLaxMode,
+		CookieName: s.Sessions.CookieName,
+		Lifetime:   s.Sessions.Lifetime,
+		Rolling:    s.Sessions.Rolling,
+		Secure:     s.Sessions.Secure,
+		HTTPOnly:   s.Sessions.HTTPOnly,
+		SameSite:   sameSite(s.Sessions.SameSite),
+		Path:       s.Sessions.Path,
+		Domain:     s.Sessions.Domain,
 	})
 
 	app := &App{
 		Router:   newRouter(),
-		Config:   cfg,
-		Logger:   cfg.Logger,
+		Settings: s,
+		Logger:   logger,
 		Sessions: sessions,
-		Auth:     auth.NewService(auth.NewMemoryStore(), sessions),
+		Auth: auth.NewService(s.Auth.UserStore, sessions, auth.Options{
+			Hasher:            auth.Hasher{Iterations: s.Auth.PBKDF2Iterations},
+			MinPasswordLength: s.Auth.PasswordMinLength,
+		}),
 		Templates: render.New(render.Options{
-			FS:     cfg.Templates,
-			Layout: cfg.Layout,
-			Shared: cfg.SharedTemplates,
-			Funcs:  cfg.TemplateFuncs,
-			Reload: cfg.DevMode,
+			FS:     templateFS(s),
+			Layout: s.Templates.Layout,
+			Shared: s.Templates.Shared,
+			Funcs:  s.Templates.Funcs,
+			Reload: s.AutoReloadTemplates(),
 		}),
 		Started:  time.Now(),
 		sessions: store,
@@ -100,18 +85,75 @@ func New(cfg Config) *App {
 	app.global = []Middleware{
 		Recoverer(app.Logger),
 		RequestLogger(app.Logger),
+		AllowedHosts(s.AllowedHosts, s.Debug),
 		SecureHeaders,
 		sessions.Middleware,
 		app.Auth.Middleware,
 	}
+
+	if fsys := staticFS(s); fsys != nil {
+		app.Static(s.Static.URL, fsys)
+	}
+
+	if s.SecretKeyGenerated() {
+		app.Logger.Warn("SecretKey was empty, generated an ephemeral development key; set SecretKey in settings.go before deploying")
+	}
+	if s.Debug {
+		app.Logger.Warn("Debug is enabled; never run with Debug in production")
+	}
+
 	return app
+}
+
+func newLogger(s Settings) *slog.Logger {
+	opts := &slog.HandlerOptions{Level: s.LogLevel()}
+	if strings.EqualFold(s.Logging.Format, "json") {
+		return slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	}
+	return slog.New(slog.NewTextHandler(os.Stdout, opts))
+}
+
+func templateFS(s Settings) fs.FS {
+	if s.Templates.FS != nil {
+		return s.Templates.FS
+	}
+	if s.Templates.Dir != "" {
+		return os.DirFS(s.Templates.Dir)
+	}
+	return nil
+}
+
+func staticFS(s Settings) fs.FS {
+	if s.Static.FS != nil {
+		return s.Static.FS
+	}
+	if s.Static.Dir != "" {
+		return os.DirFS(s.Static.Dir)
+	}
+	return nil
+}
+
+func sameSite(mode settings.SameSite) http.SameSite {
+	switch mode {
+	case settings.SameSiteStrict:
+		return http.SameSiteStrictMode
+	case settings.SameSiteNone:
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteLaxMode
+	}
+}
+
+func (a *App) SessionStore() session.Store { return a.sessions }
+
+func (a *App) ManageableSessions() (session.ManageableStore, bool) {
+	store, ok := a.sessions.(session.ManageableStore)
+	return store, ok
 }
 
 func (a *App) Use(mw ...Middleware) {
 	a.global = append(a.global, mw...)
 }
-
-func (a *App) SessionStore() *session.MemoryStore { return a.sessions }
 
 func (a *App) Static(prefix string, fsys fs.FS) {
 	if !strings.HasSuffix(prefix, "/") {
@@ -135,6 +177,10 @@ func (a *App) RenderStatus(w http.ResponseWriter, r *http.Request, status int, p
 	a.Context(r, data)
 	if err := a.Templates.Render(w, status, page, data); err != nil {
 		a.Logger.Error("render failed", slog.String("page", page), slog.Any("error", err))
+		if a.Settings.Debug {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)
 	}
 }
@@ -144,13 +190,13 @@ func (a *App) Context(r *http.Request, data Data) Data {
 		data = Data{}
 	}
 	sess := session.FromRequest(r)
-	user := a.Auth.CurrentUser(r)
 	setIfAbsent(data, "Request", r)
 	setIfAbsent(data, "Path", r.URL.Path)
-	setIfAbsent(data, "User", user)
+	setIfAbsent(data, "User", a.Auth.CurrentUser(r))
 	setIfAbsent(data, "Session", sess)
 	setIfAbsent(data, "CSRFToken", a.Sessions.CSRFToken(r))
 	setIfAbsent(data, "Version", Version)
+	setIfAbsent(data, "Debug", a.Settings.Debug)
 	if sess != nil {
 		setIfAbsent(data, "Flashes", sess.Flashes())
 	}
@@ -178,13 +224,14 @@ func (a *App) Handler() http.Handler {
 }
 
 func (a *App) Run() error {
+	s := a.Settings
 	a.server = &http.Server{
-		Addr:              a.Config.Addr,
+		Addr:              s.Addr(),
 		Handler:           a.Handler(),
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       a.Config.ReadTimeout,
-		WriteTimeout:      a.Config.WriteTimeout,
-		IdleTimeout:       a.Config.IdleTimeout,
+		ReadHeaderTimeout: s.Server.ReadHeaderTimeout,
+		ReadTimeout:       s.Server.ReadTimeout,
+		WriteTimeout:      s.Server.WriteTimeout,
+		IdleTimeout:       s.Server.IdleTimeout,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -193,9 +240,9 @@ func (a *App) Run() error {
 	errs := make(chan error, 1)
 	go func() {
 		a.Logger.Info("coyote listening",
-			slog.String("addr", a.Config.Addr),
+			slog.String("addr", s.Addr()),
 			slog.String("version", Version),
-			slog.Bool("dev", a.Config.DevMode),
+			slog.Bool("debug", s.Debug),
 		)
 		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errs <- err
@@ -209,8 +256,10 @@ func (a *App) Run() error {
 		a.Logger.Info("shutting down")
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), a.Config.ShutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), s.Server.ShutdownTimeout)
 	defer cancel()
-	a.sessions.Close()
+	if closer, ok := a.sessions.(interface{ Close() }); ok {
+		closer.Close()
+	}
 	return a.server.Shutdown(shutdownCtx)
 }

@@ -10,6 +10,7 @@ import (
 	"testing/fstest"
 
 	"github.com/farhapartex/coyote"
+	"github.com/farhapartex/coyote/settings"
 )
 
 var tokenPattern = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
@@ -50,20 +51,35 @@ func (c *client) token(target string) string {
 	return match[1]
 }
 
-func setup(t *testing.T) (*coyote.App, *client) {
+func newApp(t *testing.T, fns ...func(*settings.Settings)) *coyote.App {
 	t.Helper()
-	app := coyote.New(coyote.Config{
-		Templates: fstest.MapFS{
+	base := func(s *settings.Settings) {
+		s.Debug = true
+		s.SecretKey = "test-secret-key-that-is-long-enough-to-pass"
+		s.AllowedHosts = []string{"*"}
+		s.Auth.PBKDF2Iterations = 1000
+		s.Admin.SiteName = "Test admin"
+		s.Templates.FS = fstest.MapFS{
 			"layouts/base.html": &fstest.MapFile{Data: []byte(`{{block "content" .}}{{end}}`)},
-		},
-	})
+		}
+	}
+	resolved, err := settings.New(append([]func(*settings.Settings){base}, fns...)...)
+	if err != nil {
+		t.Fatalf("building settings: %v", err)
+	}
+	return coyote.NewFrom(resolved)
+}
+
+func setup(t *testing.T, fns ...func(*settings.Settings)) (*coyote.App, *client) {
+	t.Helper()
+	app := newApp(t, fns...)
 	if _, err := app.Auth.CreateUser("root", "root@example.com", "supersecret", true, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.Auth.CreateUser("plain", "", "supersecret", false, false); err != nil {
 		t.Fatal(err)
 	}
-	Mount(app, Options{SiteName: "Test admin"})
+	Mount(app)
 	return app, &client{t: t, handler: app.Handler()}
 }
 
@@ -206,6 +222,48 @@ func TestAdminLogoutEndsSession(t *testing.T) {
 	}
 }
 
+func TestAdminSettingsPageRedactsSecretKey(t *testing.T) {
+	secret := "super-secret-key-that-must-never-be-shown"
+	_, c := setup(t, func(s *settings.Settings) {
+		s.SecretKey = secret
+		s.Sessions.CookieName = "shown_cookie"
+	})
+	c.login("root", "supersecret")
+
+	rec := c.do(http.MethodGet, "/admin/settings", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, secret) {
+		t.Error("SecretKey must never be rendered")
+	}
+	if !strings.Contains(body, "characters hidden") {
+		t.Error("expected the redacted SecretKey placeholder")
+	}
+	if !strings.Contains(body, "shown_cookie") {
+		t.Error("expected non-secret settings to be shown")
+	}
+}
+
+func TestAdminPrefixComesFromSettings(t *testing.T) {
+	app := newApp(t, func(s *settings.Settings) { s.Admin.Prefix = "/control" })
+	if _, err := app.Auth.CreateUser("root", "", "supersecret", true, true); err != nil {
+		t.Fatal(err)
+	}
+	portal := Mount(app)
+	if portal.Prefix() != "/control" {
+		t.Errorf("prefix = %q", portal.Prefix())
+	}
+	c := &client{t: t, handler: app.Handler()}
+	if rec := c.do(http.MethodGet, "/control/login", nil); rec.Code != http.StatusOK {
+		t.Errorf("login page at settings prefix: %d", rec.Code)
+	}
+	if rec := c.do(http.MethodGet, "/admin/login", nil); rec.Code != http.StatusNotFound {
+		t.Errorf("default prefix should not exist: %d", rec.Code)
+	}
+}
+
 func TestAdminUnknownUserIs404(t *testing.T) {
 	_, c := setup(t)
 	c.login("root", "supersecret")
@@ -215,8 +273,16 @@ func TestAdminUnknownUserIs404(t *testing.T) {
 }
 
 func TestRegisteredSectionIsGuardedAndMounted(t *testing.T) {
-	app, c := setup(t)
-	portal := Mount(app, Options{Prefix: "/backoffice", SiteName: "Backoffice"})
+	app := newApp(t, func(s *settings.Settings) {
+		s.Admin.Prefix = "/backoffice"
+		s.Admin.SiteName = "Backoffice"
+	})
+	if _, err := app.Auth.CreateUser("root", "", "supersecret", true, true); err != nil {
+		t.Fatal(err)
+	}
+	c := &client{t: t, handler: app.Handler()}
+
+	portal := Mount(app)
 	portal.Register(Section{
 		Name: "Reports",
 		Slug: "reports",

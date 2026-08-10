@@ -144,6 +144,7 @@
   <a href="{{.Prefix}}/users" class="{{if eq .Nav "users"}}active{{end}}">Users</a>
   <a href="{{.Prefix}}/sessions" class="{{if eq .Nav "sessions"}}active{{end}}">Sessions</a>
   <a href="{{.Prefix}}/routes" class="{{if eq .Nav "routes"}}active{{end}}">Routes</a>
+  <a href="{{.Prefix}}/settings" class="{{if eq .Nav "settings"}}active{{end}}">Settings</a>
   {{range .Sections}}
     <a href="{{$.Prefix}}/s/{{.Slug}}/" class="{{if eq $.Nav .Slug}}active{{end}}">{{.Name}}</a>
   {{end}}

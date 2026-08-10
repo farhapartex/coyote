@@ -2,7 +2,9 @@ package admin
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,7 +78,7 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request) {
 		"Nav":          "dashboard",
 		"UserCount":    len(users),
 		"StaffCount":   staff,
-		"SessionCount": a.sessionStore().Count(),
+		"SessionCount": a.sessionCount(),
 		"RouteCount":   len(a.app.Routes()),
 		"Uptime":       time.Since(a.app.Started).Round(time.Second).String(),
 		"Recent":       recentUsers(users, 5),
@@ -182,17 +184,17 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if password := r.PostForm.Get("password"); password != "" {
-		if err := auth.ValidatePassword(password); err != nil {
+		if err := a.app.Auth.ValidatePassword(password); err != nil {
 			fail(err)
 			return
 		}
-		hash, err := auth.HashPassword(password)
+		hash, err := a.app.Auth.HashPassword(password)
 		if err != nil {
 			fail(err)
 			return
 		}
 		user.PasswordHash = hash
-		a.sessionStore().DeleteByUserID(user.ID)
+		a.revokeUserSessions(user.ID)
 	}
 
 	if err := a.app.Auth.Users().Update(user); err != nil {
@@ -216,7 +218,7 @@ func (a *Admin) userDelete(w http.ResponseWriter, r *http.Request) {
 		coyote.Redirect(w, r, a.prefix+"/users")
 		return
 	}
-	a.sessionStore().DeleteByUserID(id)
+	a.revokeUserSessions(id)
 	coyote.Flash(r, "success", "User deleted.")
 	coyote.Redirect(w, r, a.prefix+"/users")
 }
@@ -231,9 +233,17 @@ type sessionRow struct {
 }
 
 func (a *Admin) sessionList(w http.ResponseWriter, r *http.Request) {
+	store, ok := a.sessionStore()
+	if !ok {
+		a.render(w, r, http.StatusOK, "sessions.html", coyote.Data{
+			"Nav":         "sessions",
+			"Unsupported": true,
+		})
+		return
+	}
 	current := session.FromRequest(r)
 	rows := []sessionRow{}
-	for _, s := range a.sessionStore().All() {
+	for _, s := range store.All() {
 		username := "anonymous"
 		if id := s.UserID(); id != "" {
 			if u, err := a.app.Auth.Users().ByID(id); err == nil {
@@ -265,8 +275,12 @@ func (a *Admin) sessionRevoke(w http.ResponseWriter, r *http.Request) {
 		coyote.Redirect(w, r, a.prefix+"/sessions")
 		return
 	}
-	_ = a.sessionStore().Delete(id)
-	coyote.Flash(r, "success", "Session revoked.")
+	if store, ok := a.sessionStore(); ok {
+		_ = store.Delete(id)
+		coyote.Flash(r, "success", "Session revoked.")
+	} else {
+		coyote.Flash(r, "error", "The configured session store cannot revoke sessions.")
+	}
 	coyote.Redirect(w, r, a.prefix+"/sessions")
 }
 
@@ -274,6 +288,76 @@ func (a *Admin) routeList(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, http.StatusOK, "routes.html", coyote.Data{
 		"Nav":    "routes",
 		"Routes": a.app.Routes(),
+	})
+}
+
+func (a *Admin) settingsView(w http.ResponseWriter, r *http.Request) {
+	s := a.app.Settings
+	secretKey := "not set"
+	if s.SecretKey != "" {
+		secretKey = "set, " + strconv.Itoa(len(s.SecretKey)) + " characters hidden"
+		if s.SecretKeyGenerated() {
+			secretKey += " (generated for this run)"
+		}
+	}
+	allowedHosts := "any host (Debug, no AllowedHosts set)"
+	if len(s.AllowedHosts) > 0 {
+		allowedHosts = strings.Join(s.AllowedHosts, ", ")
+	}
+	a.render(w, r, http.StatusOK, "settings.html", coyote.Data{
+		"Nav": "settings",
+		"Groups": []settingGroup{
+			{"Core", []settingRow{
+				{"Debug", boolText(s.Debug)},
+				{"SecretKey", secretKey},
+				{"AllowedHosts", allowedHosts},
+			}},
+			{"Server", []settingRow{
+				{"Addr", s.Addr()},
+				{"ReadTimeout", durationText(s.Server.ReadTimeout)},
+				{"WriteTimeout", durationText(s.Server.WriteTimeout)},
+				{"IdleTimeout", durationText(s.Server.IdleTimeout)},
+				{"ReadHeaderTimeout", durationText(s.Server.ReadHeaderTimeout)},
+				{"ShutdownTimeout", durationText(s.Server.ShutdownTimeout)},
+			}},
+			{"Sessions", []settingRow{
+				{"CookieName", s.Sessions.CookieName},
+				{"Lifetime", s.Sessions.Lifetime.String()},
+				{"Rolling", boolText(s.Sessions.Rolling)},
+				{"Secure", boolText(s.Sessions.Secure)},
+				{"HTTPOnly", boolText(s.Sessions.HTTPOnly)},
+				{"SameSite", string(s.Sessions.SameSite)},
+				{"Path", s.Sessions.Path},
+				{"Domain", orDash(s.Sessions.Domain)},
+				{"CleanupInterval", durationText(s.Sessions.CleanupInterval)},
+				{"Store", storeName(a.app.SessionStore())},
+			}},
+			{"Auth", []settingRow{
+				{"LoginURL", orDash(s.Auth.LoginURL)},
+				{"PasswordMinLength", strconv.Itoa(s.Auth.PasswordMinLength)},
+				{"PBKDF2Iterations", strconv.Itoa(s.Auth.PBKDF2Iterations)},
+				{"UserStore", storeName(a.app.Auth.Users())},
+			}},
+			{"Templates", []settingRow{
+				{"Layout", s.Templates.Layout},
+				{"Shared", strings.Join(s.Templates.Shared, ", ")},
+				{"Source", templateSource(s)},
+				{"AutoReload", boolText(s.AutoReloadTemplates())},
+			}},
+			{"Static", []settingRow{
+				{"URL", s.Static.URL},
+				{"Source", staticSource(s)},
+			}},
+			{"Admin", []settingRow{
+				{"Prefix", s.Admin.Prefix},
+				{"SiteName", s.Admin.SiteName},
+				{"Tagline", orDash(s.Admin.Tagline)},
+			}},
+			{"Logging", []settingRow{
+				{"Level", s.Logging.Level},
+				{"Format", s.Logging.Format},
+			}},
+		},
 	})
 }
 
@@ -323,4 +407,64 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+type settingRow struct {
+	Name  string
+	Value string
+}
+
+type settingGroup struct {
+	Name string
+	Rows []settingRow
+}
+
+func boolText(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
+}
+
+func durationText(d time.Duration) string {
+	if d == 0 {
+		return "none"
+	}
+	return d.String()
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}
+
+func storeName(v any) string {
+	if v == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%T", v)
+}
+
+func templateSource(s coyote.Settings) string {
+	switch {
+	case s.Templates.Dir != "":
+		return "Dir " + s.Templates.Dir
+	case s.Templates.FS != nil:
+		return fmt.Sprintf("FS %T", s.Templates.FS)
+	default:
+		return "not configured"
+	}
+}
+
+func staticSource(s coyote.Settings) string {
+	switch {
+	case s.Static.Dir != "":
+		return "Dir " + s.Static.Dir
+	case s.Static.FS != nil:
+		return fmt.Sprintf("FS %T", s.Static.FS)
+	default:
+		return "not configured"
+	}
 }

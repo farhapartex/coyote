@@ -6,7 +6,12 @@
 </div>
 
 <div class="card">
-  {{if .Sessions}}
+  {{if .Unsupported}}
+  <div class="empty">
+    The configured session store does not support listing sessions.<br>
+    Implement <span class="mono">session.ManageableStore</span> to enable this page.
+  </div>
+  {{else if .Sessions}}
   <table>
     <thead>
       <tr><th>Session</th><th>User</th><th>Started</th><th>Expires</th><th></th></tr>
