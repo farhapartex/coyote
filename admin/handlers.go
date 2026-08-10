@@ -304,14 +304,45 @@ func (a *Admin) settingsView(w http.ResponseWriter, r *http.Request) {
 	if len(s.AllowedHosts) > 0 {
 		allowedHosts = strings.Join(s.AllowedHosts, ", ")
 	}
+	groups := []settingGroup{
+		{"Core", []settingRow{
+			{"Debug", boolText(s.Debug)},
+			{"SecretKey", secretKey},
+			{"AllowedHosts", allowedHosts},
+			{"BaseDir", s.BaseDir},
+		}},
+	}
+	for i, db := range s.Databases {
+		redacted := db.Redacted()
+		name := "Databases[" + strconv.Itoa(i) + "] " + redacted.Alias
+		if i == 0 {
+			name += " (default)"
+		}
+		rows := []settingRow{
+			{"Engine", string(redacted.Engine)},
+			{"Name", redacted.Name},
+		}
+		if !redacted.IsSQLite() {
+			rows = append(rows,
+				settingRow{"Host", redacted.Host},
+				settingRow{"Port", strconv.Itoa(redacted.Port)},
+				settingRow{"User", orDash(redacted.User)},
+				settingRow{"Password", orDash(redacted.Password)},
+			)
+		}
+		rows = append(rows,
+			settingRow{"MaxOpenConns", poolText(redacted.MaxOpenConns)},
+			settingRow{"MaxIdleConns", poolText(redacted.MaxIdleConns)},
+			settingRow{"ConnMaxLifetime", durationText(redacted.ConnMaxLifetime)},
+			settingRow{"ConnMaxIdleTime", durationText(redacted.ConnMaxIdleTime)},
+			settingRow{"DSN", redacted.DSN()},
+		)
+		groups = append(groups, settingGroup{name, rows})
+	}
+
 	a.render(w, r, http.StatusOK, "settings.html", coyote.Data{
 		"Nav": "settings",
-		"Groups": []settingGroup{
-			{"Core", []settingRow{
-				{"Debug", boolText(s.Debug)},
-				{"SecretKey", secretKey},
-				{"AllowedHosts", allowedHosts},
-			}},
+		"Groups": append(groups, []settingGroup{
 			{"Server", []settingRow{
 				{"Addr", s.Addr()},
 				{"ReadTimeout", durationText(s.Server.ReadTimeout)},
@@ -357,7 +388,7 @@ func (a *Admin) settingsView(w http.ResponseWriter, r *http.Request) {
 				{"Level", s.Logging.Level},
 				{"Format", s.Logging.Format},
 			}},
-		},
+		}...),
 	})
 }
 
@@ -424,6 +455,13 @@ func boolText(v bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func poolText(n int) string {
+	if n == 0 {
+		return "driver default"
+	}
+	return strconv.Itoa(n)
 }
 
 func durationText(d time.Duration) string {

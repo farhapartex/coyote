@@ -2,6 +2,8 @@ package settings
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -64,6 +66,225 @@ func TestDefaultsAreUsable(t *testing.T) {
 	}
 	if s.AutoReloadTemplates() {
 		t.Error("template reload should be off when Debug is false")
+	}
+}
+
+func TestDefaultDatabaseIsSQLiteInProjectFolder(t *testing.T) {
+	dir := t.TempDir()
+	s, err := New(production(func(s *Settings) { s.BaseDir = dir })...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Databases) != 1 {
+		t.Fatalf("expected one default database, got %d", len(s.Databases))
+	}
+	db := s.Database()
+	if db.Alias != "default" {
+		t.Errorf("Alias = %q, want default", db.Alias)
+	}
+	if db.Engine != SQLite {
+		t.Errorf("Engine = %q, want sqlite", db.Engine)
+	}
+	if want := filepath.Join(dir, DefaultSQLiteName); db.Name != want {
+		t.Errorf("Name = %q, want %q", db.Name, want)
+	}
+	if !filepath.IsAbs(db.Name) {
+		t.Errorf("SQLite path should be absolute, got %q", db.Name)
+	}
+	if db.DSN() != db.Name {
+		t.Errorf("SQLite DSN = %q, want the file path", db.DSN())
+	}
+	if !db.IsSQLite() {
+		t.Error("IsSQLite should be true")
+	}
+}
+
+func TestBaseDirDefaultsToWorkingDirectory(t *testing.T) {
+	s, err := New(production()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.BaseDir != wd {
+		t.Errorf("BaseDir = %q, want %q", s.BaseDir, wd)
+	}
+	if got := s.Path("templates", "base.html"); got != filepath.Join(wd, "templates", "base.html") {
+		t.Errorf("Path = %q", got)
+	}
+}
+
+func TestRelativeSQLitePathResolvesAgainstBaseDir(t *testing.T) {
+	dir := t.TempDir()
+	s, err := New(production(func(s *Settings) {
+		s.BaseDir = dir
+		s.Databases = []Database{{Engine: SQLite, Name: "data/app.db"}}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(dir, "data", "app.db"); s.Database().Name != want {
+		t.Errorf("Name = %q, want %q", s.Database().Name, want)
+	}
+}
+
+func TestAbsoluteAndMemorySQLitePathsAreLeftAlone(t *testing.T) {
+	absolute := filepath.Join(t.TempDir(), "explicit.db")
+	s, err := New(production(func(s *Settings) {
+		s.Databases = []Database{
+			{Engine: SQLite, Name: absolute},
+			{Alias: "cache", Engine: SQLite, Name: ":memory:"},
+		}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Databases[0].Name != absolute {
+		t.Errorf("absolute path was rewritten to %q", s.Databases[0].Name)
+	}
+	if s.Databases[1].Name != ":memory:" {
+		t.Errorf(":memory: was rewritten to %q", s.Databases[1].Name)
+	}
+}
+
+func TestFirstDatabaseIsTheDefaultConnection(t *testing.T) {
+	s, err := New(production(func(s *Settings) {
+		s.Databases = []Database{
+			{Engine: SQLite, Name: "primary.db"},
+			{Engine: Postgres, Name: "reports", Host: "db.example.com", User: "reader", Password: "pw"},
+			{Engine: SQLite, Name: "cache.db"},
+		}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Database().Alias != "default" || !strings.HasSuffix(s.Database().Name, "primary.db") {
+		t.Errorf("first entry should be the default connection, got %+v", s.Database())
+	}
+	if s.Databases[1].Alias != "db1" || s.Databases[2].Alias != "db2" {
+		t.Errorf("blank aliases should be auto-numbered, got %q and %q",
+			s.Databases[1].Alias, s.Databases[2].Alias)
+	}
+	reports, ok := s.DatabaseByAlias("db1")
+	if !ok {
+		t.Fatal("DatabaseByAlias could not find db1")
+	}
+	if reports.Port != 5432 {
+		t.Errorf("Postgres port should default to 5432, got %d", reports.Port)
+	}
+	if _, ok := s.DatabaseByAlias("nope"); ok {
+		t.Error("DatabaseByAlias should report missing aliases")
+	}
+}
+
+func TestNamedAliasesArePreserved(t *testing.T) {
+	s, err := New(production(func(s *Settings) {
+		s.Databases = []Database{
+			{Alias: "primary", Engine: SQLite, Name: "a.db"},
+			{Alias: "analytics", Engine: MySQL, Name: "stats", Host: "127.0.0.1"},
+		}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Database().Alias != "primary" {
+		t.Errorf("explicit alias was overwritten: %q", s.Database().Alias)
+	}
+	if s.Databases[1].Port != 3306 {
+		t.Errorf("MySQL port should default to 3306, got %d", s.Databases[1].Port)
+	}
+}
+
+func TestDatabaseDSNs(t *testing.T) {
+	s, err := New(production(func(s *Settings) {
+		s.Databases = []Database{
+			{Engine: SQLite, Name: "/tmp/app.db", Options: map[string]string{"_pragma": "busy_timeout(5000)"}},
+			{Alias: "pg", Engine: Postgres, Name: "shop", Host: "db.example.com", Port: 6543,
+				User: "app", Password: "s3cret", Options: map[string]string{"sslmode": "require"}},
+			{Alias: "my", Engine: MySQL, Name: "shop", Host: "127.0.0.1",
+				User: "app", Password: "s3cret", Options: map[string]string{"parseTime": "true"}},
+		}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"/tmp/app.db?_pragma=busy_timeout%285000%29",
+		"postgres://app:s3cret@db.example.com:6543/shop?sslmode=require",
+		"app:s3cret@tcp(127.0.0.1:3306)/shop?parseTime=true",
+	}
+	for i, expected := range want {
+		if got := s.Databases[i].DSN(); got != expected {
+			t.Errorf("Databases[%d].DSN() = %q, want %q", i, got, expected)
+		}
+	}
+}
+
+func TestRedactedHidesPassword(t *testing.T) {
+	db := Database{Engine: Postgres, Name: "shop", Host: "h", Port: 5432, User: "app", Password: "s3cret"}
+	redacted := db.Redacted()
+	if strings.Contains(redacted.Password, "s3cret") {
+		t.Error("password survived redaction")
+	}
+	if redacted.User != "app" || redacted.Name != "shop" {
+		t.Error("redaction should only touch the password")
+	}
+	if db.Password != "s3cret" {
+		t.Error("Redacted must not mutate the original")
+	}
+}
+
+func TestDatabaseValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*Settings)
+		problem string
+	}{
+		{"empty list", func(s *Settings) { s.Databases = nil }, "Databases is empty"},
+		{"unknown engine", func(s *Settings) {
+			s.Databases = []Database{{Engine: "mongo", Name: "x"}}
+		}, "not supported"},
+		{"sqlite without name", func(s *Settings) {
+			s.Databases = []Database{{Alias: "default", Engine: SQLite, Name: ":memory:"},
+				{Alias: "two", Engine: Postgres, Host: "h"}}
+		}, "Databases[1].Name is empty"},
+		{"postgres with blank host", func(s *Settings) {
+			s.Databases = []Database{{Engine: Postgres, Name: "db", Host: "   "}}
+		}, "Host is empty"},
+		{"duplicate alias", func(s *Settings) {
+			s.Databases = []Database{
+				{Alias: "main", Engine: SQLite, Name: "a.db"},
+				{Alias: "main", Engine: SQLite, Name: "b.db"},
+			}
+		}, "reuses the alias"},
+		{"sqlite with credentials", func(s *Settings) {
+			s.Databases = []Database{{Engine: SQLite, Name: "a.db", User: "root"}}
+		}, "are not used"},
+		{"negative pool", func(s *Settings) {
+			s.Databases = []Database{{Engine: SQLite, Name: "a.db", MaxOpenConns: -1}}
+		}, "MaxOpenConns cannot be negative"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := New(production(c.mutate)...)
+			if err == nil {
+				t.Fatalf("expected a validation error")
+			}
+			mustContain(t, problemsOf(t, err), c.problem)
+		})
+	}
+}
+
+func TestSQLiteDatabaseHelper(t *testing.T) {
+	db := SQLiteDatabase("", "")
+	if db.Alias != "default" || db.Engine != SQLite || db.Name != DefaultSQLiteName {
+		t.Errorf("unexpected helper result: %+v", db)
+	}
+	custom := SQLiteDatabase("cache", "cache.db")
+	if custom.Alias != "cache" || custom.Name != "cache.db" {
+		t.Errorf("unexpected helper result: %+v", custom)
 	}
 }
 

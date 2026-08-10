@@ -4,9 +4,13 @@ A session-first web framework for Go, shaped like Django but sized for the stand
 Zero third-party dependencies — everything is built on `net/http`, `html/template`, and `crypto/*`.
 
 Configuration is explicit: every project declares a `settings.go`, and the app refuses to start
-without one. Stage 1 gives you settings, sessions, authentication, HTML template rendering, and a
-working admin portal. There is no database layer yet — users and sessions live in memory behind
-interfaces, so persistence can be dropped in later without touching the handlers.
+without one. It ships with settings, sessions, authentication, HTML template rendering, and a
+working admin portal.
+
+The intended split is that authentication state lives in the session and everything else is
+persisted, with a SQLite database configured out of the box. `Databases` is settled (see below);
+the connection layer built on top of it is not written yet, so users and sessions are still held
+in memory behind their `Store` interfaces.
 
 ## Install
 
@@ -151,6 +155,8 @@ panic: coyote/settings: improperly configured:
 | Setting | Default | Notes |
 | --- | --- | --- |
 | `Debug` | `false` | Enables template reload, verbose render errors, relaxed host checks |
+| `BaseDir` | working directory | Root that relative paths resolve against |
+| `Databases` | one SQLite entry at `<BaseDir>/coyote.db` | First entry is the default connection |
 | `SecretKey` | none | Required. Under `Debug` an ephemeral key is generated with a warning |
 | `AllowedHosts` | none | Required unless `Debug`. `"*"` allows any, `".example.com"` matches subdomains |
 | `Server.Host` | `127.0.0.1` | |
@@ -193,7 +199,52 @@ see it: `settings.Env`, `EnvBool`, `EnvInt`, `EnvDuration`, `EnvList`. The frame
 reads the environment.
 
 At runtime the resolved settings are available as `app.Settings`, and the admin portal renders
-them at `/admin/settings` with `SecretKey` redacted.
+them at `/admin/settings` with `SecretKey` and database passwords redacted.
+
+### Databases
+
+`Databases` is a list, and the first entry is the default connection. You get a SQLite database
+without configuring anything:
+
+```go
+settings.Default().Databases
+// []Database{{Alias: "default", Engine: "sqlite", Name: "<BaseDir>/coyote.db"}}
+```
+
+Relative SQLite paths resolve against `BaseDir`, so the file lands in the project folder. Absolute
+paths and `:memory:` are left alone. `BaseDir` defaults to the working directory at startup — Go
+has no `__file__`, so if you need it pinned regardless of where the binary is launched from, set it
+explicitly.
+
+Add connections by replacing the list. Keep the connection you want as the default first:
+
+```go
+settings.Configure(func(s *settings.Settings) {
+	s.Databases = []settings.Database{
+		{Engine: settings.Postgres, Name: "shop", Host: "db.internal",
+			User: "app", Password: settings.Env("DB_PASSWORD", ""),
+			Options: map[string]string{"sslmode": "require"}},
+		{Alias: "cache", Engine: settings.SQLite, Name: "cache.db"},
+	}
+})
+```
+
+| Field | Notes |
+| --- | --- |
+| `Alias` | Blank becomes `default` for the first entry, then `db1`, `db2`… Must be unique |
+| `Engine` | `sqlite`, `postgres`, or `mysql`. Blank defaults to `sqlite` |
+| `Name` | SQLite file path, or the database name for a server engine |
+| `Host` / `Port` | Server engines only; port defaults to 5432 or 3306 |
+| `User` / `Password` | Server engines only; rejected on SQLite so mistakes are caught early |
+| `Options` | Extra DSN parameters |
+| `MaxOpenConns`, `MaxIdleConns`, `ConnMaxLifetime`, `ConnMaxIdleTime` | Pool tuning; zero means the driver default |
+
+Accessors: `s.Database()` returns the default (first) connection, `s.DatabaseByAlias("cache")`
+looks one up, `db.DSN()` builds the connection string, and `db.Redacted()` masks the password for
+display. `settings.SQLiteDatabase(alias, name)` is a shorthand constructor.
+
+Validation catches an empty list, unknown engines, duplicate aliases, a missing SQLite path,
+credentials set on SQLite, a server engine without a host, and negative pool values.
 
 ## Routing
 
@@ -356,6 +407,7 @@ go test -race ./...
 
 ## Not here yet
 
-No database or ORM, no migrations, no form/validation layer, no signed-cookie session backend,
-no static asset pipeline, no CLI scaffolding. `SecretKey` is validated and surfaced but nothing
-consumes it yet — it is reserved for signed cookies and tokens. Those come in later stages.
+`Databases` is declared and validated, but nothing opens a connection yet: no driver, no `*sql.DB`,
+no migrations, no ORM. `SecretKey` is likewise validated and surfaced but unused — reserved for
+signed cookies and tokens. Also missing: a form/validation layer, a static asset pipeline, and CLI
+scaffolding. Those come in later stages.
