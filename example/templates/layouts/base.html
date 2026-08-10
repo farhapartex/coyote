@@ -1,0 +1,18 @@
+{{define "base.html"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Coyote</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  {{template "nav.html" .}}
+  <main>
+    {{range .Flashes}}<div class="flash {{.Kind}}">{{.Message}}</div>{{end}}
+    {{block "content" .}}{{end}}
+  </main>
+  <footer>Built with Coyote v{{.Version}}</footer>
+</body>
+</html>
+{{end}}

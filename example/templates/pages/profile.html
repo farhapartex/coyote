@@ -1,0 +1,20 @@
+{{define "content"}}
+<h1>Your profile</h1>
+<p class="lead">This page is only reachable when a session is authenticated.</p>
+
+<div class="card">
+  <table>
+    <tr><td>Username</td><td>{{.User.Username}}</td></tr>
+    <tr><td>Email</td><td>{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}</td></tr>
+    <tr><td>Staff</td><td>{{.User.IsStaff}}</td></tr>
+    <tr><td>Superuser</td><td>{{.User.IsSuperuser}}</td></tr>
+    <tr><td>Session started</td><td>{{.Session.CreatedAt.Format "2 Jan 2006 15:04:05"}}</td></tr>
+    <tr><td>Session expires</td><td>{{.Session.ExpiresAt.Format "2 Jan 2006 15:04:05"}}</td></tr>
+  </table>
+</div>
+
+<form method="post" action="/admin/logout">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <button type="submit">Log out</button>
+</form>
+{{end}}

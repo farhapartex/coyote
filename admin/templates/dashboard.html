@@ -1,0 +1,66 @@
+{{define "title"}}Dashboard{{end}}
+
+{{define "content"}}
+<div class="page-head">
+  <h2>Dashboard</h2>
+  <a class="btn" href="{{.Prefix}}/users/new">Add user</a>
+</div>
+
+<div class="grid">
+  <div class="stat"><div class="n">{{.UserCount}}</div><div class="k">Users</div></div>
+  <div class="stat"><div class="n">{{.StaffCount}}</div><div class="k">Staff</div></div>
+  <div class="stat"><div class="n">{{.SessionCount}}</div><div class="k">Active sessions</div></div>
+  <div class="stat"><div class="n">{{.RouteCount}}</div><div class="k">Routes</div></div>
+</div>
+
+<div class="card">
+  <div class="card-head">Recently added users</div>
+  {{if .Recent}}
+  <table>
+    <thead><tr><th>Username</th><th>Email</th><th>Roles</th><th>Created</th></tr></thead>
+    <tbody>
+      {{range .Recent}}
+      <tr>
+        <td><a href="{{$.Prefix}}/users/{{.ID}}">{{.Username}}</a></td>
+        <td class="muted">{{if .Email}}{{.Email}}{{else}}—{{end}}</td>
+        <td>
+          {{if .IsSuperuser}}<span class="tag brand">superuser</span>
+          {{else if .IsStaff}}<span class="tag">staff</span>
+          {{else}}<span class="tag">user</span>{{end}}
+        </td>
+        <td class="muted">{{.CreatedAt.Format "2 Jan 2006 15:04"}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty">No users yet.</div>
+  {{end}}
+</div>
+
+{{if .Sections}}
+<div class="card">
+  <div class="card-head">Registered sections</div>
+  <table>
+    <tbody>
+      {{range .Sections}}
+      <tr>
+        <td><a href="{{$.Prefix}}/s/{{.Slug}}/">{{.Name}}</a></td>
+        <td class="muted">{{.Description}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+
+<div class="card">
+  <div class="card-head">Server</div>
+  <table>
+    <tbody>
+      <tr><td>Uptime</td><td class="mono">{{.Uptime}}</td></tr>
+      <tr><td>Framework</td><td class="mono">Coyote v{{.Version}}</td></tr>
+    </tbody>
+  </table>
+</div>
+{{end}}

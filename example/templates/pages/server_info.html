@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>Server info</h1>
+<p class="lead">A custom section registered into the admin portal by the application.</p>
+
+<div class="card">
+  <p>Uptime: <code>{{.Uptime}}</code></p>
+  <table>
+    {{range .Routes}}
+    <tr><td><code>{{.Method}}</code></td><td><code>{{.Pattern}}</code></td></tr>
+    {{end}}
+  </table>
+</div>
+
+<p><a href="/admin/">Back to the admin portal</a></p>
+{{end}}

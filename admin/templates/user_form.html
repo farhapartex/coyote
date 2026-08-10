@@ -1,0 +1,62 @@
+{{define "title"}}{{if .IsNew}}Add user{{else}}Edit user{{end}}{{end}}
+
+{{define "content"}}
+<div class="page-head">
+  <h2>{{if .IsNew}}Add user{{else}}Edit {{.Form.Username}}{{end}}</h2>
+  <a class="btn secondary" href="{{.Prefix}}/users">Back to users</a>
+</div>
+
+{{if .Error}}<div class="flash error">{{.Error}}</div>{{end}}
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" action="{{if .IsNew}}{{.Prefix}}/users/new{{else}}{{.Prefix}}/users/{{.Form.ID}}{{end}}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+      <label>Username
+        <input type="text" name="username" value="{{.Form.Username}}" autocomplete="off" required>
+      </label>
+      <label>Full name
+        <input type="text" name="full_name" value="{{.Form.FullName}}" autocomplete="off">
+      </label>
+      <label>Email
+        <input type="email" name="email" value="{{.Form.Email}}" autocomplete="off">
+      </label>
+      <label>{{if .IsNew}}Password{{else}}New password{{end}}
+        <input type="password" name="password" autocomplete="new-password" {{if .IsNew}}required{{end}}>
+        {{if not .IsNew}}<span class="hint muted" style="font-weight:400;font-size:12px">Leave blank to keep the current password. Changing it signs the user out everywhere.</span>{{end}}
+      </label>
+
+      <div class="checks">
+        {{if eq .User.ID .Form.ID}}
+        <p class="muted" style="font-size:13px;margin:0 0 10px">
+          You are editing your own account, so role and status fields are locked.
+        </p>
+        {{else}}
+        <label>
+          <input type="checkbox" name="is_active" value="1" {{if .Form.IsActive}}checked{{end}}>
+          <span>Active<span class="hint">Inactive accounts cannot log in.</span></span>
+        </label>
+        <label>
+          <input type="checkbox" name="is_staff" value="1" {{if .Form.IsStaff}}checked{{end}}>
+          <span>Staff<span class="hint">Can reach the admin portal.</span></span>
+        </label>
+        <label>
+          <input type="checkbox" name="is_superuser" value="1" {{if .Form.IsSuperuser}}checked{{end}}>
+          <span>Superuser<span class="hint">Implies staff access and full permissions.</span></span>
+        </label>
+        {{end}}
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">{{if .IsNew}}Create user{{else}}Save changes{{end}}</button>
+        <a class="btn secondary" href="{{.Prefix}}/users">Cancel</a>
+        <span class="spacer"></span>
+        {{if not .IsNew}}
+        <span class="muted mono" style="font-size:12px">id {{.Form.ID}}</span>
+        {{end}}
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}

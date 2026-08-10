@@ -1,0 +1,21 @@
+{{define "title"}}Routes{{end}}
+
+{{define "content"}}
+<div class="page-head">
+  <h2>Registered routes</h2>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th style="width:110px">Method</th><th>Pattern</th></tr></thead>
+    <tbody>
+      {{range .Routes}}
+      <tr>
+        <td><span class="tag">{{.Method}}</span></td>
+        <td class="mono">{{.Pattern}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

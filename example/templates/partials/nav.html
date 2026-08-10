@@ -1,0 +1,16 @@
+{{define "nav.html"}}
+<header class="topbar">
+  <a class="logo" href="/">coyote</a>
+  <nav>
+    <a href="/" class="{{if eq .Path "/"}}active{{end}}">Home</a>
+    <a href="/notes" class="{{if eq .Path "/notes"}}active{{end}}">Notes</a>
+    <a href="/about" class="{{if eq .Path "/about"}}active{{end}}">About</a>
+    {{if .User}}
+      <a href="/me/">{{.User.Username}}</a>
+      {{if .User.IsStaff}}<a href="/admin/">Admin</a>{{end}}
+    {{else}}
+      <a href="/admin/login">Log in</a>
+    {{end}}
+  </nav>
+</header>
+{{end}}

@@ -1,0 +1,20 @@
+{{define "content"}}
+<h1>Session notes</h1>
+<p class="lead">Anything you add here is kept in your session on the server until it expires.</p>
+
+<form method="post" action="/notes" class="row">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <input type="text" name="note" placeholder="Write a note" autofocus>
+  <button type="submit">Add</button>
+</form>
+
+<div class="card">
+  {{if .Notes}}
+  <ol>
+    {{range .Notes}}<li>{{.}}</li>{{end}}
+  </ol>
+  {{else}}
+  <p class="muted">No notes in this session yet.</p>
+  {{end}}
+</div>
+{{end}}

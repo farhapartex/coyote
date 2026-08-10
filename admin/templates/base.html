@@ -1,0 +1,162 @@
+{{define "base.html"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{block "title" .}}Admin{{end}} · {{.SiteName}}</title>
+<style>
+  :root {
+    --bg: #f4f2ee;
+    --surface: #ffffff;
+    --border: #ded9d0;
+    --text: #23201c;
+    --muted: #7c7368;
+    --brand: #8a4b2a;
+    --brand-dark: #6d3a20;
+    --accent: #c8792f;
+    --ok-bg: #e7f2e6; --ok-fg: #245c2b; --ok-br: #b9d9b8;
+    --err-bg: #fbe9e7; --err-fg: #8c2f21; --err-br: #f0c2bb;
+    --warn-bg: #fdf3dd; --warn-fg: #7a5713; --warn-br: #ecd7a1;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header.masthead {
+    background: linear-gradient(180deg, var(--brand) 0%, var(--brand-dark) 100%);
+    color: #f7ece4;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .masthead .brand { display: flex; align-items: baseline; gap: 10px; }
+  .masthead h1 { font-size: 18px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  .masthead h1 a { color: #fff; }
+  .masthead .tagline { font-size: 12px; color: #e5c9b4; }
+  .masthead .who { font-size: 13px; display: flex; align-items: center; gap: 12px; }
+  .masthead .who a { color: #f0d9c8; }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,.18); color: #fff;
+    display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  }
+  nav.tabs {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex; gap: 4px; overflow-x: auto;
+  }
+  nav.tabs a {
+    padding: 11px 14px; font-size: 14px; color: var(--muted);
+    border-bottom: 2px solid transparent; white-space: nowrap;
+  }
+  nav.tabs a:hover { color: var(--text); text-decoration: none; }
+  nav.tabs a.active { color: var(--brand); border-bottom-color: var(--accent); font-weight: 600; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px; }
+  .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+  .page-head h2 { margin: 0; font-size: 22px; font-weight: 650; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .card + .card { margin-top: 18px; }
+  .card-head { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; }
+  .card-body { padding: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { background: #faf8f5; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fbf9f6; }
+  .muted { color: var(--muted); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat .n { font-size: 28px; font-weight: 660; line-height: 1.1; }
+  .stat .k { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 4px; }
+  .btn {
+    display: inline-block; padding: 8px 14px; border-radius: 6px; border: 1px solid transparent;
+    background: var(--brand); color: #fff; font-size: 14px; font-weight: 550; cursor: pointer;
+  }
+  .btn:hover { background: var(--brand-dark); text-decoration: none; }
+  .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .btn.secondary:hover { background: #f1ede7; }
+  .btn.danger { background: #a03325; }
+  .btn.danger:hover { background: #85281c; }
+  .btn.small { padding: 5px 10px; font-size: 13px; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px;
+    background: #efeae2; color: var(--muted); border: 1px solid var(--border);
+  }
+  .tag.on { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-br); }
+  .tag.off { background: var(--err-bg); color: var(--err-fg); border-color: var(--err-br); }
+  .tag.brand { background: #f6e7da; color: var(--brand-dark); border-color: #e4c6ac; }
+  .flash { padding: 11px 14px; border-radius: var(--radius); margin-bottom: 14px; font-size: 14px; border: 1px solid; }
+  .flash.success { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-br); }
+  .flash.error { background: var(--err-bg); color: var(--err-fg); border-color: var(--err-br); }
+  .flash.warning { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-br); }
+  .flash.info { background: #e8eef6; color: #244a7a; border-color: #bfd2e8; }
+  form.stack label { display: block; margin-bottom: 14px; font-size: 13px; font-weight: 600; }
+  form.stack input[type=text], form.stack input[type=email], form.stack input[type=password] {
+    display: block; width: 100%; margin-top: 5px; padding: 9px 11px;
+    border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #fff;
+    font-weight: 400; color: var(--text);
+  }
+  form.stack input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  .checks label { display: flex; align-items: flex-start; gap: 9px; font-weight: 500; margin-bottom: 10px; }
+  .checks input { margin-top: 3px; }
+  .checks .hint { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .actions .spacer { flex: 1; }
+  .login-wrap { max-width: 380px; margin: 8vh auto; padding: 0 20px; }
+  .login-wrap .logo { text-align: center; margin-bottom: 20px; }
+  .login-wrap .logo .name { font-size: 20px; font-weight: 680; color: var(--brand-dark); }
+  .login-wrap .logo .sub { font-size: 13px; color: var(--muted); }
+  .empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+  .search { display: flex; gap: 8px; }
+  .search input { padding: 8px 11px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; min-width: 220px; }
+  footer.foot { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+  .inline { display: inline; }
+</style>
+</head>
+<body>
+{{if .User}}
+<header class="masthead">
+  <div class="brand">
+    <h1><a href="{{.Prefix}}/">{{.SiteName}}</a></h1>
+    {{if .Tagline}}<span class="tagline">{{.Tagline}}</span>{{end}}
+  </div>
+  <div class="who">
+    <span class="avatar">{{.User.Initials}}</span>
+    <span>{{.User.DisplayName}}</span>
+    <form method="post" action="{{.Prefix}}/logout" class="inline">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button class="btn small secondary" type="submit">Log out</button>
+    </form>
+  </div>
+</header>
+<nav class="tabs">
+  <a href="{{.Prefix}}/" class="{{if eq .Nav "dashboard"}}active{{end}}">Dashboard</a>
+  <a href="{{.Prefix}}/users" class="{{if eq .Nav "users"}}active{{end}}">Users</a>
+  <a href="{{.Prefix}}/sessions" class="{{if eq .Nav "sessions"}}active{{end}}">Sessions</a>
+  <a href="{{.Prefix}}/routes" class="{{if eq .Nav "routes"}}active{{end}}">Routes</a>
+  {{range .Sections}}
+    <a href="{{$.Prefix}}/s/{{.Slug}}/" class="{{if eq $.Nav .Slug}}active{{end}}">{{.Name}}</a>
+  {{end}}
+</nav>
+{{end}}
+
+{{block "body" .}}
+<main>
+  {{range .Flashes}}<div class="flash {{.Kind}}">{{.Message}}</div>{{end}}
+  {{block "content" .}}{{end}}
+</main>
+<footer class="foot">Coyote v{{.Version}}</footer>
+{{end}}
+</body>
+</html>
+{{end}}

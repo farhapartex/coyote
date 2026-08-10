@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>About</h1>
+<p class="lead">Coyote is Django-shaped, but Go-sized.</p>
+
+<div class="card">
+  <table>
+    <tr><td>Router</td><td><code>net/http.ServeMux</code> with method and wildcard patterns</td></tr>
+    <tr><td>Sessions</td><td>Server-side store, opaque cookie, rotation on login</td></tr>
+    <tr><td>Auth</td><td>PBKDF2-SHA256 passwords, staff and superuser flags</td></tr>
+    <tr><td>Templates</td><td><code>html/template</code> with layouts and partials</td></tr>
+    <tr><td>Admin</td><td>Built in, mounted at <code>/admin</code></td></tr>
+    <tr><td>Dependencies</td><td>None beyond the standard library</td></tr>
+  </table>
+</div>
+{{end}}
