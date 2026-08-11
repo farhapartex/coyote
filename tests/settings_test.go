@@ -1,4 +1,4 @@
-package settings
+package tests
 
 import (
 	"errors"
@@ -8,22 +8,15 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
-)
 
-func production(fns ...func(*Settings)) []func(*Settings) {
-	base := func(s *Settings) {
-		s.Debug = false
-		s.SecretKey = strings.Repeat("k", 48)
-		s.AllowedHosts = []string{"example.com"}
-	}
-	return append([]func(*Settings){base}, fns...)
-}
+	"github.com/farhapartex/coyote/core/settings"
+)
 
 func problemsOf(t *testing.T, err error) []string {
 	t.Helper()
-	var ic *ImproperlyConfigured
+	var ic *settings.ImproperlyConfigured
 	if !errors.As(err, &ic) {
-		t.Fatalf("error is not *ImproperlyConfigured: %v", err)
+		t.Fatalf("error is not *settings.ImproperlyConfigured: %v", err)
 	}
 	return ic.Problems
 }
@@ -39,7 +32,7 @@ func mustContain(t *testing.T, problems []string, substr string) {
 }
 
 func TestDefaultsAreUsable(t *testing.T) {
-	s, err := New(production()...)
+	s, err := settings.New(prodSettings()...)
 	if err != nil {
 		t.Fatalf("production defaults should validate: %v", err)
 	}
@@ -52,7 +45,7 @@ func TestDefaultsAreUsable(t *testing.T) {
 	if !s.Sessions.HTTPOnly {
 		t.Error("HTTPOnly should default to true")
 	}
-	if s.Sessions.SameSite != SameSiteLax {
+	if s.Sessions.SameSite != settings.SameSiteLax {
 		t.Errorf("SameSite = %q", s.Sessions.SameSite)
 	}
 	if s.Sessions.Lifetime != 12*time.Hour {
@@ -71,7 +64,7 @@ func TestDefaultsAreUsable(t *testing.T) {
 
 func TestDefaultDatabaseIsSQLiteInProjectFolder(t *testing.T) {
 	dir := t.TempDir()
-	s, err := New(production(func(s *Settings) { s.BaseDir = dir })...)
+	s, err := settings.New(prodSettings(func(s *settings.Settings) { s.BaseDir = dir })...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,17 +75,17 @@ func TestDefaultDatabaseIsSQLiteInProjectFolder(t *testing.T) {
 	if db.Alias != "default" {
 		t.Errorf("Alias = %q, want default", db.Alias)
 	}
-	if db.Engine != SQLite {
-		t.Errorf("Engine = %q, want sqlite", db.Engine)
+	if db.Engine != settings.SQLite {
+		t.Errorf("settings.Engine = %q, want sqlite", db.Engine)
 	}
-	if want := filepath.Join(dir, DefaultSQLiteName); db.Name != want {
+	if want := filepath.Join(dir, settings.DefaultSQLiteName); db.Name != want {
 		t.Errorf("Name = %q, want %q", db.Name, want)
 	}
 	if !filepath.IsAbs(db.Name) {
-		t.Errorf("SQLite path should be absolute, got %q", db.Name)
+		t.Errorf("settings.SQLite path should be absolute, got %q", db.Name)
 	}
 	if db.DSN() != db.Name {
-		t.Errorf("SQLite DSN = %q, want the file path", db.DSN())
+		t.Errorf("settings.SQLite DSN = %q, want the file path", db.DSN())
 	}
 	if !db.IsSQLite() {
 		t.Error("IsSQLite should be true")
@@ -100,7 +93,7 @@ func TestDefaultDatabaseIsSQLiteInProjectFolder(t *testing.T) {
 }
 
 func TestBaseDirDefaultsToWorkingDirectory(t *testing.T) {
-	s, err := New(production()...)
+	s, err := settings.New(prodSettings()...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,9 +111,9 @@ func TestBaseDirDefaultsToWorkingDirectory(t *testing.T) {
 
 func TestRelativeSQLitePathResolvesAgainstBaseDir(t *testing.T) {
 	dir := t.TempDir()
-	s, err := New(production(func(s *Settings) {
+	s, err := settings.New(prodSettings(func(s *settings.Settings) {
 		s.BaseDir = dir
-		s.Databases = []Database{{Engine: SQLite, Name: "data/app.db"}}
+		s.Databases = []settings.Database{{Engine: settings.SQLite, Name: "data/app.db"}}
 	})...)
 	if err != nil {
 		t.Fatal(err)
@@ -132,10 +125,10 @@ func TestRelativeSQLitePathResolvesAgainstBaseDir(t *testing.T) {
 
 func TestAbsoluteAndMemorySQLitePathsAreLeftAlone(t *testing.T) {
 	absolute := filepath.Join(t.TempDir(), "explicit.db")
-	s, err := New(production(func(s *Settings) {
-		s.Databases = []Database{
-			{Engine: SQLite, Name: absolute},
-			{Alias: "cache", Engine: SQLite, Name: ":memory:"},
+	s, err := settings.New(prodSettings(func(s *settings.Settings) {
+		s.Databases = []settings.Database{
+			{Engine: settings.SQLite, Name: absolute},
+			{Alias: "cache", Engine: settings.SQLite, Name: ":memory:"},
 		}
 	})...)
 	if err != nil {
@@ -150,11 +143,11 @@ func TestAbsoluteAndMemorySQLitePathsAreLeftAlone(t *testing.T) {
 }
 
 func TestFirstDatabaseIsTheDefaultConnection(t *testing.T) {
-	s, err := New(production(func(s *Settings) {
-		s.Databases = []Database{
-			{Engine: SQLite, Name: "primary.db"},
-			{Engine: Postgres, Name: "reports", Host: "db.example.com", User: "reader", Password: "pw"},
-			{Engine: SQLite, Name: "cache.db"},
+	s, err := settings.New(prodSettings(func(s *settings.Settings) {
+		s.Databases = []settings.Database{
+			{Engine: settings.SQLite, Name: "primary.db"},
+			{Engine: settings.Postgres, Name: "reports", Host: "db.example.com", User: "reader", Password: "pw"},
+			{Engine: settings.SQLite, Name: "cache.db"},
 		}
 	})...)
 	if err != nil {
@@ -172,7 +165,7 @@ func TestFirstDatabaseIsTheDefaultConnection(t *testing.T) {
 		t.Fatal("DatabaseByAlias could not find db1")
 	}
 	if reports.Port != 5432 {
-		t.Errorf("Postgres port should default to 5432, got %d", reports.Port)
+		t.Errorf("settings.Postgres port should default to 5432, got %d", reports.Port)
 	}
 	if _, ok := s.DatabaseByAlias("nope"); ok {
 		t.Error("DatabaseByAlias should report missing aliases")
@@ -180,10 +173,10 @@ func TestFirstDatabaseIsTheDefaultConnection(t *testing.T) {
 }
 
 func TestNamedAliasesArePreserved(t *testing.T) {
-	s, err := New(production(func(s *Settings) {
-		s.Databases = []Database{
-			{Alias: "primary", Engine: SQLite, Name: "a.db"},
-			{Alias: "analytics", Engine: MySQL, Name: "stats", Host: "127.0.0.1"},
+	s, err := settings.New(prodSettings(func(s *settings.Settings) {
+		s.Databases = []settings.Database{
+			{Alias: "primary", Engine: settings.SQLite, Name: "a.db"},
+			{Alias: "analytics", Engine: settings.MySQL, Name: "stats", Host: "127.0.0.1"},
 		}
 	})...)
 	if err != nil {
@@ -193,17 +186,17 @@ func TestNamedAliasesArePreserved(t *testing.T) {
 		t.Errorf("explicit alias was overwritten: %q", s.Database().Alias)
 	}
 	if s.Databases[1].Port != 3306 {
-		t.Errorf("MySQL port should default to 3306, got %d", s.Databases[1].Port)
+		t.Errorf("settings.MySQL port should default to 3306, got %d", s.Databases[1].Port)
 	}
 }
 
 func TestDatabaseDSNs(t *testing.T) {
-	s, err := New(production(func(s *Settings) {
-		s.Databases = []Database{
-			{Engine: SQLite, Name: "/tmp/app.db", Options: map[string]string{"_pragma": "busy_timeout(5000)"}},
-			{Alias: "pg", Engine: Postgres, Name: "shop", Host: "db.example.com", Port: 6543,
+	s, err := settings.New(prodSettings(func(s *settings.Settings) {
+		s.Databases = []settings.Database{
+			{Engine: settings.SQLite, Name: "/tmp/app.db", Options: map[string]string{"_pragma": "busy_timeout(5000)"}},
+			{Alias: "pg", Engine: settings.Postgres, Name: "shop", Host: "db.example.com", Port: 6543,
 				User: "app", Password: "s3cret", Options: map[string]string{"sslmode": "require"}},
-			{Alias: "my", Engine: MySQL, Name: "shop", Host: "127.0.0.1",
+			{Alias: "my", Engine: settings.MySQL, Name: "shop", Host: "127.0.0.1",
 				User: "app", Password: "s3cret", Options: map[string]string{"parseTime": "true"}},
 		}
 	})...)
@@ -223,7 +216,7 @@ func TestDatabaseDSNs(t *testing.T) {
 }
 
 func TestRedactedHidesPassword(t *testing.T) {
-	db := Database{Engine: Postgres, Name: "shop", Host: "h", Port: 5432, User: "app", Password: "s3cret"}
+	db := settings.Database{Engine: settings.Postgres, Name: "shop", Host: "h", Port: 5432, User: "app", Password: "s3cret"}
 	redacted := db.Redacted()
 	if strings.Contains(redacted.Password, "s3cret") {
 		t.Error("password survived redaction")
@@ -239,36 +232,36 @@ func TestRedactedHidesPassword(t *testing.T) {
 func TestDatabaseValidation(t *testing.T) {
 	cases := []struct {
 		name    string
-		mutate  func(*Settings)
+		mutate  func(*settings.Settings)
 		problem string
 	}{
-		{"empty list", func(s *Settings) { s.Databases = nil }, "Databases is empty"},
-		{"unknown engine", func(s *Settings) {
-			s.Databases = []Database{{Engine: "mongo", Name: "x"}}
+		{"empty list", func(s *settings.Settings) { s.Databases = nil }, "Databases is empty"},
+		{"unknown engine", func(s *settings.Settings) {
+			s.Databases = []settings.Database{{Engine: "mongo", Name: "x"}}
 		}, "not supported"},
-		{"sqlite without name", func(s *Settings) {
-			s.Databases = []Database{{Alias: "default", Engine: SQLite, Name: ":memory:"},
-				{Alias: "two", Engine: Postgres, Host: "h"}}
+		{"sqlite without name", func(s *settings.Settings) {
+			s.Databases = []settings.Database{{Alias: "default", Engine: settings.SQLite, Name: ":memory:"},
+				{Alias: "two", Engine: settings.Postgres, Host: "h"}}
 		}, "Databases[1].Name is empty"},
-		{"postgres with blank host", func(s *Settings) {
-			s.Databases = []Database{{Engine: Postgres, Name: "db", Host: "   "}}
+		{"postgres with blank host", func(s *settings.Settings) {
+			s.Databases = []settings.Database{{Engine: settings.Postgres, Name: "db", Host: "   "}}
 		}, "Host is empty"},
-		{"duplicate alias", func(s *Settings) {
-			s.Databases = []Database{
-				{Alias: "main", Engine: SQLite, Name: "a.db"},
-				{Alias: "main", Engine: SQLite, Name: "b.db"},
+		{"duplicate alias", func(s *settings.Settings) {
+			s.Databases = []settings.Database{
+				{Alias: "main", Engine: settings.SQLite, Name: "a.db"},
+				{Alias: "main", Engine: settings.SQLite, Name: "b.db"},
 			}
 		}, "reuses the alias"},
-		{"sqlite with credentials", func(s *Settings) {
-			s.Databases = []Database{{Engine: SQLite, Name: "a.db", User: "root"}}
+		{"sqlite with credentials", func(s *settings.Settings) {
+			s.Databases = []settings.Database{{Engine: settings.SQLite, Name: "a.db", User: "root"}}
 		}, "are not used"},
-		{"negative pool", func(s *Settings) {
-			s.Databases = []Database{{Engine: SQLite, Name: "a.db", MaxOpenConns: -1}}
+		{"negative pool", func(s *settings.Settings) {
+			s.Databases = []settings.Database{{Engine: settings.SQLite, Name: "a.db", MaxOpenConns: -1}}
 		}, "MaxOpenConns cannot be negative"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := New(production(c.mutate)...)
+			_, err := settings.New(prodSettings(c.mutate)...)
 			if err == nil {
 				t.Fatalf("expected a validation error")
 			}
@@ -278,18 +271,18 @@ func TestDatabaseValidation(t *testing.T) {
 }
 
 func TestSQLiteDatabaseHelper(t *testing.T) {
-	db := SQLiteDatabase("", "")
-	if db.Alias != "default" || db.Engine != SQLite || db.Name != DefaultSQLiteName {
+	db := settings.SQLiteDatabase("", "")
+	if db.Alias != "default" || db.Engine != settings.SQLite || db.Name != settings.DefaultSQLiteName {
 		t.Errorf("unexpected helper result: %+v", db)
 	}
-	custom := SQLiteDatabase("cache", "cache.db")
+	custom := settings.SQLiteDatabase("cache", "cache.db")
 	if custom.Alias != "cache" || custom.Name != "cache.db" {
 		t.Errorf("unexpected helper result: %+v", custom)
 	}
 }
 
 func TestOverridesKeepOtherDefaults(t *testing.T) {
-	s, err := New(production(func(s *Settings) {
+	s, err := settings.New(prodSettings(func(s *settings.Settings) {
 		s.Server.Port = 9999
 		s.Sessions.Rolling = true
 	})...)
@@ -305,7 +298,7 @@ func TestOverridesKeepOtherDefaults(t *testing.T) {
 }
 
 func TestSecretKeyRequiredWithoutDebug(t *testing.T) {
-	_, err := New(func(s *Settings) {
+	_, err := settings.New(func(s *settings.Settings) {
 		s.Debug = false
 		s.AllowedHosts = []string{"example.com"}
 	})
@@ -316,7 +309,7 @@ func TestSecretKeyRequiredWithoutDebug(t *testing.T) {
 }
 
 func TestShortSecretKeyRejectedWithoutDebug(t *testing.T) {
-	_, err := New(production(func(s *Settings) { s.SecretKey = "tooshort" })...)
+	_, err := settings.New(prodSettings(func(s *settings.Settings) { s.SecretKey = "tooshort" })...)
 	if err == nil {
 		t.Fatal("expected an error for a short SecretKey")
 	}
@@ -324,7 +317,7 @@ func TestShortSecretKeyRejectedWithoutDebug(t *testing.T) {
 }
 
 func TestDebugGeneratesEphemeralSecretKey(t *testing.T) {
-	s, err := New(func(s *Settings) { s.Debug = true })
+	s, err := settings.New(func(s *settings.Settings) { s.Debug = true })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +331,7 @@ func TestDebugGeneratesEphemeralSecretKey(t *testing.T) {
 		t.Error("template reload should follow Debug")
 	}
 
-	other, err := New(func(s *Settings) { s.Debug = true })
+	other, err := settings.New(func(s *settings.Settings) { s.Debug = true })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +341,7 @@ func TestDebugGeneratesEphemeralSecretKey(t *testing.T) {
 }
 
 func TestAllowedHostsRequiredWithoutDebug(t *testing.T) {
-	_, err := New(func(s *Settings) {
+	_, err := settings.New(func(s *settings.Settings) {
 		s.SecretKey = strings.Repeat("k", 48)
 	})
 	if err == nil {
@@ -358,7 +351,7 @@ func TestAllowedHostsRequiredWithoutDebug(t *testing.T) {
 }
 
 func TestValidationCollectsEveryProblem(t *testing.T) {
-	_, err := New(production(func(s *Settings) {
+	_, err := settings.New(prodSettings(func(s *settings.Settings) {
 		s.Server.Port = 0
 		s.Sessions.CookieName = ""
 		s.Sessions.Lifetime = 0
@@ -387,14 +380,14 @@ func TestValidationCollectsEveryProblem(t *testing.T) {
 }
 
 func TestSameSiteNoneRequiresSecure(t *testing.T) {
-	_, err := New(production(func(s *Settings) { s.Sessions.SameSite = SameSiteNone })...)
+	_, err := settings.New(prodSettings(func(s *settings.Settings) { s.Sessions.SameSite = settings.SameSiteNone })...)
 	if err == nil {
 		t.Fatal("expected an error for SameSite=none without Secure")
 	}
 	mustContain(t, problemsOf(t, err), "Sessions.Secure")
 
-	if _, err := New(production(func(s *Settings) {
-		s.Sessions.SameSite = SameSiteNone
+	if _, err := settings.New(prodSettings(func(s *settings.Settings) {
+		s.Sessions.SameSite = settings.SameSiteNone
 		s.Sessions.Secure = true
 	})...); err != nil {
 		t.Errorf("SameSite=none with Secure should be valid: %v", err)
@@ -402,7 +395,7 @@ func TestSameSiteNoneRequiresSecure(t *testing.T) {
 }
 
 func TestAdminPrefixCannotBeRoot(t *testing.T) {
-	_, err := New(production(func(s *Settings) { s.Admin.Prefix = "/" })...)
+	_, err := settings.New(prodSettings(func(s *settings.Settings) { s.Admin.Prefix = "/" })...)
 	if err == nil {
 		t.Fatal("expected an error for Admin.Prefix = /")
 	}
@@ -410,7 +403,7 @@ func TestAdminPrefixCannotBeRoot(t *testing.T) {
 }
 
 func TestTemplatesFSAndDirAreExclusive(t *testing.T) {
-	_, err := New(production(func(s *Settings) {
+	_, err := settings.New(prodSettings(func(s *settings.Settings) {
 		s.Templates.Dir = "templates"
 		s.Templates.FS = fstest.MapFS{}
 	})...)
@@ -421,10 +414,10 @@ func TestTemplatesFSAndDirAreExclusive(t *testing.T) {
 }
 
 func TestGetPanicsUntilConfigured(t *testing.T) {
-	Reset()
-	t.Cleanup(Reset)
+	settings.Reset()
+	t.Cleanup(settings.Reset)
 
-	if IsConfigured() {
+	if settings.IsConfigured() {
 		t.Fatal("should start unconfigured")
 	}
 
@@ -432,54 +425,54 @@ func TestGetPanicsUntilConfigured(t *testing.T) {
 		defer func() {
 			recovered := recover()
 			if recovered == nil {
-				t.Fatal("Get should panic before Configure")
+				t.Fatal("settings.Get should panic before settings.Configure")
 			}
-			if !strings.Contains(fmtPanic(recovered), "settings.go") {
+			if !strings.Contains(panicText(recovered), "settings.go") {
 				t.Errorf("panic should point at settings.go, got %v", recovered)
 			}
 		}()
-		Get()
+		settings.Get()
 	}()
 
-	Configure(func(s *Settings) {
+	settings.Configure(func(s *settings.Settings) {
 		s.Debug = true
 		s.Server.Port = 4321
 	})
-	if !IsConfigured() {
+	if !settings.IsConfigured() {
 		t.Fatal("should be configured now")
 	}
-	if Get().Server.Port != 4321 {
-		t.Errorf("Get returned %d", Get().Server.Port)
+	if settings.Get().Server.Port != 4321 {
+		t.Errorf("settings.Get returned %d", settings.Get().Server.Port)
 	}
 }
 
 func TestConfigureTwicePanics(t *testing.T) {
-	Reset()
-	t.Cleanup(Reset)
+	settings.Reset()
+	t.Cleanup(settings.Reset)
 
-	Configure(func(s *Settings) { s.Debug = true })
+	settings.Configure(func(s *settings.Settings) { s.Debug = true })
 	defer func() {
 		if recovered := recover(); recovered == nil {
-			t.Fatal("second Configure should panic")
+			t.Fatal("second settings.Configure should panic")
 		}
 	}()
-	Configure(func(s *Settings) { s.Debug = true })
+	settings.Configure(func(s *settings.Settings) { s.Debug = true })
 }
 
 func TestConfigurePanicsOnInvalidSettings(t *testing.T) {
-	Reset()
-	t.Cleanup(Reset)
+	settings.Reset()
+	t.Cleanup(settings.Reset)
 
 	defer func() {
 		recovered := recover()
 		if recovered == nil {
-			t.Fatal("Configure should panic on invalid settings")
+			t.Fatal("settings.Configure should panic on invalid settings")
 		}
-		if !strings.Contains(fmtPanic(recovered), "SecretKey") {
+		if !strings.Contains(panicText(recovered), "SecretKey") {
 			t.Errorf("panic should mention SecretKey, got %v", recovered)
 		}
 	}()
-	Configure(func(s *Settings) { s.Debug = false })
+	settings.Configure(func(s *settings.Settings) { s.Debug = false })
 }
 
 func TestEnvHelpers(t *testing.T) {
@@ -490,45 +483,45 @@ func TestEnvHelpers(t *testing.T) {
 	t.Setenv("COYOTE_LIST", " a , b ,, c ")
 	t.Setenv("COYOTE_EMPTY", "")
 
-	if got := Env("COYOTE_STR", "fallback"); got != "value" {
-		t.Errorf("Env = %q", got)
+	if got := settings.Env("COYOTE_STR", "fallback"); got != "value" {
+		t.Errorf("settings.Env = %q", got)
 	}
-	if got := Env("COYOTE_EMPTY", "fallback"); got != "fallback" {
+	if got := settings.Env("COYOTE_EMPTY", "fallback"); got != "fallback" {
 		t.Errorf("empty env should fall back, got %q", got)
 	}
-	if got := Env("COYOTE_MISSING", "fallback"); got != "fallback" {
-		t.Errorf("Env = %q", got)
+	if got := settings.Env("COYOTE_MISSING", "fallback"); got != "fallback" {
+		t.Errorf("settings.Env = %q", got)
 	}
-	if !EnvBool("COYOTE_BOOL", false) {
-		t.Error("EnvBool should read yes as true")
+	if !settings.EnvBool("COYOTE_BOOL", false) {
+		t.Error("settings.EnvBool should read yes as true")
 	}
-	if !EnvBool("COYOTE_MISSING", true) {
-		t.Error("EnvBool should fall back")
+	if !settings.EnvBool("COYOTE_MISSING", true) {
+		t.Error("settings.EnvBool should fall back")
 	}
-	if got := EnvInt("COYOTE_INT", 1); got != 42 {
-		t.Errorf("EnvInt = %d", got)
+	if got := settings.EnvInt("COYOTE_INT", 1); got != 42 {
+		t.Errorf("settings.EnvInt = %d", got)
 	}
-	if got := EnvInt("COYOTE_STR", 7); got != 7 {
-		t.Errorf("unparsable EnvInt should fall back, got %d", got)
+	if got := settings.EnvInt("COYOTE_STR", 7); got != 7 {
+		t.Errorf("unparsable settings.EnvInt should fall back, got %d", got)
 	}
-	if got := EnvDuration("COYOTE_DUR", time.Second); got != 90*time.Second {
-		t.Errorf("EnvDuration = %v", got)
+	if got := settings.EnvDuration("COYOTE_DUR", time.Second); got != 90*time.Second {
+		t.Errorf("settings.EnvDuration = %v", got)
 	}
-	if got := EnvList("COYOTE_LIST", nil); len(got) != 3 || got[0] != "a" || got[2] != "c" {
-		t.Errorf("EnvList = %#v", got)
+	if got := settings.EnvList("COYOTE_LIST", nil); len(got) != 3 || got[0] != "a" || got[2] != "c" {
+		t.Errorf("settings.EnvList = %#v", got)
 	}
-	if got := EnvList("COYOTE_MISSING", []string{"d"}); len(got) != 1 || got[0] != "d" {
-		t.Errorf("EnvList fallback = %#v", got)
+	if got := settings.EnvList("COYOTE_MISSING", []string{"d"}); len(got) != 1 || got[0] != "d" {
+		t.Errorf("settings.EnvList fallback = %#v", got)
 	}
 }
 
 func TestGenerateSecretKeyIsLongAndUnique(t *testing.T) {
-	a, err := GenerateSecretKey()
+	a, err := settings.GenerateSecretKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := GenerateSecretKey()
-	if len(a) < minSecretKeyLength {
+	b, _ := settings.GenerateSecretKey()
+	if len(a) < 32 {
 		t.Errorf("generated key is only %d characters", len(a))
 	}
 	if a == b {
@@ -536,7 +529,7 @@ func TestGenerateSecretKeyIsLongAndUnique(t *testing.T) {
 	}
 }
 
-func fmtPanic(v any) string {
+func panicText(v any) string {
 	if err, ok := v.(error); ok {
 		return err.Error()
 	}

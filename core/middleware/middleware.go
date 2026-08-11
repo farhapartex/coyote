@@ -1,4 +1,4 @@
-package coyote
+package middleware
 
 import (
 	"log/slog"
@@ -7,7 +7,12 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/farhapartex/coyote/core/router"
+	"github.com/farhapartex/coyote/core/session"
 )
+
+type Middleware = router.Middleware
 
 type statusRecorder struct {
 	http.ResponseWriter
@@ -129,30 +134,32 @@ func SecureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func (a *App) CSRF(next http.Handler) http.Handler {
+func CSRF(manager *session.Manager) Middleware {
 	safe := map[string]bool{
 		http.MethodGet:     true,
 		http.MethodHead:    true,
 		http.MethodOptions: true,
 		http.MethodTrace:   true,
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if safe[r.Method] {
-			next.ServeHTTP(w, r)
-			return
-		}
-		token := r.Header.Get("X-CSRF-Token")
-		if token == "" {
-			if err := r.ParseForm(); err == nil {
-				token = r.PostForm.Get("csrf_token")
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if safe[r.Method] {
+				next.ServeHTTP(w, r)
+				return
 			}
-		}
-		if !a.Sessions.ValidCSRF(r, token) {
-			http.Error(w, "403 CSRF token invalid or missing", http.StatusForbidden)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+			token := r.Header.Get("X-CSRF-Token")
+			if token == "" {
+				if err := r.ParseForm(); err == nil {
+					token = r.PostForm.Get("csrf_token")
+				}
+			}
+			if !manager.ValidCSRF(r, token) {
+				http.Error(w, "403 CSRF token invalid or missing", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func StripTrailingSlash(next http.Handler) http.Handler {

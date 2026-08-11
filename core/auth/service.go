@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/core/session"
 )
 
 var (

@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/farhapartex/coyote/auth"
-	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/session"
 )
 
 type SameSite string

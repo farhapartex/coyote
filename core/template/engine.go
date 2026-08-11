@@ -1,9 +1,9 @@
-package render
+package template
 
 import (
 	"bytes"
 	"fmt"
-	"html/template"
+	htmltemplate "html/template"
 	"io/fs"
 	"net/http"
 	"path"
@@ -15,7 +15,7 @@ type Options struct {
 	FS     fs.FS
 	Layout string
 	Shared []string
-	Funcs  template.FuncMap
+	Funcs  htmltemplate.FuncMap
 	Reload bool
 }
 
@@ -23,10 +23,10 @@ type Engine struct {
 	fsys   fs.FS
 	layout string
 	shared []string
-	funcs  template.FuncMap
+	funcs  htmltemplate.FuncMap
 	reload bool
 	mu     sync.RWMutex
-	cache  map[string]*template.Template
+	cache  map[string]*htmltemplate.Template
 }
 
 func New(opts Options) *Engine {
@@ -46,7 +46,7 @@ func New(opts Options) *Engine {
 		shared: opts.Shared,
 		funcs:  funcs,
 		reload: opts.Reload,
-		cache:  make(map[string]*template.Template),
+		cache:  make(map[string]*htmltemplate.Template),
 	}
 }
 
@@ -89,7 +89,7 @@ func (e *Engine) Has(page string) bool {
 	return true
 }
 
-func (e *Engine) lookup(page string) (*template.Template, error) {
+func (e *Engine) lookup(page string) (*htmltemplate.Template, error) {
 	if e.fsys == nil {
 		return nil, fmt.Errorf("coyote/render: no template filesystem configured")
 	}
@@ -113,8 +113,8 @@ func (e *Engine) lookup(page string) (*template.Template, error) {
 	return tmpl, nil
 }
 
-func (e *Engine) parse(page string) (*template.Template, error) {
-	tmpl := template.New(path.Base(page)).Funcs(e.funcs)
+func (e *Engine) parse(page string) (*htmltemplate.Template, error) {
+	tmpl := htmltemplate.New(path.Base(page)).Funcs(e.funcs)
 	for _, pattern := range e.shared {
 		matches, err := fs.Glob(e.fsys, pattern)
 		if err != nil {
@@ -146,9 +146,9 @@ func exclude(paths []string, drop string) []string {
 	return out
 }
 
-func defaultFuncs() template.FuncMap {
-	return template.FuncMap{
-		"safe":  func(s string) template.HTML { return template.HTML(s) },
+func defaultFuncs() htmltemplate.FuncMap {
+	return htmltemplate.FuncMap{
+		"safe":  func(s string) htmltemplate.HTML { return htmltemplate.HTML(s) },
 		"upper": strings.ToUpper,
 		"lower": strings.ToLower,
 		"title": func(s string) string {

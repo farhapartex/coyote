@@ -13,7 +13,7 @@ Coyote needs an explicit settings file. Create settings.go next to your main pac
 
 	package main
 
-	import "github.com/farhapartex/coyote/settings"
+	import "github.com/farhapartex/coyote/core/settings"
 
 	func init() {
 		settings.Configure(func(s *settings.Settings) {

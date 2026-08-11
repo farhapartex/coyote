@@ -6,10 +6,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/farhapartex/coyote"
-	"github.com/farhapartex/coyote/auth"
-	"github.com/farhapartex/coyote/render"
-	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/core/template"
+	"github.com/farhapartex/coyote/core/view"
 )
 
 //go:embed templates
@@ -23,16 +24,16 @@ type Section struct {
 }
 
 type Admin struct {
-	app       *coyote.App
+	app       *app.App
 	prefix    string
 	siteName  string
 	tagline   string
-	templates *render.Engine
+	templates *template.Engine
 	sections  []Section
-	router    *coyote.Router
+	router    *app.Router
 }
 
-func Mount(app *coyote.App) *Admin {
+func Mount(app *app.App) *Admin {
 	cfg := app.Settings.Admin
 	prefix := "/" + strings.Trim(cfg.Prefix, "/")
 
@@ -41,7 +42,7 @@ func Mount(app *coyote.App) *Admin {
 		prefix:   prefix,
 		siteName: cfg.SiteName,
 		tagline:  cfg.Tagline,
-		templates: render.New(render.Options{
+		templates: template.New(template.Options{
 			FS:     templateFS,
 			Layout: "base.html",
 			Shared: []string{"templates/base.html"},
@@ -88,9 +89,9 @@ func (a *Admin) Register(s Section) {
 	}
 }
 
-func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page string, data coyote.Data) {
+func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page string, data view.Data) {
 	if data == nil {
-		data = coyote.Data{}
+		data = view.Data{}
 	}
 	a.app.Context(r, data)
 	data["Prefix"] = a.prefix

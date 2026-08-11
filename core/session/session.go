@@ -47,6 +47,32 @@ func newSession(id string, lifetime time.Duration) *Session {
 	}
 }
 
+func Restore(id string, values map[string]any, created, expires time.Time) *Session {
+	if values == nil {
+		values = make(map[string]any)
+	}
+	if created.IsZero() {
+		created = time.Now()
+	}
+	return &Session{
+		id:      id,
+		values:  values,
+		created: created,
+		expires: expires,
+		status:  unmodified,
+	}
+}
+
+func (s *Session) Values() map[string]any {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]any, len(s.values))
+	for k, v := range s.values {
+		out[k] = v
+	}
+	return out
+}
+
 func (s *Session) ID() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

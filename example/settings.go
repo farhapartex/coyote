@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/farhapartex/coyote/settings"
+	"github.com/farhapartex/coyote/core/settings"
 )
 
 //go:embed templates

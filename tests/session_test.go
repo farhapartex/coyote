@@ -1,24 +1,18 @@
-package session
+package tests
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
-)
 
-func newTestManager() *Manager {
-	return NewManager(Options{
-		Store:    NewMemoryStore(0),
-		Lifetime: time.Hour,
-		HTTPOnly: true,
-	})
-}
+	"github.com/farhapartex/coyote/core/session"
+)
 
 func TestSessionPersistsAcrossRequests(t *testing.T) {
 	m := newTestManager()
 	handler := m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s := FromRequest(r)
+		s := session.FromRequest(r)
 		s.Set("count", s.GetInt("count")+1)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -40,7 +34,7 @@ func TestSessionPersistsAcrossRequests(t *testing.T) {
 		rec := httptest.NewRecorder()
 		var got int
 		m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			s := FromRequest(r)
+			s := session.FromRequest(r)
 			s.Set("count", s.GetInt("count")+1)
 			got = s.GetInt("count")
 		})).ServeHTTP(rec, req)
@@ -56,7 +50,7 @@ func TestRenewRotatesIDAndKeepsValues(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		FromRequest(r).Set("user", "jane")
+		session.FromRequest(r).Set("user", "jane")
 	})).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	first := rec.Result().Cookies()[0]
 
@@ -68,7 +62,7 @@ func TestRenewRotatesIDAndKeepsValues(t *testing.T) {
 		if err := m.Renew(r); err != nil {
 			t.Fatal(err)
 		}
-		kept = FromRequest(r).GetString("user")
+		kept = session.FromRequest(r).GetString("user")
 	})).ServeHTTP(rec, req)
 
 	second := rec.Result().Cookies()[0]
@@ -91,7 +85,7 @@ func TestDestroyClearsCookieAndStore(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		FromRequest(r).Set("user", "jane")
+		session.FromRequest(r).Set("user", "jane")
 	})).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	cookie := rec.Result().Cookies()[0]
 
@@ -114,7 +108,7 @@ func TestDestroyClearsCookieAndStore(t *testing.T) {
 }
 
 func TestFlashesDrainOnce(t *testing.T) {
-	s := newSession("id", time.Hour)
+	s := session.Restore("id", nil, time.Now(), time.Now().Add(time.Hour))
 	s.AddFlash("success", "saved")
 	s.AddFlash("error", "nope")
 
@@ -128,13 +122,44 @@ func TestFlashesDrainOnce(t *testing.T) {
 }
 
 func TestExpiredSessionIsNotLoaded(t *testing.T) {
-	store := NewMemoryStore(0)
-	s := newSession("expired", -time.Minute)
-	if err := store.Save(s); err != nil {
+	store := session.NewMemoryStore(0)
+	expired := session.Restore("expired", nil, time.Now().Add(-time.Hour), time.Now().Add(-time.Minute))
+	if err := store.Save(expired); err != nil {
 		t.Fatal(err)
+	}
+	if !expired.Expired() {
+		t.Fatal("session should report itself expired")
 	}
 	if _, ok := store.Load("expired"); ok {
 		t.Error("expired session should not load")
+	}
+}
+
+func TestRestoreRoundTripsValues(t *testing.T) {
+	created := time.Now().Add(-time.Minute)
+	expires := time.Now().Add(time.Hour)
+	s := session.Restore("abc", map[string]any{"user": "jane", "count": 3}, created, expires)
+
+	if s.ID() != "abc" {
+		t.Errorf("ID = %q", s.ID())
+	}
+	if !s.CreatedAt().Equal(created) || !s.ExpiresAt().Equal(expires) {
+		t.Error("timestamps did not round trip")
+	}
+	if s.GetString("user") != "jane" || s.GetInt("count") != 3 {
+		t.Error("values did not round trip")
+	}
+	if s.Modified() {
+		t.Error("a restored session should start unmodified")
+	}
+
+	values := s.Values()
+	if len(values) != 2 {
+		t.Errorf("Values() = %#v", values)
+	}
+	values["user"] = "tampered"
+	if s.GetString("user") != "jane" {
+		t.Error("Values() should return a copy")
 	}
 }
 
@@ -159,9 +184,9 @@ func TestCSRFTokenIsStableAndValidated(t *testing.T) {
 }
 
 func TestDeleteByUserID(t *testing.T) {
-	store := NewMemoryStore(0)
+	store := session.NewMemoryStore(0)
 	for _, id := range []string{"a", "b", "c"} {
-		s := newSession(id, time.Hour)
+		s := session.Restore(id, nil, time.Now(), time.Now().Add(time.Hour))
 		if id != "c" {
 			s.SetUserID("u1")
 		}
@@ -174,5 +199,19 @@ func TestDeleteByUserID(t *testing.T) {
 	}
 	if store.Count() != 1 {
 		t.Errorf("remaining = %d, want 1", store.Count())
+	}
+}
+
+func TestMemoryStoreSatisfiesManageableStore(t *testing.T) {
+	var store session.Store = session.NewMemoryStore(0)
+	manageable, ok := store.(session.ManageableStore)
+	if !ok {
+		t.Fatal("MemoryStore should satisfy ManageableStore")
+	}
+	if manageable.Count() != 0 {
+		t.Errorf("Count = %d", manageable.Count())
+	}
+	if len(manageable.All()) != 0 {
+		t.Error("All should start empty")
 	}
 }

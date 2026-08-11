@@ -1,4 +1,4 @@
-package coyote
+package app
 
 import (
 	"context"
@@ -12,23 +12,32 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/farhapartex/coyote/auth"
-	"github.com/farhapartex/coyote/render"
-	"github.com/farhapartex/coyote/session"
-	"github.com/farhapartex/coyote/settings"
+	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/middleware"
+	"github.com/farhapartex/coyote/core/router"
+	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/core/template"
+	"github.com/farhapartex/coyote/core/view"
 )
 
-const Version = "0.2.0"
+const Version = "0.3.0"
 
-type Settings = settings.Settings
+type (
+	Settings   = settings.Settings
+	Middleware = router.Middleware
+	Route      = router.Route
+	Router     = router.Router
+	Data       = view.Data
+)
 
 type App struct {
-	*Router
+	*router.Router
 	Settings  Settings
 	Logger    *slog.Logger
 	Sessions  *session.Manager
 	Auth      *auth.Service
-	Templates *render.Engine
+	Templates *template.Engine
 	Started   time.Time
 	global    []Middleware
 	server    *http.Server
@@ -62,8 +71,8 @@ func NewFrom(s Settings) *App {
 		Domain:     s.Sessions.Domain,
 	})
 
-	app := &App{
-		Router:   newRouter(),
+	a := &App{
+		Router:   router.New(),
 		Settings: s,
 		Logger:   logger,
 		Sessions: sessions,
@@ -71,7 +80,7 @@ func NewFrom(s Settings) *App {
 			Hasher:            auth.Hasher{Iterations: s.Auth.PBKDF2Iterations},
 			MinPasswordLength: s.Auth.PasswordMinLength,
 		}),
-		Templates: render.New(render.Options{
+		Templates: template.New(template.Options{
 			FS:     templateFS(s),
 			Layout: s.Templates.Layout,
 			Shared: s.Templates.Shared,
@@ -82,27 +91,27 @@ func NewFrom(s Settings) *App {
 		sessions: store,
 	}
 
-	app.global = []Middleware{
-		Recoverer(app.Logger),
-		RequestLogger(app.Logger),
-		AllowedHosts(s.AllowedHosts, s.Debug),
-		SecureHeaders,
+	a.global = []Middleware{
+		middleware.Recoverer(a.Logger),
+		middleware.RequestLogger(a.Logger),
+		middleware.AllowedHosts(s.AllowedHosts, s.Debug),
+		middleware.SecureHeaders,
 		sessions.Middleware,
-		app.Auth.Middleware,
+		a.Auth.Middleware,
 	}
 
 	if fsys := staticFS(s); fsys != nil {
-		app.Static(s.Static.URL, fsys)
+		a.Router.Static(s.Static.URL, fsys)
 	}
 
 	if s.SecretKeyGenerated() {
-		app.Logger.Warn("SecretKey was empty, generated an ephemeral development key; set SecretKey in settings.go before deploying")
+		a.Logger.Warn("SecretKey was empty, generated an ephemeral development key; set SecretKey in settings.go before deploying")
 	}
 	if s.Debug {
-		app.Logger.Warn("Debug is enabled; never run with Debug in production")
+		a.Logger.Warn("Debug is enabled; never run with Debug in production")
 	}
 
-	return app
+	return a
 }
 
 func newLogger(s Settings) *slog.Logger {
@@ -155,16 +164,13 @@ func (a *App) Use(mw ...Middleware) {
 	a.global = append(a.global, mw...)
 }
 
-func (a *App) Static(prefix string, fsys fs.FS) {
-	if !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
-	handler := http.StripPrefix(prefix, http.FileServerFS(fsys))
-	a.Router.mux.Handle("GET "+prefix, handler)
-	*a.Router.routes = append(*a.Router.routes, Route{Method: "GET", Pattern: prefix + "*"})
+func (a *App) CSRF(next http.Handler) http.Handler {
+	return middleware.CSRF(a.Sessions)(next)
 }
 
-type Data map[string]any
+func (a *App) Static(prefix string, fsys fs.FS) {
+	a.Router.Static(prefix, fsys)
+}
 
 func (a *App) Render(w http.ResponseWriter, r *http.Request, page string, data Data) {
 	a.RenderStatus(w, r, http.StatusOK, page, data)
@@ -190,37 +196,21 @@ func (a *App) Context(r *http.Request, data Data) Data {
 		data = Data{}
 	}
 	sess := session.FromRequest(r)
-	setIfAbsent(data, "Request", r)
-	setIfAbsent(data, "Path", r.URL.Path)
-	setIfAbsent(data, "User", a.Auth.CurrentUser(r))
-	setIfAbsent(data, "Session", sess)
-	setIfAbsent(data, "CSRFToken", a.Sessions.CSRFToken(r))
-	setIfAbsent(data, "Version", Version)
-	setIfAbsent(data, "Debug", a.Settings.Debug)
+	data.SetDefault("Request", r)
+	data.SetDefault("Path", r.URL.Path)
+	data.SetDefault("User", a.Auth.CurrentUser(r))
+	data.SetDefault("Session", sess)
+	data.SetDefault("CSRFToken", a.Sessions.CSRFToken(r))
+	data.SetDefault("Version", Version)
+	data.SetDefault("Debug", a.Settings.Debug)
 	if sess != nil {
-		setIfAbsent(data, "Flashes", sess.Flashes())
+		data.SetDefault("Flashes", sess.Flashes())
 	}
 	return data
 }
 
-func setIfAbsent(data Data, key string, value any) {
-	if _, exists := data[key]; !exists {
-		data[key] = value
-	}
-}
-
-func Redirect(w http.ResponseWriter, r *http.Request, target string) {
-	http.Redirect(w, r, target, http.StatusSeeOther)
-}
-
-func Flash(r *http.Request, kind, message string) {
-	if sess := session.FromRequest(r); sess != nil {
-		sess.AddFlash(kind, message)
-	}
-}
-
 func (a *App) Handler() http.Handler {
-	return chain(a.Router.mux, a.global...)
+	return router.Chain(a.Router, a.global...)
 }
 
 func (a *App) Run() error {

@@ -32,7 +32,7 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/farhapartex/coyote/settings"
+	"github.com/farhapartex/coyote/core/settings"
 )
 
 //go:embed templates
@@ -61,21 +61,21 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/farhapartex/coyote"
 	"github.com/farhapartex/coyote/admin"
+	"github.com/farhapartex/coyote/core/app"
 )
 
 func main() {
-	app := coyote.New()
+	a := app.New()
 
-	app.Auth.CreateUser("admin", "admin@example.com", "coyote123", true, true)
-	admin.Mount(app)
+	a.Auth.CreateSuperadmin("admin", "admin@example.com", "coyote123")
+	admin.Mount(a)
 
-	app.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		app.Render(w, r, "pages/home.html", coyote.Data{"Title": "Home"})
+	a.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})
 	})
 
-	log.Fatal(app.Run())
+	log.Fatal(a.Run())
 }
 ```
 
@@ -101,22 +101,86 @@ are seeded:
 
 ## Layout
 
+Coyote follows MVT. Everything the framework owns lives under `core/`; the admin portal, the test
+suite, and the example app sit beside it at the root.
+
 ```
-coyote.go       App, render helpers, graceful run
-router.go       ServeMux wrapper: groups, method helpers, route table
-middleware.go   logging, recovery, allowed hosts, secure headers, CSRF
-settings/       the settings type, defaults, validation, env helpers
-session/        Session type, Store interface, MemoryStore, cookie manager
-auth/           User, Store interface, PBKDF2 passwords, login guards
-render/         html/template engine with layouts and partials
+core/
+  app/          the application object: wiring, lifecycle, render entry point
+  router/       URL dispatch — groups, method helpers, static files, route table
+  view/         view helpers — template data, redirects, flash messages          (V)
+  template/     the html/template engine with layouts and partials              (T)
+  auth/         the User entity, its store, passwords, login guards              (M)
+  session/      Session, Store interface, MemoryStore, cookie manager
+  middleware/   logging, recovery, allowed hosts, secure headers, CSRF
+  settings/     the settings type, defaults, validation, env helpers
 admin/          the built-in admin portal (embedded templates)
+tests/          the whole test suite, one package, black box
 example/        a small site using the framework
+```
+
+MVT maps onto those packages as follows. **Model** is `core/auth` today — it holds the `User`
+entity and its `Store` port; a general `core/model` package arrives with the database layer.
+**View** is your handlers plus `core/view`, which carries the data a template receives.
+**Template** is `core/template`. `core/router` plays the part of Django's `urls.py`.
+
+Import what you need:
+
+```go
+import (
+	"github.com/farhapartex/coyote/admin"
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/core/view"
+)
+```
+
+`core/app` re-exports the types you touch most, so `app.Data`, `app.Middleware`, `app.Route`, and
+`app.Settings` all work without importing their home packages.
+
+### Dependency direction
+
+```
+router  ← middleware ← app → admin
+                        ↑
+        session, auth, template, settings, view
+```
+
+Nothing under `core/` imports `admin`, `tests`, or `example`, and no core package imports `app`.
+That keeps `app` the only place where wiring happens, and every other package independently
+testable.
+
+### Tests
+
+The suite lives in one root package, `tests`, and only touches exported API — a change that breaks
+a caller breaks a test. One file per package under test, plus shared builders (`newTestApp`,
+`newTestManager`, `newTestAuth`, `client`) in `helpers_test.go`.
+
+```
+tests/
+  helpers_test.go   shared builders
+  app_test.go       routing, middleware order, render, CSRF, settings wiring
+  auth_test.go      passwords, the User entity, store rules, guards
+  session_test.go   persistence, renewal, flashes, CSRF tokens, stores
+  settings_test.go  defaults, validation, databases, env helpers
+  admin_test.go     the admin portal end to end
+```
+
+The `_test.go` suffix is required: `go test` collects `TestXxx` only from files that carry it. Drop
+the suffix and those tests stop running while `go test` still reports `ok` — a silent hole, not an
+error.
+
+```
+go test ./tests/
+go test ./tests/ -run Admin -v
+go test -race ./tests/
 ```
 
 ## Settings
 
 Settings are declared in code, in one place, and validated before the server starts. There is no
-implicit configuration: `coyote.New()` panics if `settings.Configure` has not run.
+implicit configuration: `app.New()` panics if `settings.Configure` has not run.
 
 ```
 $ go run .
@@ -201,7 +265,7 @@ Reading settings from the environment is done with the helpers, in `settings.go`
 see it: `settings.Env`, `EnvBool`, `EnvInt`, `EnvDuration`, `EnvList`. The framework itself never
 reads the environment.
 
-At runtime the resolved settings are available as `app.Settings`, and the admin portal renders
+At runtime the resolved settings are available as `a.Settings`, and the admin portal renders
 them at `/admin/settings` with `SecretKey` and database passwords redacted.
 
 ### Databases
@@ -255,25 +319,26 @@ Patterns are passed straight to `net/http.ServeMux`, so Go 1.22 method and wildc
 works as-is.
 
 ```go
-app.Get("/items/{id}", show)
-app.Post("/items", create)
-app.Any("/webhook", hook)
+a.Get("/items/{id}", show)
+a.Post("/items", create)
+a.Any("/webhook", hook)
 
-api := app.Group("/api", requireToken)
+api := a.Group("/api", requireToken)
 api.Get("/status", status)
 
-app.Mount("/legacy", someOtherHandler)
-app.Static("/static/", staticFS)   // usually unnecessary: set Static.FS in settings instead
+a.Mount("/legacy", someOtherHandler)
+a.Static("/static/", staticFS)   // usually unnecessary: set Static.FS in settings instead
 ```
 
-`app.Use(mw)` adds middleware for every request. Middleware passed to `Group` applies to that
+`a.Use(mw)` adds middleware for every request. Middleware passed to `Group` applies to that
 group, and a trailing argument on a route applies to that route only.
 
 ```go
-app.Post("/notes", createNote, app.CSRF)
+a.Post("/notes", createNote, a.CSRF)
 ```
 
-`app.Routes()` returns the registered route table, which the admin portal displays.
+`a.Routes()` returns the registered route table, which the admin portal displays. The router is
+usable on its own — `router.New()` gives you the same dispatch without the rest of the framework.
 
 ## Templates
 
@@ -288,7 +353,7 @@ templates/
 ```
 
 ```go
-app.Render(w, r, "pages/home.html", coyote.Data{"Title": "Home"})
+a.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})
 ```
 
 `Templates.Shared` defaults to `layouts/*.html` and `partials/*.html`. Every render is given
@@ -310,9 +375,11 @@ sess.Pop("one_time_value")
 Flash messages survive exactly one redirect and drain when read:
 
 ```go
-coyote.Flash(r, "success", "Saved.")
-coyote.Redirect(w, r, "/notes")
+view.Success(r, "Saved.")
+view.Redirect(w, r, "/notes")
 ```
+
+`core/view` also has `Flash`, `Error`, `Warning`, `Info`, and `RedirectPermanent`.
 
 The cookie is written lazily, just before the response headers go out, so a session mutated
 anywhere in the handler chain is still persisted correctly. `SessionRolling: true` extends the
@@ -354,7 +421,7 @@ Creating users goes through the service so hashing and defaults are never skippe
 active, and not superadmin unless asked:
 
 ```go
-user, err := app.Auth.CreateUser(auth.NewUser{
+user, err := a.Auth.CreateUser(auth.NewUser{
 	Username:  "jane",
 	Email:     "jane@example.com",
 	FirstName: "Jane",
@@ -362,7 +429,7 @@ user, err := app.Auth.CreateUser(auth.NewUser{
 	Password:  "supersecret",
 })
 
-root, err := app.Auth.CreateSuperadmin("root", "root@example.com", "supersecret")
+root, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret")
 ```
 
 `IsSuperadmin` is the only role flag: it grants full permissions and access to the admin portal.
@@ -394,26 +461,26 @@ Passwords are hashed with PBKDF2-SHA256 using `Auth.PBKDF2Iterations` (600,000 b
 16-byte random salt, in the Django-style `pbkdf2_sha256$iterations$salt$hash` format.
 
 ```go
-user, err := app.Auth.Authenticate(username, password)
+user, err := a.Auth.Authenticate(username, password)
 if err == nil {
-	app.Auth.Login(r, user)   // rotates the session id
+	a.Auth.Login(r, user)   // rotates the session id
 }
-app.Auth.Logout(r)
-app.Auth.CurrentUser(r)
+a.Auth.Logout(r)
+a.Auth.CurrentUser(r)
 ```
 
 Guards redirect anonymous visitors to the login page with a `?next=` parameter and return 403
 for signed-in users who lack the role:
 
 ```go
-login := app.Settings.Auth.LoginURL
-app.Group("/me", app.Auth.RequireLogin(login))
-app.Group("/root", app.Auth.RequireSuperadmin(login))
+login := a.Settings.Auth.LoginURL
+a.Group("/me", a.Auth.RequireLogin(login))
+a.Group("/root", a.Auth.RequireSuperadmin(login))
 ```
 
 ## CSRF
 
-`app.CSRF` rejects unsafe methods without a valid token, read from the `csrf_token` form field
+`a.CSRF` rejects unsafe methods without a valid token, read from the `csrf_token` form field
 or the `X-CSRF-Token` header. The token is per-session and compared in constant time. Put
 `{{.CSRFToken}}` in every form:
 
@@ -431,7 +498,7 @@ Mounting takes no options — it reads `Admin.Prefix`, `Admin.SiteName`, and `Ad
 settings:
 
 ```go
-portal := admin.Mount(app)
+portal := admin.Mount(a)
 ```
 
 Provides a login screen, dashboard, user management (create, edit, search, delete, password
@@ -468,8 +535,8 @@ staff guard.
 ## Testing
 
 ```
-go test ./...
-go test -race ./...
+go test ./tests/
+go test -race ./tests/
 ```
 
 ## Not here yet

@@ -8,17 +8,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/farhapartex/coyote"
-	"github.com/farhapartex/coyote/auth"
-	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/core/view"
 )
 
 func (a *Admin) loginForm(w http.ResponseWriter, r *http.Request) {
 	if u := a.currentUser(r); u != nil && u.IsSuperadmin {
-		coyote.Redirect(w, r, a.prefix+"/")
+		view.Redirect(w, r, a.prefix+"/")
 		return
 	}
-	a.render(w, r, http.StatusOK, "login.html", coyote.Data{
+	a.render(w, r, http.StatusOK, "login.html", view.Data{
 		"Next": safeNext(r.URL.Query().Get("next"), a.prefix+"/"),
 	})
 }
@@ -38,7 +39,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, auth.ErrInactiveAccount) {
 			message = "This account has been disabled."
 		}
-		a.render(w, r, http.StatusUnauthorized, "login.html", coyote.Data{
+		a.render(w, r, http.StatusUnauthorized, "login.html", view.Data{
 			"Error":    message,
 			"Username": username,
 			"Next":     next,
@@ -46,7 +47,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !user.IsSuperadmin {
-		a.render(w, r, http.StatusForbidden, "login.html", coyote.Data{
+		a.render(w, r, http.StatusForbidden, "login.html", view.Data{
 			"Error":    "This account does not have access to the admin portal.",
 			"Username": username,
 			"Next":     next,
@@ -57,13 +58,13 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)
 		return
 	}
-	coyote.Flash(r, "success", "Welcome back, "+user.DisplayName()+".")
-	coyote.Redirect(w, r, next)
+	view.Flash(r, "success", "Welcome back, "+user.DisplayName()+".")
+	view.Redirect(w, r, next)
 }
 
 func (a *Admin) logout(w http.ResponseWriter, r *http.Request) {
 	_ = a.app.Auth.Logout(r)
-	coyote.Redirect(w, r, a.prefix+"/login")
+	view.Redirect(w, r, a.prefix+"/login")
 }
 
 func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +75,7 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request) {
 			superadmins++
 		}
 	}
-	a.render(w, r, http.StatusOK, "dashboard.html", coyote.Data{
+	a.render(w, r, http.StatusOK, "dashboard.html", view.Data{
 		"Nav":             "dashboard",
 		"UserCount":       len(users),
 		"SuperadminCount": superadmins,
@@ -97,7 +98,7 @@ func (a *Admin) userList(w http.ResponseWriter, r *http.Request) {
 			matched = append(matched, u)
 		}
 	}
-	a.render(w, r, http.StatusOK, "users.html", coyote.Data{
+	a.render(w, r, http.StatusOK, "users.html", view.Data{
 		"Nav":   "users",
 		"Users": matched,
 		"Query": r.URL.Query().Get("q"),
@@ -107,7 +108,7 @@ func (a *Admin) userList(w http.ResponseWriter, r *http.Request) {
 
 func (a *Admin) userForm(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	data := coyote.Data{"Nav": "users", "IsNew": true, "Form": &auth.User{IsActive: true}}
+	data := view.Data{"Nav": "users", "IsNew": true, "Form": &auth.User{IsActive: true}}
 	if id != "" {
 		user, err := a.app.Auth.Users().ByID(id)
 		if err != nil {
@@ -144,7 +145,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 		IsSuperadmin: form.IsSuperadmin,
 	})
 	if err != nil {
-		a.render(w, r, http.StatusBadRequest, "user_form.html", coyote.Data{
+		a.render(w, r, http.StatusBadRequest, "user_form.html", view.Data{
 			"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(err),
 		})
 		return
@@ -152,14 +153,14 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 	if !form.IsActive {
 		user.IsActive = false
 		if err := a.app.Auth.Users().Update(user); err != nil {
-			a.render(w, r, http.StatusBadRequest, "user_form.html", coyote.Data{
+			a.render(w, r, http.StatusBadRequest, "user_form.html", view.Data{
 				"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(err),
 			})
 			return
 		}
 	}
-	coyote.Flash(r, "success", "User "+user.Username+" created.")
-	coyote.Redirect(w, r, a.prefix+"/users")
+	view.Flash(r, "success", "User "+user.Username+" created.")
+	view.Redirect(w, r, a.prefix+"/users")
 }
 
 func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +187,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fail := func(err error) {
-		a.render(w, r, http.StatusBadRequest, "user_form.html", coyote.Data{
+		a.render(w, r, http.StatusBadRequest, "user_form.html", view.Data{
 			"Nav": "users", "IsNew": false, "Form": user, "Error": humanize(err),
 		})
 	}
@@ -209,26 +210,26 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 		fail(err)
 		return
 	}
-	coyote.Flash(r, "success", "User "+user.Username+" updated.")
-	coyote.Redirect(w, r, a.prefix+"/users")
+	view.Flash(r, "success", "User "+user.Username+" updated.")
+	view.Redirect(w, r, a.prefix+"/users")
 }
 
 func (a *Admin) userDelete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	me := a.currentUser(r)
 	if me != nil && me.ID == id {
-		coyote.Flash(r, "error", "You cannot delete your own account.")
-		coyote.Redirect(w, r, a.prefix+"/users")
+		view.Flash(r, "error", "You cannot delete your own account.")
+		view.Redirect(w, r, a.prefix+"/users")
 		return
 	}
 	if err := a.app.Auth.Users().Delete(id); err != nil {
-		coyote.Flash(r, "error", humanize(err))
-		coyote.Redirect(w, r, a.prefix+"/users")
+		view.Flash(r, "error", humanize(err))
+		view.Redirect(w, r, a.prefix+"/users")
 		return
 	}
 	a.revokeUserSessions(id)
-	coyote.Flash(r, "success", "User deleted.")
-	coyote.Redirect(w, r, a.prefix+"/users")
+	view.Flash(r, "success", "User deleted.")
+	view.Redirect(w, r, a.prefix+"/users")
 }
 
 type sessionRow struct {
@@ -243,7 +244,7 @@ type sessionRow struct {
 func (a *Admin) sessionList(w http.ResponseWriter, r *http.Request) {
 	store, ok := a.sessionStore()
 	if !ok {
-		a.render(w, r, http.StatusOK, "sessions.html", coyote.Data{
+		a.render(w, r, http.StatusOK, "sessions.html", view.Data{
 			"Nav":         "sessions",
 			"Unsupported": true,
 		})
@@ -269,7 +270,7 @@ func (a *Admin) sessionList(w http.ResponseWriter, r *http.Request) {
 			IsSelf:   current != nil && current.ID() == s.ID(),
 		})
 	}
-	a.render(w, r, http.StatusOK, "sessions.html", coyote.Data{
+	a.render(w, r, http.StatusOK, "sessions.html", view.Data{
 		"Nav":      "sessions",
 		"Sessions": rows,
 	})
@@ -279,21 +280,21 @@ func (a *Admin) sessionRevoke(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	current := session.FromRequest(r)
 	if current != nil && current.ID() == id {
-		coyote.Flash(r, "error", "Use log out to end your own session.")
-		coyote.Redirect(w, r, a.prefix+"/sessions")
+		view.Flash(r, "error", "Use log out to end your own session.")
+		view.Redirect(w, r, a.prefix+"/sessions")
 		return
 	}
 	if store, ok := a.sessionStore(); ok {
 		_ = store.Delete(id)
-		coyote.Flash(r, "success", "Session revoked.")
+		view.Flash(r, "success", "Session revoked.")
 	} else {
-		coyote.Flash(r, "error", "The configured session store cannot revoke sessions.")
+		view.Flash(r, "error", "The configured session store cannot revoke sessions.")
 	}
-	coyote.Redirect(w, r, a.prefix+"/sessions")
+	view.Redirect(w, r, a.prefix+"/sessions")
 }
 
 func (a *Admin) routeList(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, http.StatusOK, "routes.html", coyote.Data{
+	a.render(w, r, http.StatusOK, "routes.html", view.Data{
 		"Nav":    "routes",
 		"Routes": a.app.Routes(),
 	})
@@ -348,7 +349,7 @@ func (a *Admin) settingsView(w http.ResponseWriter, r *http.Request) {
 		groups = append(groups, settingGroup{name, rows})
 	}
 
-	a.render(w, r, http.StatusOK, "settings.html", coyote.Data{
+	a.render(w, r, http.StatusOK, "settings.html", view.Data{
 		"Nav": "settings",
 		"Groups": append(groups, []settingGroup{
 			{"Server", []settingRow{
@@ -401,7 +402,7 @@ func (a *Admin) settingsView(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Admin) notFound(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, http.StatusNotFound, "notfound.html", coyote.Data{"Nav": ""})
+	a.render(w, r, http.StatusNotFound, "notfound.html", view.Data{"Nav": ""})
 }
 
 func recentUsers(users []*auth.User, n int) []*auth.User {
@@ -497,7 +498,7 @@ func storeName(v any) string {
 	return fmt.Sprintf("%T", v)
 }
 
-func templateSource(s coyote.Settings) string {
+func templateSource(s settings.Settings) string {
 	switch {
 	case s.Templates.Dir != "":
 		return "Dir " + s.Templates.Dir
@@ -508,7 +509,7 @@ func templateSource(s coyote.Settings) string {
 	}
 }
 
-func staticSource(s coyote.Settings) string {
+func staticSource(s settings.Settings) string {
 	switch {
 	case s.Static.Dir != "":
 		return "Dir " + s.Static.Dir

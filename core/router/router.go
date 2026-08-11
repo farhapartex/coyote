@@ -1,6 +1,7 @@
-package coyote
+package router
 
 import (
+	"io/fs"
 	"net/http"
 	"sort"
 	"strings"
@@ -21,7 +22,7 @@ type Router struct {
 	routes *[]Route
 }
 
-func newRouter() *Router {
+func New() *Router {
 	routes := make([]Route, 0, 16)
 	return &Router{mux: http.NewServeMux(), routes: &routes}
 }
@@ -114,6 +115,19 @@ func (r *Router) Routes() []Route {
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
+}
+
+func (r *Router) Static(prefix string, fsys fs.FS) {
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	full := joinPath(r.prefix, prefix)
+	r.mux.Handle("GET "+full, http.StripPrefix(full, http.FileServerFS(fsys)))
+	*r.routes = append(*r.routes, Route{Method: http.MethodGet, Pattern: full + "*"})
+}
+
+func Chain(h http.Handler, mw ...Middleware) http.Handler {
+	return chain(h, mw...)
 }
 
 func chain(h http.Handler, mw ...Middleware) http.Handler {
