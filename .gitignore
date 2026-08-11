@@ -1,3 +1,5 @@
-coyote
 coyote-example
 *.test
+*.db
+*.db-wal
+*.db-shm

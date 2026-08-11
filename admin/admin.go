@@ -2,124 +2,49 @@ package admin
 
 import (
 	"embed"
-	"net/http"
-	"sort"
 	"strings"
 
-	"github.com/farhapartex/coyote"
-	"github.com/farhapartex/coyote/auth"
-	"github.com/farhapartex/coyote/render"
-	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/template"
 )
 
 //go:embed templates
 var templateFS embed.FS
 
-type Section struct {
-	Name        string
-	Slug        string
-	Description string
-	Handler     http.Handler
-}
-
 type Admin struct {
-	app       *coyote.App
+	app       *app.App
 	prefix    string
 	siteName  string
 	tagline   string
-	templates *render.Engine
+	templates *template.Engine
 	sections  []Section
-	router    *coyote.Router
+	router    *app.Router
 }
 
-func Mount(app *coyote.App) *Admin {
-	cfg := app.Settings.Admin
+func Mount(application *app.App) *Admin {
+	cfg := application.Settings.Admin
 	prefix := "/" + strings.Trim(cfg.Prefix, "/")
 
 	a := &Admin{
-		app:      app,
+		app:      application,
 		prefix:   prefix,
 		siteName: cfg.SiteName,
 		tagline:  cfg.Tagline,
-		templates: render.New(render.Options{
+		templates: template.New(template.Options{
 			FS:     templateFS,
 			Layout: "base.html",
 			Shared: []string{"templates/base.html"},
-			Reload: app.Settings.AutoReloadTemplates(),
+			Reload: application.Settings.AutoReloadTemplates(),
 		}),
 	}
 
-	group := app.Group(prefix)
-	group.Use(app.CSRF)
+	group := application.Group(prefix)
+	group.Use(application.CSRF)
 	a.router = group
 
-	loginURL := prefix + "/login"
-	group.Get("/login", a.loginForm)
-	group.Post("/login", a.loginSubmit)
-
-	guarded := group.Group("", app.Auth.RequireStaff(loginURL))
-	guarded.Post("/logout", a.logout)
-	guarded.Get("/", a.dashboard)
-	guarded.Get("/users", a.userList)
-	guarded.Get("/users/new", a.userForm)
-	guarded.Post("/users/new", a.userCreate)
-	guarded.Get("/users/{id}", a.userForm)
-	guarded.Post("/users/{id}", a.userUpdate)
-	guarded.Post("/users/{id}/delete", a.userDelete)
-	guarded.Get("/sessions", a.sessionList)
-	guarded.Post("/sessions/{id}/revoke", a.sessionRevoke)
-	guarded.Get("/routes", a.routeList)
-	guarded.Get("/settings", a.settingsView)
+	a.routes(group, prefix+"/login")
 
 	return a
 }
 
 func (a *Admin) Prefix() string { return a.prefix }
-
-func (a *Admin) Register(s Section) {
-	if s.Slug == "" {
-		s.Slug = strings.ToLower(strings.ReplaceAll(s.Name, " ", "-"))
-	}
-	a.sections = append(a.sections, s)
-	sort.Slice(a.sections, func(i, j int) bool { return a.sections[i].Name < a.sections[j].Name })
-	if s.Handler != nil {
-		guarded := a.router.Group("", a.app.Auth.RequireStaff(a.prefix+"/login"))
-		guarded.Mount("/s/"+s.Slug, s.Handler)
-	}
-}
-
-func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page string, data coyote.Data) {
-	if data == nil {
-		data = coyote.Data{}
-	}
-	a.app.Context(r, data)
-	data["Prefix"] = a.prefix
-	data["SiteName"] = a.siteName
-	data["Tagline"] = a.tagline
-	data["Sections"] = a.sections
-	if err := a.templates.Render(w, status, "templates/"+page, data); err != nil {
-		a.app.Logger.Error("admin render failed: " + err.Error())
-		http.Error(w, "500 internal server error", http.StatusInternalServerError)
-	}
-}
-
-func (a *Admin) currentUser(r *http.Request) *auth.User {
-	return a.app.Auth.CurrentUser(r)
-}
-
-func (a *Admin) sessionStore() (session.ManageableStore, bool) {
-	return a.app.ManageableSessions()
-}
-
-func (a *Admin) sessionCount() int {
-	if store, ok := a.sessionStore(); ok {
-		return store.Count()
-	}
-	return -1
-}
-
-func (a *Admin) revokeUserSessions(userID string) {
-	if store, ok := a.sessionStore(); ok {
-		store.DeleteByUserID(userID)
-	}
-}

@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/farhapartex/coyote/settings"
+	"github.com/farhapartex/coyote/core/settings"
 )
 
 //go:embed templates
@@ -31,7 +31,19 @@ func init() {
 		s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", []string{"127.0.0.1", "localhost"})
 
 		s.Server.Host = settings.Env("HOST", "127.0.0.1")
-		s.Server.Port = settings.EnvInt("PORT", 8000)
+		s.Server.Port = settings.EnvInt("PORT", 8081)
+
+		s.Databases = []settings.Database{
+			{
+				Alias:           "default",
+				Engine:          settings.SQLite,
+				Name:            settings.Env("DB_NAME", "coyote.db"),
+				MaxOpenConns:    8,
+				MaxIdleConns:    4,
+				ConnMaxLifetime: time.Hour,
+				ConnMaxIdleTime: 5 * time.Minute,
+			},
+		}
 
 		s.Sessions.Lifetime = 8 * time.Hour
 		s.Sessions.Rolling = true

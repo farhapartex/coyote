@@ -8,7 +8,7 @@
 
 <div class="grid">
   <div class="stat"><div class="n">{{.UserCount}}</div><div class="k">Users</div></div>
-  <div class="stat"><div class="n">{{.StaffCount}}</div><div class="k">Staff</div></div>
+  <div class="stat"><div class="n">{{.SuperadminCount}}</div><div class="k">Superadmins</div></div>
   <div class="stat"><div class="n">{{if lt .SessionCount 0}}—{{else}}{{.SessionCount}}{{end}}</div><div class="k">Active sessions</div></div>
   <div class="stat"><div class="n">{{.RouteCount}}</div><div class="k">Routes</div></div>
 </div>
@@ -24,9 +24,7 @@
         <td><a href="{{$.Prefix}}/users/{{.ID}}">{{.Username}}</a></td>
         <td class="muted">{{if .Email}}{{.Email}}{{else}}—{{end}}</td>
         <td>
-          {{if .IsSuperuser}}<span class="tag brand">superuser</span>
-          {{else if .IsStaff}}<span class="tag">staff</span>
-          {{else}}<span class="tag">user</span>{{end}}
+          {{if .IsSuperadmin}}<span class="tag brand">superadmin</span>{{else}}<span class="tag">user</span>{{end}}
         </td>
         <td class="muted">{{.CreatedAt.Format "2 Jan 2006 15:04"}}</td>
       </tr>
