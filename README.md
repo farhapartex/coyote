@@ -1,16 +1,17 @@
 # Coyote
 
 A session-first web framework for Go, shaped like Django but sized for the standard library.
-Zero third-party dependencies — everything is built on `net/http`, `html/template`, and `crypto/*`.
+Routing, sessions, auth, templates, and the admin portal are pure standard library; persistence
+uses GORM with a cgo-free SQLite driver.
 
 Configuration is explicit: every project declares a `settings.go`, and the app refuses to start
 without one. It ships with settings, sessions, authentication, HTML template rendering, and a
 working admin portal.
 
-The intended split is that authentication state lives in the session and everything else is
-persisted, with a SQLite database configured out of the box. `Databases` is settled (see below);
-the connection layer built on top of it is not written yet, so users and sessions are still held
-in memory behind their `Store` interfaces.
+Authentication state lives in the session; everything else is persisted, with a SQLite database
+configured out of the box. `go tool coyote migrate` builds the schema from your entities. The
+`auth.Store` and `session.Store` implementations are still the in-memory ones — wiring them onto
+GORM is the next step.
 
 ## Install
 
@@ -18,7 +19,7 @@ in memory behind their `Store` interfaces.
 go get github.com/farhapartex/coyote
 ```
 
-Requires Go 1.24 or newer (`crypto/pbkdf2`).
+Requires Go 1.24 or newer (`crypto/pbkdf2`, tool directives).
 
 ## Quick start
 
@@ -101,55 +102,104 @@ are seeded:
 
 ## Layout
 
-Coyote follows MVT. Everything the framework owns lives under `core/`; the admin portal, the test
-suite, and the example app sit beside it at the root.
+Coyote follows MVT. `core/` holds the framework; `contrib/` holds tooling built on top of it;
+`admin/`, `cmd/`, `tests/`, and `example/` sit beside them.
 
 ```
 core/
   app/          the application object: wiring, lifecycle, render entry point
-  router/       URL dispatch — groups, method helpers, static files, route table
-  view/         view helpers — template data, redirects, flash messages          (V)
-  template/     the html/template engine with layouts and partials              (T)
-  auth/         the User entity, its store, passwords, login guards              (M)
+  router/       URL dispatch — groups, method helpers, static, route table
+  view/         view helpers — template data, redirects, flash messages      (V)
+  template/     the html/template engine with layouts and partials          (T)
+  model/        model registry: which entities the schema is built from      (M)
+  auth/         the User entity, its store, passwords, login guards          (M)
+  db/           GORM connection, pool tuning, pragmas, slog bridge
   session/      Session, Store interface, MemoryStore, cookie manager
   middleware/   logging, recovery, allowed hosts, secure headers, CSRF
   settings/     the settings type, defaults, validation, env helpers
+contrib/
+  cli/          the management commands (start, migrate) and their registry
+  migrate/      schema planning and application through GORM AutoMigrate
+cmd/coyote/     the `go tool coyote` front end
 admin/          the built-in admin portal (embedded templates)
 tests/          the whole test suite, one package, black box
 example/        a small site using the framework
 ```
 
-MVT maps onto those packages as follows. **Model** is `core/auth` today — it holds the `User`
-entity and its `Store` port; a general `core/model` package arrives with the database layer.
-**View** is your handlers plus `core/view`, which carries the data a template receives.
-**Template** is `core/template`. `core/router` plays the part of Django's `urls.py`.
+Each package is split one responsibility per file — `core/settings` alone is `settings.go`,
+`defaults.go`, `database.go`, `configure.go`, `normalize.go`, `accessors.go`, `secret.go`, `env.go`,
+and five focused validators. No file in `core/`, `contrib/`, or `admin/` exceeds 200 lines.
 
-Import what you need:
-
-```go
-import (
-	"github.com/farhapartex/coyote/admin"
-	"github.com/farhapartex/coyote/core/app"
-	"github.com/farhapartex/coyote/core/auth"
-	"github.com/farhapartex/coyote/core/settings"
-	"github.com/farhapartex/coyote/core/view"
-)
-```
-
-`core/app` re-exports the types you touch most, so `app.Data`, `app.Middleware`, `app.Route`, and
-`app.Settings` all work without importing their home packages.
+MVT maps on as follows. **Model** is `core/model` plus the entities themselves (`auth.User` today).
+**View** is your handlers plus `core/view`. **Template** is `core/template`. `core/router` plays
+the part of Django's `urls.py`.
 
 ### Dependency direction
 
 ```
-router  ← middleware ← app → admin
-                        ↑
-        session, auth, template, settings, view
+router ← middleware ┐
+session, template   ├→ app → admin
+auth, settings, db  ┘   ↑
+model ──────────────────┴── contrib/cli → contrib/migrate
 ```
 
-Nothing under `core/` imports `admin`, `tests`, or `example`, and no core package imports `app`.
-That keeps `app` the only place where wiring happens, and every other package independently
-testable.
+Nothing under `core/` imports `admin`, `tests`, or `example`, and only `core/app` imports
+`contrib/cli` — commands reach the application through an interface, never the concrete type.
+
+### Commands
+
+Coyote ships a management command, registered as a Go tool so it is versioned with your project:
+
+```
+go get -tool github.com/farhapartex/coyote/cmd/coyote
+
+go tool coyote start                # serve on the port from settings.go
+go tool coyote start --port=5000     # override it for this run
+go tool coyote migrate               # apply pending schema changes
+go tool coyote help
+```
+
+`go coyote start` is not possible — the `go` command cannot be extended with new subcommands.
+`go tool` is the closest supported form. The tool builds and runs the main package in the current
+directory, so your `settings.go` is the one that applies; it passes the subcommand through
+`COYOTE_COMMAND` and any overrides through `COYOTE_PORT` / `COYOTE_HOST`. Your `main.go` needs
+nothing beyond `app.New()` and `Run()` — `Run` dispatches to the requested command.
+
+`migrate` refuses to do anything unless the server is already listening on the configured address:
+
+```
+$ go tool coyote migrate
+coyote/cli: server is not running at 127.0.0.1:8081; start it first with: go tool coyote start
+```
+
+With the server up it plans, then applies:
+
+```
+$ go tool coyote migrate
+server    running on 127.0.0.1:8081
+database  sqlite /path/to/example/coyote.db
+models    1 registered
+
+  create table users ... ok
+
+applied 1 change(s)
+```
+
+Running it again reports `schema is up to date, nothing to apply`.
+
+### Migrations
+
+Schema comes from your entities through GORM's `AutoMigrate` — there is no hand-written DDL and no
+migration files to keep in sync. `contrib/migrate` adds the part GORM lacks: it inspects the live
+database first, so it can tell you *what* is about to change and report each step.
+
+```go
+a.RegisterModel(model.Of(Post{}), model.Named("legacy_orders", Order{}))
+```
+
+`auth.User` is registered for you. What is detected today: missing tables, and columns added to an
+existing table. Renames, drops, and type changes are not — GORM's `AutoMigrate` is additive by
+design, and destructive operations should not happen implicitly.
 
 ### Tests
 
@@ -390,22 +440,22 @@ arrives.
 
 ## The user entity
 
-`auth.User` is the ready-made entity you get on install. Field tags carry the column names for the
-persistence layer:
+`auth.User` is the ready-made entity you get on install. GORM derives the columns from the field
+names (`FirstName` becomes `first_name`), so tags only appear where behaviour is needed:
 
 ```go
 type User struct {
-	ID           string    `db:"id"`
-	FirstName    string    `db:"first_name"`
-	LastName     string    `db:"last_name"`
-	Email        string    `db:"email"`
-	Username     string    `db:"username"`
-	Password     string    `db:"password"`
-	IsActive     bool      `db:"is_active"`
-	IsSuperadmin bool      `db:"is_superadmin"`
-	LastLoginAt  time.Time `db:"last_login_at"`
-	CreatedAt    time.Time `db:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at"`
+	ID           string `gorm:"primaryKey;size:64"`
+	FirstName    string
+	LastName     string
+	Email        string `gorm:"index;size:320"`
+	Username     string `gorm:"uniqueIndex;size:64;not null"`
+	Password     string `gorm:"not null"`
+	IsActive     bool   `gorm:"index;default:true"`
+	IsSuperadmin bool   `gorm:"index"`
+	LastLoginAt  time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 ```
 
@@ -445,8 +495,8 @@ Two seams exist today. Embed the entity when you only need extra fields alongsid
 ```go
 type Employee struct {
 	auth.User
-	Department string `db:"department"`
-	ManagerID  string `db:"manager_id"`
+	Department string
+	ManagerID  string
 }
 ```
 
@@ -541,7 +591,8 @@ go test -race ./tests/
 
 ## Not here yet
 
-`Databases` is declared and validated, but nothing opens a connection yet: no driver, no `*sql.DB`,
-no migrations, no ORM. `SecretKey` is likewise validated and surfaced but unused — reserved for
-signed cookies and tokens. Also missing: a form/validation layer, a static asset pipeline, and CLI
-scaffolding. Those come in later stages.
+The `auth.Store` and `session.Store` implementations are still in-memory, so migrated tables are
+not yet read or written by the running app — that wiring is next. `SecretKey` is validated and
+surfaced but unused, reserved for signed cookies and tokens. Also missing: a form/validation layer,
+destructive migration handling, Postgres and MySQL drivers, a static asset pipeline, and project
+scaffolding.

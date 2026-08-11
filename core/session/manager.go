@@ -2,18 +2,10 @@ package session
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/base64"
 	"errors"
 	"net/http"
-	"sync"
 	"time"
 )
-
-type contextKey struct{}
-
-var sessionContextKey contextKey
 
 var ErrNoSession = errors.New("coyote/session: no session in request context")
 
@@ -107,15 +99,6 @@ func (m *Manager) blank() *Session {
 	return newSession(id, m.lifetime)
 }
 
-func From(ctx context.Context) *Session {
-	sess, _ := ctx.Value(sessionContextKey).(*Session)
-	return sess
-}
-
-func FromRequest(r *http.Request) *Session {
-	return From(r.Context())
-}
-
 func (m *Manager) Renew(r *http.Request) error {
 	sess := FromRequest(r)
 	if sess == nil {
@@ -136,105 +119,4 @@ func (m *Manager) Destroy(r *http.Request) error {
 	}
 	sess.Destroy()
 	return nil
-}
-
-func (m *Manager) CSRFToken(r *http.Request) string {
-	sess := FromRequest(r)
-	if sess == nil {
-		return ""
-	}
-	if token := sess.GetString(csrfKey); token != "" {
-		return token
-	}
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		return ""
-	}
-	token := base64.RawURLEncoding.EncodeToString(buf)
-	sess.Set(csrfKey, token)
-	return token
-}
-
-func (m *Manager) ValidCSRF(r *http.Request, candidate string) bool {
-	sess := FromRequest(r)
-	if sess == nil || candidate == "" {
-		return false
-	}
-	token := sess.GetString(csrfKey)
-	if token == "" {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(token), []byte(candidate)) == 1
-}
-
-type sessionWriter struct {
-	http.ResponseWriter
-	manager     *Manager
-	session     *Session
-	once        sync.Once
-	wroteHeader bool
-}
-
-func (w *sessionWriter) WriteHeader(code int) {
-	w.commit()
-	w.wroteHeader = true
-	w.ResponseWriter.WriteHeader(code)
-}
-
-func (w *sessionWriter) Write(b []byte) (int, error) {
-	w.commit()
-	w.wroteHeader = true
-	return w.ResponseWriter.Write(b)
-}
-
-func (w *sessionWriter) Flush() {
-	if f, ok := w.ResponseWriter.(http.Flusher); ok {
-		w.commit()
-		f.Flush()
-	}
-}
-
-func (w *sessionWriter) Unwrap() http.ResponseWriter {
-	return w.ResponseWriter
-}
-
-func (w *sessionWriter) commit() {
-	w.once.Do(func() {
-		if w.wroteHeader {
-			return
-		}
-		m, sess := w.manager, w.session
-		if old := sess.takeOldID(); old != "" {
-			_ = m.store.Delete(old)
-		}
-		if sess.Destroyed() {
-			_ = m.store.Delete(sess.ID())
-			http.SetCookie(w.ResponseWriter, m.cookie("", -1))
-			return
-		}
-		if !sess.Modified() {
-			return
-		}
-		if err := m.store.Save(sess); err != nil {
-			return
-		}
-		maxAge := int(time.Until(sess.ExpiresAt()).Seconds())
-		if maxAge < 1 {
-			maxAge = 1
-		}
-		http.SetCookie(w.ResponseWriter, m.cookie(sess.ID(), maxAge))
-	})
-}
-
-func (m *Manager) cookie(value string, maxAge int) *http.Cookie {
-	return &http.Cookie{
-		Name:     m.cookieName,
-		Value:    value,
-		Path:     m.path,
-		Domain:   m.domain,
-		MaxAge:   maxAge,
-		Secure:   m.secure,
-		HttpOnly: m.httpOnly,
-		SameSite: m.sameSite,
-	}
 }

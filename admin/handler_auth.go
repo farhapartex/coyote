@@ -1,0 +1,63 @@
+package admin
+
+import (
+	"errors"
+	"net/http"
+	"strings"
+
+	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/view"
+)
+
+func (a *Admin) loginForm(w http.ResponseWriter, r *http.Request) {
+	if u := a.currentUser(r); u != nil && u.IsSuperadmin {
+		view.Redirect(w, r, a.prefix+"/")
+		return
+	}
+	a.render(w, r, http.StatusOK, "login.html", view.Data{
+		"Next": safeNext(r.URL.Query().Get("next"), a.prefix+"/"),
+	})
+}
+
+func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "400 bad request", http.StatusBadRequest)
+		return
+	}
+	username := strings.TrimSpace(r.PostForm.Get("username"))
+	password := r.PostForm.Get("password")
+	next := safeNext(r.PostForm.Get("next"), a.prefix+"/")
+
+	user, err := a.app.Auth.Authenticate(username, password)
+	if err != nil {
+		message := "Invalid username or password."
+		if errors.Is(err, auth.ErrInactiveAccount) {
+			message = "This account has been disabled."
+		}
+		a.render(w, r, http.StatusUnauthorized, "login.html", view.Data{
+			"Error":    message,
+			"Username": username,
+			"Next":     next,
+		})
+		return
+	}
+	if !user.IsSuperadmin {
+		a.render(w, r, http.StatusForbidden, "login.html", view.Data{
+			"Error":    "This account does not have access to the admin portal.",
+			"Username": username,
+			"Next":     next,
+		})
+		return
+	}
+	if err := a.app.Auth.Login(r, user); err != nil {
+		http.Error(w, "500 internal server error", http.StatusInternalServerError)
+		return
+	}
+	view.Flash(r, "success", "Welcome back, "+user.DisplayName()+".")
+	view.Redirect(w, r, next)
+}
+
+func (a *Admin) logout(w http.ResponseWriter, r *http.Request) {
+	_ = a.app.Auth.Logout(r)
+	view.Redirect(w, r, a.prefix+"/login")
+}

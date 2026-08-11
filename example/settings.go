@@ -31,14 +31,16 @@ func init() {
 		s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", []string{"127.0.0.1", "localhost"})
 
 		s.Server.Host = settings.Env("HOST", "127.0.0.1")
-		s.Server.Port = settings.EnvInt("PORT", 8000)
+		s.Server.Port = settings.EnvInt("PORT", 8081)
 
 		s.Databases = []settings.Database{
 			{
 				Alias:           "default",
 				Engine:          settings.SQLite,
 				Name:            settings.Env("DB_NAME", "coyote.db"),
-				MaxIdleConns:    2,
+				MaxOpenConns:    8,
+				MaxIdleConns:    4,
+				ConnMaxLifetime: time.Hour,
 				ConnMaxIdleTime: 5 * time.Minute,
 			},
 		}
