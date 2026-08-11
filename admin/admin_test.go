@@ -10,6 +10,7 @@ import (
 	"testing/fstest"
 
 	"github.com/farhapartex/coyote"
+	"github.com/farhapartex/coyote/auth"
 	"github.com/farhapartex/coyote/settings"
 )
 
@@ -73,10 +74,10 @@ func newApp(t *testing.T, fns ...func(*settings.Settings)) *coyote.App {
 func setup(t *testing.T, fns ...func(*settings.Settings)) (*coyote.App, *client) {
 	t.Helper()
 	app := newApp(t, fns...)
-	if _, err := app.Auth.CreateUser("root", "root@example.com", "supersecret", true, true); err != nil {
+	if _, err := app.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.Auth.CreateUser("plain", "", "supersecret", false, false); err != nil {
+	if _, err := app.Auth.CreateUser(auth.NewUser{Username: "plain", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
 	Mount(app)
@@ -93,7 +94,7 @@ func (c *client) login(username, password string) *httptest.ResponseRecorder {
 	})
 }
 
-func TestAdminRequiresStaff(t *testing.T) {
+func TestAdminRequiresSuperadmin(t *testing.T) {
 	_, c := setup(t)
 
 	rec := c.do(http.MethodGet, "/admin/", nil)
@@ -106,10 +107,10 @@ func TestAdminRequiresStaff(t *testing.T) {
 
 	rec = c.login("plain", "supersecret")
 	if rec.Code != http.StatusForbidden {
-		t.Errorf("non-staff login: %d, want 403", rec.Code)
+		t.Errorf("non-superadmin login: %d, want 403", rec.Code)
 	}
 	if !strings.Contains(rec.Body.String(), "does not have access") {
-		t.Error("expected access message for non-staff")
+		t.Error("expected access message for a non-superadmin")
 	}
 }
 
@@ -148,13 +149,14 @@ func TestAdminUserLifecycle(t *testing.T) {
 
 	token := c.token("/admin/users/new")
 	rec := c.do(http.MethodPost, "/admin/users/new", url.Values{
-		"csrf_token": {token},
-		"username":   {"jane"},
-		"full_name":  {"Jane Doe"},
-		"email":      {"jane@example.com"},
-		"password":   {"supersecret"},
-		"is_active":  {"1"},
-		"is_staff":   {"1"},
+		"csrf_token":    {token},
+		"username":      {"jane"},
+		"first_name":    {"Jane"},
+		"last_name":     {"Doe"},
+		"email":         {"jane@example.com"},
+		"password":      {"supersecret"},
+		"is_active":     {"1"},
+		"is_superadmin": {"1"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("create: %d, want 303", rec.Code)
@@ -164,26 +166,34 @@ func TestAdminUserLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("user not created: %v", err)
 	}
-	if !jane.IsStaff || !jane.IsActive || jane.FullName != "Jane Doe" {
-		t.Errorf("unexpected user: %+v", jane)
+	if !jane.IsSuperadmin || !jane.IsActive {
+		t.Errorf("flags not applied: %+v", jane)
+	}
+	if jane.FirstName != "Jane" || jane.LastName != "Doe" || jane.FullName() != "Jane Doe" {
+		t.Errorf("names not applied: %+v", jane)
+	}
+	if jane.Password == "supersecret" {
+		t.Error("the admin form stored a plain text password")
 	}
 
 	token = c.token("/admin/users/" + jane.ID)
 	rec = c.do(http.MethodPost, "/admin/users/"+jane.ID, url.Values{
 		"csrf_token": {token},
 		"username":   {"jane"},
-		"full_name":  {"Jane Q Doe"},
+		"first_name": {"Jane"},
+		"last_name":  {"Q Doe"},
 		"email":      {"jane@corp.com"},
+		"is_active":  {"1"},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update: %d, want 303", rec.Code)
 	}
 	jane, _ = app.Auth.Users().ByUsername("jane")
-	if jane.FullName != "Jane Q Doe" || jane.Email != "jane@corp.com" {
+	if jane.FullName() != "Jane Q Doe" || jane.Email != "jane@corp.com" {
 		t.Errorf("update did not apply: %+v", jane)
 	}
-	if jane.IsStaff {
-		t.Error("unchecked is_staff should clear the flag")
+	if jane.IsSuperadmin {
+		t.Error("unchecked is_superadmin should clear the flag")
 	}
 
 	token = c.token("/admin/users")
@@ -248,7 +258,7 @@ func TestAdminSettingsPageRedactsSecretKey(t *testing.T) {
 
 func TestAdminPrefixComesFromSettings(t *testing.T) {
 	app := newApp(t, func(s *settings.Settings) { s.Admin.Prefix = "/control" })
-	if _, err := app.Auth.CreateUser("root", "", "supersecret", true, true); err != nil {
+	if _, err := app.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	portal := Mount(app)
@@ -277,7 +287,7 @@ func TestRegisteredSectionIsGuardedAndMounted(t *testing.T) {
 		s.Admin.Prefix = "/backoffice"
 		s.Admin.SiteName = "Backoffice"
 	})
-	if _, err := app.Auth.CreateUser("root", "", "supersecret", true, true); err != nil {
+	if _, err := app.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	c := &client{t: t, handler: app.Handler()}

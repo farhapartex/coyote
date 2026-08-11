@@ -52,16 +52,47 @@ func newTestService() *Service {
 
 func TestCreateAndAuthenticate(t *testing.T) {
 	s := newTestService()
-	if _, err := s.CreateUser("jane", "jane@example.com", "supersecret", true, false); err != nil {
+	created, err := s.CreateUser(NewUser{
+		Username:  "jane",
+		Email:     "jane@example.com",
+		FirstName: "Jane",
+		LastName:  "Doe",
+		Password:  "supersecret",
+	})
+	if err != nil {
 		t.Fatal(err)
+	}
+	if created.FullName() != "Jane Doe" || created.DisplayName() != "Jane Doe" {
+		t.Errorf("name handling: %q / %q", created.FullName(), created.DisplayName())
+	}
+	if created.Initials() != "JD" {
+		t.Errorf("Initials = %q, want JD", created.Initials())
+	}
+	if !created.IsActive {
+		t.Error("new users should be active")
+	}
+	if created.IsSuperadmin {
+		t.Error("new users should not be superadmin by default")
+	}
+	if created.Password == "supersecret" {
+		t.Fatal("password was stored in plain text")
+	}
+	if !created.HasUsablePassword() {
+		t.Error("stored password should be a recognised hash")
+	}
+	if created.HasLoggedIn() {
+		t.Error("a new user has never logged in")
+	}
+	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() {
+		t.Error("timestamps should be set on create")
 	}
 
 	user, err := s.Authenticate("JANE", "supersecret")
 	if err != nil {
 		t.Fatalf("case-insensitive login failed: %v", err)
 	}
-	if !user.IsStaff {
-		t.Error("user should be staff")
+	if user.ID != created.ID {
+		t.Error("Authenticate returned a different user")
 	}
 	if _, err := s.Authenticate("jane", "nope"); !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("got %v, want ErrInvalidCredentials", err)
@@ -71,20 +102,78 @@ func TestCreateAndAuthenticate(t *testing.T) {
 	}
 }
 
-func TestSuperuserImpliesStaff(t *testing.T) {
+func TestCreateSuperadmin(t *testing.T) {
 	s := newTestService()
-	user, err := s.CreateUser("root", "", "supersecret", false, true)
+	user, err := s.CreateSuperadmin("root", "root@example.com", "supersecret")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !user.IsStaff {
-		t.Error("superuser should also be staff")
+	if !user.IsSuperadmin || !user.IsActive {
+		t.Errorf("unexpected superadmin: %+v", user)
+	}
+	if user.Initials() != "R" {
+		t.Errorf("Initials should fall back to the username, got %q", user.Initials())
+	}
+	if user.DisplayName() != "root" {
+		t.Errorf("DisplayName should fall back to the username, got %q", user.DisplayName())
+	}
+}
+
+func TestEmailMustBeUniqueAndWellFormed(t *testing.T) {
+	s := newTestService()
+	if _, err := s.CreateUser(NewUser{Username: "jane", Email: "jane@example.com", Password: "supersecret"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateUser(NewUser{Username: "other", Email: "JANE@example.com", Password: "supersecret"}); !errors.Is(err, ErrEmailExists) {
+		t.Errorf("got %v, want ErrEmailExists", err)
+	}
+	if _, err := s.CreateUser(NewUser{Username: "third", Email: "not-an-email", Password: "supersecret"}); !errors.Is(err, ErrInvalidEmail) {
+		t.Errorf("got %v, want ErrInvalidEmail", err)
+	}
+	if _, err := s.CreateUser(NewUser{Username: "fourth", Password: "supersecret"}); err != nil {
+		t.Errorf("a blank email should be allowed: %v", err)
+	}
+	if _, err := s.CreateUser(NewUser{Username: "fifth", Password: "supersecret"}); err != nil {
+		t.Errorf("multiple blank emails should be allowed: %v", err)
+	}
+}
+
+func TestLoginStampsLastLoginAt(t *testing.T) {
+	s := newTestService()
+	created, err := s.CreateSuperadmin("root", "", "supersecret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.HasLoggedIn() {
+		t.Fatal("should not have a login stamp yet")
+	}
+
+	rec := httptest.NewRecorder()
+	s.sessions.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, err := s.Authenticate("root", "supersecret")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Login(r, user); err != nil {
+			t.Fatal(err)
+		}
+	})).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/login", nil))
+
+	stored, err := s.Users().ByID(created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stored.HasLoggedIn() {
+		t.Error("LastLoginAt was not stamped on login")
+	}
+	if !stored.UpdatedAt.After(created.UpdatedAt) && !stored.UpdatedAt.Equal(created.UpdatedAt) {
+		t.Error("UpdatedAt should advance on update")
 	}
 }
 
 func TestInactiveUserCannotAuthenticate(t *testing.T) {
 	s := newTestService()
-	user, _ := s.CreateUser("jane", "", "supersecret", false, false)
+	user, _ := s.CreateUser(NewUser{Username: "jane", Password: "supersecret"})
 	user.IsActive = false
 	if err := s.Users().Update(user); err != nil {
 		t.Fatal(err)
@@ -96,43 +185,79 @@ func TestInactiveUserCannotAuthenticate(t *testing.T) {
 
 func TestDuplicateAndInvalidUsernames(t *testing.T) {
 	s := newTestService()
-	if _, err := s.CreateUser("jane", "", "supersecret", false, false); err != nil {
+	if _, err := s.CreateUser(NewUser{Username: "jane", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateUser("Jane", "", "supersecret", false, false); !errors.Is(err, ErrUserExists) {
+	if _, err := s.CreateUser(NewUser{Username: "Jane", Password: "supersecret"}); !errors.Is(err, ErrUserExists) {
 		t.Errorf("got %v, want ErrUserExists", err)
 	}
-	if _, err := s.CreateUser("ab", "", "supersecret", false, false); !errors.Is(err, ErrInvalidUser) {
+	if _, err := s.CreateUser(NewUser{Username: "ab", Password: "supersecret"}); !errors.Is(err, ErrInvalidUser) {
 		t.Errorf("got %v, want ErrInvalidUser", err)
 	}
-	if _, err := s.CreateUser("valid", "", "short", false, false); !errors.Is(err, ErrPasswordTooShort) {
+	if _, err := s.CreateUser(NewUser{Username: "valid", Password: "short"}); !errors.Is(err, ErrPasswordTooShort) {
 		t.Errorf("got %v, want ErrPasswordTooShort", err)
 	}
 }
 
-func TestCannotDeleteLastSuperuser(t *testing.T) {
+func TestCannotRemoveLastSuperadmin(t *testing.T) {
 	s := newTestService()
-	root, _ := s.CreateUser("root", "", "supersecret", false, true)
-	if err := s.Users().Delete(root.ID); !errors.Is(err, ErrLastSuperuser) {
-		t.Errorf("got %v, want ErrLastSuperuser", err)
+	root, _ := s.CreateSuperadmin("root", "", "supersecret")
+	if err := s.Users().Delete(root.ID); !errors.Is(err, ErrLastSuperadmin) {
+		t.Errorf("got %v, want ErrLastSuperadmin", err)
 	}
-	second, _ := s.CreateUser("root2", "", "supersecret", false, true)
+
+	demoted := root.Clone()
+	demoted.IsSuperadmin = false
+	if err := s.Users().Update(demoted); !errors.Is(err, ErrLastSuperadmin) {
+		t.Errorf("demoting the last superadmin: got %v, want ErrLastSuperadmin", err)
+	}
+	deactivated := root.Clone()
+	deactivated.IsActive = false
+	if err := s.Users().Update(deactivated); !errors.Is(err, ErrLastSuperadmin) {
+		t.Errorf("disabling the last superadmin: got %v, want ErrLastSuperadmin", err)
+	}
+
+	second, _ := s.CreateSuperadmin("root2", "", "supersecret")
 	if err := s.Users().Delete(root.ID); err != nil {
-		t.Errorf("deleting one of two superusers should succeed: %v", err)
+		t.Errorf("deleting one of two superadmins should succeed: %v", err)
 	}
-	if err := s.Users().Delete(second.ID); !errors.Is(err, ErrLastSuperuser) {
-		t.Errorf("got %v, want ErrLastSuperuser", err)
+	if err := s.Users().Delete(second.ID); !errors.Is(err, ErrLastSuperadmin) {
+		t.Errorf("got %v, want ErrLastSuperadmin", err)
+	}
+}
+
+func TestInactiveSuperadminIsNotCountedAsTheLastOne(t *testing.T) {
+	s := newTestService()
+	active, _ := s.CreateSuperadmin("root", "", "supersecret")
+	spare, _ := s.CreateSuperadmin("spare", "", "supersecret")
+
+	disabled := spare.Clone()
+	disabled.IsActive = false
+	if err := s.Users().Update(disabled); err != nil {
+		t.Fatalf("disabling one of two superadmins should succeed: %v", err)
+	}
+
+	demoted := disabled.Clone()
+	demoted.IsSuperadmin = false
+	if err := s.Users().Update(demoted); err != nil {
+		t.Errorf("demoting an already inactive superadmin should succeed: %v", err)
+	}
+	if err := s.Users().Delete(spare.ID); err != nil {
+		t.Errorf("deleting an inactive superadmin should succeed: %v", err)
+	}
+	if _, err := s.Users().ByID(active.ID); err != nil {
+		t.Error("the active superadmin should still exist")
 	}
 }
 
 func TestLoginAndGuards(t *testing.T) {
 	s := newTestService()
 	manager := s.sessions
-	if _, err := s.CreateUser("jane", "", "supersecret", false, false); err != nil {
+	if _, err := s.CreateUser(NewUser{Username: "jane", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
 
-	protected := manager.Middleware(s.Middleware(s.RequireStaff("/login")(
+	protected := manager.Middleware(s.Middleware(s.RequireSuperadmin("/login")(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))))
@@ -161,7 +286,7 @@ func TestLoginAndGuards(t *testing.T) {
 	rec = httptest.NewRecorder()
 	protected.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
-		t.Errorf("non-staff got %d, want 403", rec.Code)
+		t.Errorf("non-superadmin got %d, want 403", rec.Code)
 	}
 
 	loginOnly := manager.Middleware(s.Middleware(s.RequireLogin("/login")(

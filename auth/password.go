@@ -99,6 +99,15 @@ func VerifyPassword(password, encoded string) bool {
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 
+func LooksHashed(encoded string) bool {
+	parts := strings.Split(encoded, "$")
+	if len(parts) != 4 || parts[0] != pbkdf2Algorithm {
+		return false
+	}
+	iterations, err := strconv.Atoi(parts[1])
+	return err == nil && iterations > 0
+}
+
 func ValidatePassword(password string) error {
 	return ValidatePasswordLength(password, DefaultMinPasswordLen)
 }

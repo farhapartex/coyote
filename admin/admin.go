@@ -57,7 +57,7 @@ func Mount(app *coyote.App) *Admin {
 	group.Get("/login", a.loginForm)
 	group.Post("/login", a.loginSubmit)
 
-	guarded := group.Group("", app.Auth.RequireStaff(loginURL))
+	guarded := group.Group("", app.Auth.RequireSuperadmin(loginURL))
 	guarded.Post("/logout", a.logout)
 	guarded.Get("/", a.dashboard)
 	guarded.Get("/users", a.userList)
@@ -83,7 +83,7 @@ func (a *Admin) Register(s Section) {
 	a.sections = append(a.sections, s)
 	sort.Slice(a.sections, func(i, j int) bool { return a.sections[i].Name < a.sections[j].Name })
 	if s.Handler != nil {
-		guarded := a.router.Group("", a.app.Auth.RequireStaff(a.prefix+"/login"))
+		guarded := a.router.Group("", a.app.Auth.RequireSuperadmin(a.prefix+"/login"))
 		guarded.Mount("/s/"+s.Slug, s.Handler)
 	}
 }

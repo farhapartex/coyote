@@ -7,16 +7,31 @@ import (
 
 	"github.com/farhapartex/coyote"
 	"github.com/farhapartex/coyote/admin"
+	"github.com/farhapartex/coyote/auth"
 	"github.com/farhapartex/coyote/session"
+	"github.com/farhapartex/coyote/settings"
 )
 
 func main() {
 	app := coyote.New()
 
-	if _, err := app.Auth.CreateUser("admin", "admin@example.com", "coyote123", true, true); err != nil {
+	if _, err := app.Auth.CreateUser(auth.NewUser{
+		Username:     "admin",
+		Email:        "admin@example.com",
+		FirstName:    "Ada",
+		LastName:     "Lovelace",
+		Password:     "coyote123",
+		IsSuperadmin: true,
+	}); err != nil {
 		log.Fatalf("seeding admin user: %v", err)
 	}
-	if _, err := app.Auth.CreateUser("editor", "editor@example.com", "coyote123", true, false); err != nil {
+	if _, err := app.Auth.CreateUser(auth.NewUser{
+		Username:  "editor",
+		Email:     "editor@example.com",
+		FirstName: "Grace",
+		LastName:  "Hopper",
+		Password:  "coyote123",
+	}); err != nil {
 		log.Fatalf("seeding editor user: %v", err)
 	}
 
@@ -27,9 +42,11 @@ func main() {
 		Description: "A custom admin page contributed by the application.",
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			app.Render(w, r, "pages/server_info.html", coyote.Data{
-				"Title":  "Server info",
-				"Uptime": time.Since(app.Started).Round(time.Second).String(),
-				"Routes": app.Routes(),
+				"Title":     "Server info",
+				"Uptime":    time.Since(app.Started).Round(time.Second).String(),
+				"Routes":    app.Routes(),
+				"BaseDir":   app.Settings.BaseDir,
+				"Databases": redactedDatabases(app.Settings),
 			})
 		}),
 	})
@@ -45,7 +62,10 @@ func main() {
 	})
 
 	app.Get("/about", func(w http.ResponseWriter, r *http.Request) {
-		app.Render(w, r, "pages/about.html", coyote.Data{"Title": "About"})
+		app.Render(w, r, "pages/about.html", coyote.Data{
+			"Title":        "About",
+			"DatabaseName": app.Settings.Database().Name,
+		})
 	})
 
 	app.Get("/notes", func(w http.ResponseWriter, r *http.Request) {
@@ -83,4 +103,12 @@ func main() {
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func redactedDatabases(s coyote.Settings) []settings.Database {
+	out := make([]settings.Database, 0, len(s.Databases))
+	for _, db := range s.Databases {
+		out = append(out, db.Redacted())
+	}
+	return out
 }

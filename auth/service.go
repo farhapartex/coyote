@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/farhapartex/coyote/session"
@@ -58,27 +59,46 @@ func (s *Service) HashPassword(password string) (string, error) {
 	return s.hasher.Hash(password)
 }
 
-func (s *Service) CreateUser(username, email, password string, staff, superuser bool) (*User, error) {
-	if err := s.ValidatePassword(password); err != nil {
+type NewUser struct {
+	Username     string
+	Email        string
+	FirstName    string
+	LastName     string
+	Password     string
+	IsSuperadmin bool
+}
+
+func (s *Service) CreateUser(in NewUser) (*User, error) {
+	if err := s.ValidatePassword(in.Password); err != nil {
 		return nil, err
 	}
-	hash, err := s.hasher.Hash(password)
+	hash, err := s.hasher.Hash(in.Password)
 	if err != nil {
 		return nil, err
 	}
 	u := &User{
-		Username:     username,
-		Email:        email,
-		PasswordHash: hash,
+		FirstName:    strings.TrimSpace(in.FirstName),
+		LastName:     strings.TrimSpace(in.LastName),
+		Email:        strings.TrimSpace(in.Email),
+		Username:     strings.TrimSpace(in.Username),
+		Password:     hash,
 		IsActive:     true,
-		IsStaff:      staff || superuser,
-		IsSuperuser:  superuser,
+		IsSuperadmin: in.IsSuperadmin,
 		CreatedAt:    time.Now(),
 	}
 	if err := s.users.Create(u); err != nil {
 		return nil, err
 	}
 	return u, nil
+}
+
+func (s *Service) CreateSuperadmin(username, email, password string) (*User, error) {
+	return s.CreateUser(NewUser{
+		Username:     username,
+		Email:        email,
+		Password:     password,
+		IsSuperadmin: true,
+	})
 }
 
 func (s *Service) SetPassword(id, password string) error {
@@ -93,7 +113,7 @@ func (s *Service) SetPassword(id, password string) error {
 	if err != nil {
 		return err
 	}
-	u.PasswordHash = hash
+	u.Password = hash
 	return s.users.Update(u)
 }
 
@@ -103,7 +123,7 @@ func (s *Service) Authenticate(username, password string) (*User, error) {
 		_, _ = s.hasher.Hash(password)
 		return nil, ErrInvalidCredentials
 	}
-	if !VerifyPassword(password, u.PasswordHash) {
+	if !VerifyPassword(password, u.Password) {
 		return nil, ErrInvalidCredentials
 	}
 	if !u.IsActive {
@@ -121,7 +141,7 @@ func (s *Service) Login(r *http.Request, u *User) error {
 		return err
 	}
 	sess.SetUserID(u.ID)
-	u.LastLogin = time.Now()
+	u.LastLoginAt = time.Now()
 	if err := s.users.Update(u); err != nil {
 		return err
 	}
@@ -174,12 +194,8 @@ func (s *Service) RequireLogin(loginURL string) func(http.Handler) http.Handler 
 	return s.guard(loginURL, func(u *User) bool { return u != nil })
 }
 
-func (s *Service) RequireStaff(loginURL string) func(http.Handler) http.Handler {
-	return s.guard(loginURL, func(u *User) bool { return u != nil && u.IsStaff })
-}
-
-func (s *Service) RequireSuperuser(loginURL string) func(http.Handler) http.Handler {
-	return s.guard(loginURL, func(u *User) bool { return u != nil && u.IsSuperuser })
+func (s *Service) RequireSuperadmin(loginURL string) func(http.Handler) http.Handler {
+	return s.guard(loginURL, func(u *User) bool { return u != nil && u.IsSuperadmin })
 }
 
 func (s *Service) guard(loginURL string, allow func(*User) bool) func(http.Handler) http.Handler {

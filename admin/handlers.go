@@ -14,7 +14,7 @@ import (
 )
 
 func (a *Admin) loginForm(w http.ResponseWriter, r *http.Request) {
-	if u := a.currentUser(r); u != nil && u.IsStaff {
+	if u := a.currentUser(r); u != nil && u.IsSuperadmin {
 		coyote.Redirect(w, r, a.prefix+"/")
 		return
 	}
@@ -45,7 +45,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if !user.IsStaff {
+	if !user.IsSuperadmin {
 		a.render(w, r, http.StatusForbidden, "login.html", coyote.Data{
 			"Error":    "This account does not have access to the admin portal.",
 			"Username": username,
@@ -68,20 +68,20 @@ func (a *Admin) logout(w http.ResponseWriter, r *http.Request) {
 
 func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request) {
 	users := a.app.Auth.Users().All()
-	staff := 0
+	superadmins := 0
 	for _, u := range users {
-		if u.IsStaff {
-			staff++
+		if u.IsSuperadmin {
+			superadmins++
 		}
 	}
 	a.render(w, r, http.StatusOK, "dashboard.html", coyote.Data{
-		"Nav":          "dashboard",
-		"UserCount":    len(users),
-		"StaffCount":   staff,
-		"SessionCount": a.sessionCount(),
-		"RouteCount":   len(a.app.Routes()),
-		"Uptime":       time.Since(a.app.Started).Round(time.Second).String(),
-		"Recent":       recentUsers(users, 5),
+		"Nav":             "dashboard",
+		"UserCount":       len(users),
+		"SuperadminCount": superadmins,
+		"SessionCount":    a.sessionCount(),
+		"RouteCount":      len(a.app.Routes()),
+		"Uptime":          time.Since(a.app.Started).Round(time.Second).String(),
+		"Recent":          recentUsers(users, 5),
 	})
 }
 
@@ -93,7 +93,7 @@ func (a *Admin) userList(w http.ResponseWriter, r *http.Request) {
 		if query == "" ||
 			strings.Contains(strings.ToLower(u.Username), query) ||
 			strings.Contains(strings.ToLower(u.Email), query) ||
-			strings.Contains(strings.ToLower(u.FullName), query) {
+			strings.Contains(strings.ToLower(u.FullName()), query) {
 			matched = append(matched, u)
 		}
 	}
@@ -126,29 +126,37 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	form := &auth.User{
-		Username:    strings.TrimSpace(r.PostForm.Get("username")),
-		Email:       strings.TrimSpace(r.PostForm.Get("email")),
-		FullName:    strings.TrimSpace(r.PostForm.Get("full_name")),
-		IsActive:    r.PostForm.Get("is_active") != "",
-		IsStaff:     r.PostForm.Get("is_staff") != "",
-		IsSuperuser: r.PostForm.Get("is_superuser") != "",
+		Username:     strings.TrimSpace(r.PostForm.Get("username")),
+		Email:        strings.TrimSpace(r.PostForm.Get("email")),
+		FirstName:    strings.TrimSpace(r.PostForm.Get("first_name")),
+		LastName:     strings.TrimSpace(r.PostForm.Get("last_name")),
+		IsActive:     r.PostForm.Get("is_active") != "",
+		IsSuperadmin: r.PostForm.Get("is_superadmin") != "",
 	}
 	password := r.PostForm.Get("password")
 
-	user, err := a.app.Auth.CreateUser(form.Username, form.Email, password, form.IsStaff, form.IsSuperuser)
+	user, err := a.app.Auth.CreateUser(auth.NewUser{
+		Username:     form.Username,
+		Email:        form.Email,
+		FirstName:    form.FirstName,
+		LastName:     form.LastName,
+		Password:     password,
+		IsSuperadmin: form.IsSuperadmin,
+	})
 	if err != nil {
 		a.render(w, r, http.StatusBadRequest, "user_form.html", coyote.Data{
 			"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(err),
 		})
 		return
 	}
-	user.FullName = form.FullName
-	user.IsActive = form.IsActive
-	if err := a.app.Auth.Users().Update(user); err != nil {
-		a.render(w, r, http.StatusBadRequest, "user_form.html", coyote.Data{
-			"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(err),
-		})
-		return
+	if !form.IsActive {
+		user.IsActive = false
+		if err := a.app.Auth.Users().Update(user); err != nil {
+			a.render(w, r, http.StatusBadRequest, "user_form.html", coyote.Data{
+				"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(err),
+			})
+			return
+		}
 	}
 	coyote.Flash(r, "success", "User "+user.Username+" created.")
 	coyote.Redirect(w, r, a.prefix+"/users")
@@ -170,11 +178,11 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 
 	user.Username = strings.TrimSpace(r.PostForm.Get("username"))
 	user.Email = strings.TrimSpace(r.PostForm.Get("email"))
-	user.FullName = strings.TrimSpace(r.PostForm.Get("full_name"))
+	user.FirstName = strings.TrimSpace(r.PostForm.Get("first_name"))
+	user.LastName = strings.TrimSpace(r.PostForm.Get("last_name"))
 	if !isSelf {
 		user.IsActive = r.PostForm.Get("is_active") != ""
-		user.IsStaff = r.PostForm.Get("is_staff") != ""
-		user.IsSuperuser = r.PostForm.Get("is_superuser") != ""
+		user.IsSuperadmin = r.PostForm.Get("is_superadmin") != ""
 	}
 
 	fail := func(err error) {
@@ -193,7 +201,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 			fail(err)
 			return
 		}
-		user.PasswordHash = hash
+		user.Password = hash
 		a.revokeUserSessions(user.ID)
 	}
 
@@ -417,8 +425,12 @@ func humanize(err error) string {
 		return "Usernames must be 3-64 characters using letters, digits or . _ @ + -"
 	case errors.Is(err, auth.ErrPasswordTooShort):
 		return "Passwords must be at least 8 characters."
-	case errors.Is(err, auth.ErrLastSuperuser):
-		return "You cannot remove the last active superuser."
+	case errors.Is(err, auth.ErrLastSuperadmin):
+		return "You cannot remove or disable the last active superadmin."
+	case errors.Is(err, auth.ErrEmailExists):
+		return "That email address is already registered."
+	case errors.Is(err, auth.ErrInvalidEmail):
+		return "That does not look like a valid email address."
 	case errors.Is(err, auth.ErrUserNotFound):
 		return "That user no longer exists."
 	default:

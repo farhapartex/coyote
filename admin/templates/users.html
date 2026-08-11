@@ -5,7 +5,7 @@
   <h2>Users <span class="muted" style="font-size:15px;font-weight:400">({{.Total}})</span></h2>
   <div style="display:flex;gap:10px;align-items:center">
     <form method="get" action="{{.Prefix}}/users" class="search">
-      <input type="text" name="q" value="{{.Query}}" placeholder="Search username or email">
+      <input type="text" name="q" value="{{.Query}}" placeholder="Search name, username or email">
       <button class="btn secondary" type="submit">Search</button>
     </form>
     <a class="btn" href="{{.Prefix}}/users/new">Add user</a>
@@ -16,21 +16,19 @@
   {{if .Users}}
   <table>
     <thead>
-      <tr><th>Username</th><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Last login</th><th></th></tr>
+      <tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Users}}
       <tr>
         <td><a href="{{$.Prefix}}/users/{{.ID}}">{{.Username}}</a></td>
-        <td class="muted">{{if .FullName}}{{.FullName}}{{else}}—{{end}}</td>
+        <td class="muted">{{with .FullName}}{{.}}{{else}}—{{end}}</td>
         <td class="muted">{{if .Email}}{{.Email}}{{else}}—{{end}}</td>
         <td>
-          {{if .IsSuperuser}}<span class="tag brand">superuser</span>{{end}}
-          {{if and .IsStaff (not .IsSuperuser)}}<span class="tag">staff</span>{{end}}
-          {{if not .IsStaff}}<span class="tag">user</span>{{end}}
+          {{if .IsSuperadmin}}<span class="tag brand">superadmin</span>{{else}}<span class="tag">user</span>{{end}}
         </td>
         <td>{{if .IsActive}}<span class="tag on">active</span>{{else}}<span class="tag off">disabled</span>{{end}}</td>
-        <td class="muted">{{if .LastLogin.IsZero}}never{{else}}{{.LastLogin.Format "2 Jan 06 15:04"}}{{end}}</td>
+        <td class="muted">{{if .HasLoggedIn}}{{.LastLoginAt.Format "2 Jan 06 15:04"}}{{else}}never{{end}}</td>
         <td style="text-align:right">
           {{if ne $.User.ID .ID}}
           <form method="post" action="{{$.Prefix}}/users/{{.ID}}/delete" class="inline"

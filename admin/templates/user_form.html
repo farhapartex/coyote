@@ -16,9 +16,14 @@
       <label>Username
         <input type="text" name="username" value="{{.Form.Username}}" autocomplete="off" required>
       </label>
-      <label>Full name
-        <input type="text" name="full_name" value="{{.Form.FullName}}" autocomplete="off">
-      </label>
+      <div class="pair">
+        <label>First name
+          <input type="text" name="first_name" value="{{.Form.FirstName}}" autocomplete="off">
+        </label>
+        <label>Last name
+          <input type="text" name="last_name" value="{{.Form.LastName}}" autocomplete="off">
+        </label>
+      </div>
       <label>Email
         <input type="email" name="email" value="{{.Form.Email}}" autocomplete="off">
       </label>
@@ -38,12 +43,8 @@
           <span>Active<span class="hint">Inactive accounts cannot log in.</span></span>
         </label>
         <label>
-          <input type="checkbox" name="is_staff" value="1" {{if .Form.IsStaff}}checked{{end}}>
-          <span>Staff<span class="hint">Can reach the admin portal.</span></span>
-        </label>
-        <label>
-          <input type="checkbox" name="is_superuser" value="1" {{if .Form.IsSuperuser}}checked{{end}}>
-          <span>Superuser<span class="hint">Implies staff access and full permissions.</span></span>
+          <input type="checkbox" name="is_superadmin" value="1" {{if .Form.IsSuperadmin}}checked{{end}}>
+          <span>Superadmin<span class="hint">Full permissions, including access to this admin portal.</span></span>
         </label>
         {{end}}
       </div>

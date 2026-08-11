@@ -88,13 +88,16 @@ cd example
 go run .
 ```
 
-Serves on `127.0.0.1:8000`. `example/settings.go` reads `PORT`, `HOST`, `DEBUG`, `SECRET_KEY`, and
-`ALLOWED_HOSTS` from the environment, so `PORT=9000 go run .` works. Two users are seeded:
+Serves on `127.0.0.1:8000`. `example/settings.go` reads `PORT`, `HOST`, `DEBUG`, `SECRET_KEY`,
+`ALLOWED_HOSTS`, and `DB_NAME` from the environment, so `PORT=9000 go run .` works. It declares a
+SQLite database at `example/coyote.db`; the file is not created yet because nothing connects. The
+resolved config is visible at `/about` and under the admin portal's Server info section. Two users
+are seeded:
 
-| Username | Password    | Role      |
-| -------- | ----------- | --------- |
-| `admin`  | `coyote123` | superuser |
-| `editor` | `coyote123` | staff     |
+| Username | Password    | Role |
+| -------- | ----------- | ---- |
+| `admin`  | `coyote123` | superadmin |
+| `editor` | `coyote123` | plain user (cannot reach the admin portal) |
 
 ## Layout
 
@@ -318,6 +321,73 @@ deadline on every request.
 Swap `MemoryStore` for your own `session.Store` (`Load`, `Save`, `Delete`) when a database
 arrives.
 
+## The user entity
+
+`auth.User` is the ready-made entity you get on install. Field tags carry the column names for the
+persistence layer:
+
+```go
+type User struct {
+	ID           string    `db:"id"`
+	FirstName    string    `db:"first_name"`
+	LastName     string    `db:"last_name"`
+	Email        string    `db:"email"`
+	Username     string    `db:"username"`
+	Password     string    `db:"password"`
+	IsActive     bool      `db:"is_active"`
+	IsSuperadmin bool      `db:"is_superadmin"`
+	LastLoginAt  time.Time `db:"last_login_at"`
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
+}
+```
+
+`Password` always holds a PBKDF2 hash — the service is the only thing that writes it, and
+`VerifyPassword` rejects anything that is not in hash format, so a plain string assigned by mistake
+fails closed rather than authenticating. `HasUsablePassword` reports whether the stored value is a
+recognised hash.
+
+Derived helpers: `FullName()`, `DisplayName()` (falls back to the username), `Initials()`,
+`HasLoggedIn()`, `Clone()`, `Validate()`.
+
+Creating users goes through the service so hashing and defaults are never skipped. New accounts are
+active, and not superadmin unless asked:
+
+```go
+user, err := app.Auth.CreateUser(auth.NewUser{
+	Username:  "jane",
+	Email:     "jane@example.com",
+	FirstName: "Jane",
+	LastName:  "Doe",
+	Password:  "supersecret",
+})
+
+root, err := app.Auth.CreateSuperadmin("root", "root@example.com", "supersecret")
+```
+
+`IsSuperadmin` is the only role flag: it grants full permissions and access to the admin portal.
+There is no separate staff tier — add your own field if you want an intermediate role.
+
+Store rules: usernames and emails are unique case-insensitively, a blank email is allowed and does
+not collide, and the last active superadmin cannot be deleted, demoted, or disabled.
+
+### Replacing or extending it
+
+Two seams exist today. Embed the entity when you only need extra fields alongside it:
+
+```go
+type Employee struct {
+	auth.User
+	Department string `db:"department"`
+	ManagerID  string `db:"manager_id"`
+}
+```
+
+Or implement `auth.Store` over your own table and set `Auth.UserStore` in settings, which is what
+the persistence layer will use. A first-class swappable user model — the equivalent of Django's
+`AUTH_USER_MODEL` — arrives with the database layer; today the framework's own code still works in
+terms of `*auth.User`.
+
 ## Authentication
 
 Passwords are hashed with PBKDF2-SHA256 using `Auth.PBKDF2Iterations` (600,000 by default) and a
@@ -338,11 +408,8 @@ for signed-in users who lack the role:
 ```go
 login := app.Settings.Auth.LoginURL
 app.Group("/me", app.Auth.RequireLogin(login))
-app.Group("/staff", app.Auth.RequireStaff(login))
-app.Group("/root", app.Auth.RequireSuperuser(login))
+app.Group("/root", app.Auth.RequireSuperadmin(login))
 ```
-
-Users carry `IsActive`, `IsStaff`, and `IsSuperuser`; superuser implies staff.
 
 ## CSRF
 
@@ -369,9 +436,9 @@ portal := admin.Mount(app)
 
 Provides a login screen, dashboard, user management (create, edit, search, delete, password
 reset), an active session list with revoke, the route table, and a read-only settings page.
-Access requires `IsStaff`.
+Access requires `IsSuperadmin`.
 Editing your own account locks the role and status fields, self-deletion is refused, the last
-active superuser cannot be removed, and changing a password revokes that user's other sessions.
+active superadmin cannot be removed, and changing a password revokes that user's other sessions.
 
 Applications can contribute their own pages:
 

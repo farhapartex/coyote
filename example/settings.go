@@ -33,6 +33,16 @@ func init() {
 		s.Server.Host = settings.Env("HOST", "127.0.0.1")
 		s.Server.Port = settings.EnvInt("PORT", 8000)
 
+		s.Databases = []settings.Database{
+			{
+				Alias:           "default",
+				Engine:          settings.SQLite,
+				Name:            settings.Env("DB_NAME", "coyote.db"),
+				MaxIdleConns:    2,
+				ConnMaxIdleTime: 5 * time.Minute,
+			},
+		}
+
 		s.Sessions.Lifetime = 8 * time.Hour
 		s.Sessions.Rolling = true
 

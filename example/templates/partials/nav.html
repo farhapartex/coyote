@@ -7,7 +7,7 @@
     <a href="/about" class="{{if eq .Path "/about"}}active{{end}}">About</a>
     {{if .User}}
       <a href="/me/">{{.User.Username}}</a>
-      {{if .User.IsStaff}}<a href="/admin/">Admin</a>{{end}}
+      {{if .User.IsSuperadmin}}<a href="/admin/">Admin</a>{{end}}
     {{else}}
       <a href="/admin/login">Log in</a>
     {{end}}
