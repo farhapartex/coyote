@@ -3,13 +3,11 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/farhapartex/coyote/admin"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/session"
-	"github.com/farhapartex/coyote/core/settings"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -36,30 +34,10 @@ func main() {
 		log.Fatalf("seeding editor user: %v", err)
 	}
 
-	portal := admin.Mount(application)
-	portal.Register(admin.Section{
-		Name:        "Server info",
-		Slug:        "server-info",
-		Description: "A custom admin page contributed by the application.",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			application.Render(w, r, "pages/server_info.html", view.Data{
-				"Title":     "Server info",
-				"Uptime":    time.Since(application.Started).Round(time.Second).String(),
-				"Routes":    application.Routes(),
-				"BaseDir":   application.Settings.BaseDir,
-				"Databases": redactedDatabases(application.Settings),
-			})
-		}),
-	})
+	admin.Mount(application)
 
 	application.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		sess := session.FromRequest(r)
-		visits := sess.GetInt("visits") + 1
-		sess.Set("visits", visits)
-		application.Render(w, r, "pages/home.html", view.Data{
-			"Title":  "Home",
-			"Visits": visits,
-		})
+		application.Render(w, r, "pages/home.html", view.Data{"Title": "Home", "HideNav": true})
 	})
 
 	application.Get("/about", func(w http.ResponseWriter, r *http.Request) {
@@ -104,12 +82,4 @@ func main() {
 	if err := application.Run(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func redactedDatabases(s settings.Settings) []settings.Database {
-	out := make([]settings.Database, 0, len(s.Databases))
-	for _, db := range s.Databases {
-		out = append(out, db.Redacted())
-	}
-	return out
 }

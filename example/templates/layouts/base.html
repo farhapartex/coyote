@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  {{template "nav.html" .}}
+  {{if not .HideNav}}{{template "nav.html" .}}{{end}}
   <main>
     {{range .Flashes}}<div class="flash {{.Kind}}">{{.Message}}</div>{{end}}
     {{block "content" .}}{{end}}

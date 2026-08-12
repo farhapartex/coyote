@@ -1,16 +1,11 @@
 {{define "content"}}
-<h1>Coyote</h1>
-<p class="lead">A small, session-first web framework for Go, built on <code>net/http</code>.</p>
-
-<div class="card">
-  <p>You have loaded this page <strong>{{.Visits}}</strong> time{{if ne .Visits 1}}s{{end}} in this session.</p>
-  <p class="muted">The counter lives in a server-side session; your browser only holds an opaque cookie.</p>
-</div>
-
-<h2>Try it</h2>
-<ul>
-  <li><a href="/notes">Notes</a> — store values in your session with CSRF-protected forms.</li>
-  <li><a href="/me/">Profile</a> — a route behind <code>RequireLogin</code>.</li>
-  <li><a href="/admin/">Admin portal</a> — log in as <code>admin</code> / <code>coyote123</code>.</li>
-</ul>
+<section class="hero">
+  <h1 class="wordmark">coyote</h1>
+  <p class="pitch">
+    A session-first web framework for Go, shaped like Django but sized for the
+    standard library. Declare your settings, define your routes, render your
+    templates, and get an admin portal for free.
+  </p>
+  <a class="cta" href="/admin/login">Log in</a>
+</section>
 {{end}}
