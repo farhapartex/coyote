@@ -3,3 +3,4 @@ coyote-example
 *.db
 *.db-wal
 *.db-shm
+phases
