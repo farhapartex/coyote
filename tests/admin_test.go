@@ -177,42 +177,6 @@ func TestAdminLogoutEndsSession(t *testing.T) {
 	}
 }
 
-func TestAdminSettingsPageRedactsSecrets(t *testing.T) {
-	secret := "super-secret-key-that-must-never-be-shown"
-	dbPassword := "database-password-must-not-leak"
-	_, c := setupAdmin(t, func(s *settings.Settings) {
-		s.SecretKey = secret
-		s.Sessions.CookieName = "shown_cookie"
-		s.Databases = []settings.Database{
-			{Engine: settings.SQLite, Name: "test.db"},
-			{Alias: "reports", Engine: settings.Postgres, Name: "reports",
-				Host: "db.internal", User: "app", Password: dbPassword},
-		}
-	})
-	c.login("/admin/login", "root", "supersecret")
-
-	rec := c.get("/admin/settings")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("code %d, want 200", rec.Code)
-	}
-	body := rec.Body.String()
-	if strings.Contains(body, secret) {
-		t.Error("SecretKey must never be rendered")
-	}
-	if strings.Contains(body, dbPassword) {
-		t.Error("database passwords must never be rendered")
-	}
-	if !strings.Contains(body, "characters hidden") {
-		t.Error("expected the redacted SecretKey placeholder")
-	}
-	if !strings.Contains(body, "shown_cookie") {
-		t.Error("expected non-secret settings to be shown")
-	}
-	if !strings.Contains(body, "test.db") || !strings.Contains(body, "reports") {
-		t.Error("expected database settings to be listed")
-	}
-}
-
 func TestAdminPrefixComesFromSettings(t *testing.T) {
 	a := newTestApp(t, func(s *settings.Settings) { s.Admin.Prefix = "/control" })
 	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
@@ -266,5 +230,30 @@ func TestRegisteredSectionIsGuardedAndMounted(t *testing.T) {
 	rec := c.get("/backoffice/s/reports/")
 	if rec.Code != http.StatusOK || rec.Body.String() != "report body" {
 		t.Errorf("section: %d %q", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRemovedDeveloperPagesAreGone(t *testing.T) {
+	_, c := setupAdmin(t)
+	c.login("/admin/login", "root", "supersecret")
+
+	for _, path := range []string{"/admin/settings", "/admin/routes"} {
+		if rec := c.get(path); rec.Code != http.StatusNotFound {
+			t.Errorf("%s returned %d, want 404", path, rec.Code)
+		}
+	}
+
+	body := c.get("/admin/").Body.String()
+	for _, href := range []string{"/admin/routes", "/admin/settings"} {
+		if strings.Contains(body, href) {
+			t.Errorf("the admin nav still links to %s", href)
+		}
+	}
+
+	if rec := c.get("/admin/nonsense"); rec.Code != http.StatusNotFound {
+		t.Errorf("an unknown admin path returned %d, want 404", rec.Code)
+	}
+	if rec := c.get("/admin/"); rec.Code != http.StatusOK {
+		t.Errorf("the dashboard returned %d, want 200", rec.Code)
 	}
 }

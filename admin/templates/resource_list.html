@@ -1,0 +1,43 @@
+{{define "title"}}{{.Resource.Title}}{{end}}
+
+{{define "content"}}
+<div class="page-head">
+  <h2>{{.Resource.Title}} <span class="muted" style="font-size:15px;font-weight:400">({{.Total}})</span></h2>
+  {{if not .ReadOnly}}<a class="btn" href="{{.Prefix}}/{{.Resource.Slug}}/new">Add {{.Resource.Label}}</a>{{end}}
+</div>
+
+<div class="card">
+  {{if .Rows}}
+  <table>
+    <thead>
+      <tr>
+        {{range .Columns}}<th>{{.Label}}</th>{{end}}
+        <th style="width:1%"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        {{range $i, $cell := .Cells}}
+        <td>{{if $cell}}{{$cell}}{{else}}—{{end}}</td>
+        {{end}}
+        <td style="text-align:right"><a class="btn small secondary" href="{{$.Prefix}}/{{$.Resource.Slug}}/{{.ID}}">Details</a></td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty">No {{.Resource.Title}} yet.</div>
+  {{end}}
+</div>
+
+{{if or .HasPrev .HasNext}}
+<div class="actions">
+  {{if .HasPrev}}<a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}?page={{.PrevPage}}">Previous</a>{{end}}
+  <span class="spacer"></span>
+  <span class="muted">Page {{.Page}}</span>
+  <span class="spacer"></span>
+  {{if .HasNext}}<a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}?page={{.NextPage}}">Next</a>{{end}}
+</div>
+{{end}}
+{{end}}

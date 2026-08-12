@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"strings"
 	"time"
+
+	"github.com/farhapartex/coyote/core/id"
 )
 
 func normalize(value string) string {
@@ -12,9 +12,9 @@ func normalize(value string) string {
 }
 
 func newUserID() string {
-	buf := make([]byte, 12)
-	if _, err := rand.Read(buf); err != nil {
+	value, err := id.New()
+	if err != nil {
 		return time.Now().UTC().Format("20060102150405.000000000")
 	}
-	return base64.RawURLEncoding.EncodeToString(buf)
+	return value
 }

@@ -40,6 +40,8 @@ type App struct {
 	server    *http.Server
 	sessions  session.Store
 	models    *model.Registry
+	store     model.Store
+	storeOnce sync.Once
 	dbOnce    sync.Once
 	dbHandle  *gorm.DB
 	dbErr     error

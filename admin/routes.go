@@ -8,7 +8,7 @@ func (a *Admin) routes(group *app.Router, loginURL string) {
 
 	guarded := group.Group("", a.app.Auth.RequireSuperadmin(loginURL))
 	guarded.Post("/logout", a.logout)
-	guarded.Get("/", a.dashboard)
+	guarded.Get("/{$}", a.dashboard)
 	guarded.Get("/users", a.userList)
 	guarded.Get("/users/new", a.userForm)
 	guarded.Post("/users/new", a.userCreate)
@@ -17,6 +17,6 @@ func (a *Admin) routes(group *app.Router, loginURL string) {
 	guarded.Post("/users/{id}/delete", a.userDelete)
 	guarded.Get("/sessions", a.sessionList)
 	guarded.Post("/sessions/{id}/revoke", a.sessionRevoke)
-	guarded.Get("/routes", a.routeList)
-	guarded.Get("/settings", a.settingsView)
+
+	a.guarded = guarded
 }

@@ -1,0 +1,60 @@
+{{define "title"}}{{if .IsNew}}Add {{.Resource.Label}}{{else}}{{.Resource.Label}} details{{end}}{{end}}
+
+{{define "content"}}
+<div class="page-head">
+  <h2>{{if .IsNew}}Add {{.Resource.Label}}{{else}}{{.Resource.Label}} details{{end}}</h2>
+  <a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}">Back to {{.Resource.Title}}</a>
+</div>
+
+{{if .Error}}<div class="flash error">{{.Error}}</div>{{end}}
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" action="{{.Action}}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+      {{range .Fields}}
+      {{if eq .Type "checkbox"}}
+      <div class="checks">
+        <label>
+          <input type="checkbox" name="{{.Column}}" value="1" {{if .Checked}}checked{{end}} {{if .ReadOnly}}disabled{{end}}>
+          <span>{{.Label}}{{if .Error}}<span class="hint" style="color:#8c2f21">{{.Error}}</span>{{end}}</span>
+        </label>
+      </div>
+      {{else}}
+      <label>
+        {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}{{if .ReadOnly}} <span class="muted" style="font-weight:400">generated</span>{{end}}
+        <input type="{{.Type}}" name="{{.Column}}" value="{{.Value}}"
+               {{if .Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}
+               {{if .Step}}step="{{.Step}}"{{end}} {{if .MaxLen}}maxlength="{{.MaxLen}}"{{end}}
+               autocomplete="off">
+        {{if .Error}}<span class="hint" style="color:#8c2f21;font-weight:400;font-size:12px">{{.Error}}</span>{{end}}
+      </label>
+      {{end}}
+      {{end}}
+
+      <div class="actions">
+        {{if not .ReadOnly}}<button class="btn" type="submit">{{if .IsNew}}Create{{else}}Save changes{{end}}</button>{{end}}
+        <a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}">Cancel</a>
+        <span class="spacer"></span>
+        {{if not .IsNew}}
+        <span class="muted mono" style="font-size:12px">{{.RecordID}}</span>
+        {{end}}
+      </div>
+    </form>
+  </div>
+</div>
+
+{{if and (not .IsNew) (not .ReadOnly)}}
+<div class="card">
+  <div class="card-head">Danger zone</div>
+  <div class="card-body">
+    <form method="post" action="{{.Prefix}}/{{.Resource.Slug}}/{{.RecordID}}/delete"
+          onsubmit="return confirm('Delete this {{.Resource.Label}}? This cannot be undone.')">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button class="btn danger" type="submit">Delete {{.Resource.Label}}</button>
+    </form>
+  </div>
+</div>
+{{end}}
+{{end}}

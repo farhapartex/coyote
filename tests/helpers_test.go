@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -38,8 +39,13 @@ func devSettings(t *testing.T, fns ...func(*settings.Settings)) settings.Setting
 		s.Templates.FS = templateFS()
 		s.Templates.Layout = "layouts/base.html"
 		s.Auth.PBKDF2Iterations = 1000
-		s.BaseDir = t.TempDir()
-		s.Databases = []settings.Database{{Engine: settings.SQLite, Name: ":memory:"}}
+		dir := t.TempDir()
+		s.BaseDir = dir
+		s.Databases = []settings.Database{{
+			Engine:       settings.SQLite,
+			Name:         filepath.Join(dir, "test.db"),
+			MaxOpenConns: 1,
+		}}
 	}
 	resolved, err := settings.New(append([]func(*settings.Settings){base}, fns...)...)
 	if err != nil {

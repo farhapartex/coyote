@@ -7,6 +7,7 @@ import (
 	"github.com/farhapartex/coyote/admin"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/session"
 	"github.com/farhapartex/coyote/core/view"
 )
@@ -34,9 +35,12 @@ func main() {
 		log.Fatalf("seeding editor user: %v", err)
 	}
 
-	admin.Mount(application)
+	application.RegisterModel(model.Of(Product{}), model.Of(Checkout{}))
 
-	application.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	portal := admin.Mount(application)
+	portal.MustManage(productResource{}, checkoutResource{})
+
+	application.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
 		application.Render(w, r, "pages/home.html", view.Data{"Title": "Home", "HideNav": true})
 	})
 

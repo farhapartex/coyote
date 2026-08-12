@@ -18,7 +18,9 @@ type Admin struct {
 	tagline   string
 	templates *template.Engine
 	sections  []Section
+	resources *resourceRegistry
 	router    *app.Router
+	guarded   *app.Router
 }
 
 func Mount(application *app.App) *Admin {
@@ -26,10 +28,11 @@ func Mount(application *app.App) *Admin {
 	prefix := "/" + strings.Trim(cfg.Prefix, "/")
 
 	a := &Admin{
-		app:      application,
-		prefix:   prefix,
-		siteName: cfg.SiteName,
-		tagline:  cfg.Tagline,
+		app:       application,
+		prefix:    prefix,
+		siteName:  cfg.SiteName,
+		tagline:   cfg.Tagline,
+		resources: newResourceRegistry(),
 		templates: template.New(template.Options{
 			FS:     templateFS,
 			Layout: "base.html",
