@@ -20,7 +20,7 @@ func NewRegistry(commands ...Command) *Registry {
 }
 
 func Default() *Registry {
-	return NewRegistry(Start{}, Migrate{})
+	return NewRegistry(Start{}, Migrate{}, MakeMigrations{Label: os.Getenv(EnvName)}, SQLMigrate{}, CreateSuperadmin{})
 }
 
 func (r *Registry) Add(commands ...Command) {
@@ -55,5 +55,5 @@ func (r *Registry) Run(ctx Context, name string) error {
 }
 
 func Dispatch(a Application) error {
-	return Default().Run(Context{App: a, Out: os.Stdout}, Requested())
+	return Default().Run(Context{App: a, Out: os.Stdout, In: os.Stdin}, Requested())
 }

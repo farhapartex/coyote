@@ -79,10 +79,6 @@ func NewFrom(s Settings) *App {
 		Settings: s,
 		Logger:   logger,
 		Sessions: sessions,
-		Auth: auth.NewService(s.Auth.UserStore, sessions, auth.Options{
-			Hasher:            auth.Hasher{Iterations: s.Auth.PBKDF2Iterations},
-			MinPasswordLength: s.Auth.PasswordMinLength,
-		}),
 		Templates: template.New(template.Options{
 			FS:     templateFS(s),
 			Layout: s.Templates.Layout,
@@ -94,6 +90,11 @@ func NewFrom(s Settings) *App {
 		sessions: store,
 		models:   defaultModels(),
 	}
+
+	a.Auth = auth.NewService(userStore(s, a), sessions, auth.Options{
+		Hasher:            auth.Hasher{Iterations: s.Auth.PBKDF2Iterations},
+		MinPasswordLength: s.Auth.PasswordMinLength,
+	})
 
 	a.global = []Middleware{
 		middleware.Recoverer(a.Logger),

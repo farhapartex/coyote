@@ -1,79 +1,141 @@
 package migrate
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"time"
 
-	"github.com/farhapartex/coyote/core/model"
+	"github.com/farhapartex/coyote/contrib/migrate/dialect"
+	"github.com/farhapartex/coyote/core/settings"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
+var ErrChecksumMismatch = errors.New("coyote/migrate: a migration changed after it was applied")
+
 type Runner struct {
-	handle *gorm.DB
-	models []model.Model
+	handle  *gorm.DB
+	ledger  *Ledger
+	dialect dialect.Dialect
+	pool    []Migration
 }
 
-func New(handle *gorm.DB, models []model.Model) *Runner {
-	return &Runner{handle: quiet(handle), models: models}
-}
-
-func quiet(handle *gorm.DB) *gorm.DB {
-	if handle == nil {
-		return nil
+func NewRunner(handle *gorm.DB, engine settings.Engine, migrations []Migration) *Runner {
+	quiet := handle
+	if handle != nil {
+		quiet = handle.Session(&gorm.Session{Logger: logger.Discard})
 	}
-	return handle.Session(&gorm.Session{Logger: logger.Discard})
-}
-
-func (r *Runner) Models() []model.Model { return r.models }
-
-func (r *Runner) Plan() (Report, error) {
-	inspect := inspector{handle: r.handle}
-	var report Report
-	for _, m := range r.models {
-		change, err := inspect.change(m)
-		if err != nil {
-			return Report{}, err
-		}
-		if !change.Empty() {
-			report.Changes = append(report.Changes, change)
-		}
+	return &Runner{
+		handle:  quiet,
+		ledger:  NewLedger(quiet),
+		dialect: dialect.For(engine),
+		pool:    migrations,
 	}
-	return report, nil
 }
 
-func (r *Runner) ApplyChange(change TableChange) error {
-	target, err := r.modelFor(inspector{handle: r.handle}, change.Table)
+func (r *Runner) Dialect() dialect.Dialect { return r.dialect }
+
+func (r *Runner) Prepare(ctx context.Context) error { return r.ledger.Ensure(ctx) }
+
+func (r *Runner) Applied(ctx context.Context) ([]Applied, error) { return r.ledger.Applied(ctx) }
+
+type State struct {
+	LedgerExists bool
+	Applied      int
+	Pending      []Migration
+	Declared     int
+}
+
+func (s State) FreshDatabase() bool { return !s.LedgerExists || s.Applied == 0 }
+
+func (r *Runner) State(ctx context.Context) (State, error) {
+	state := State{Declared: len(r.pool)}
+	if !r.ledger.Exists(ctx) {
+		state.Pending = append([]Migration{}, r.pool...)
+		return state, nil
+	}
+	state.LedgerExists = true
+
+	applied, err := r.ledger.Applied(ctx)
 	if err != nil {
-		return err
+		return state, err
 	}
-	if err := r.handle.AutoMigrate(target.Entity); err != nil {
-		return fmt.Errorf("coyote/migrate: %s: %w", change.Table, err)
+	state.Applied = len(applied)
+
+	recorded := make(map[string]bool, len(applied))
+	for _, record := range applied {
+		recorded[record.ID] = true
+	}
+	for _, m := range r.pool {
+		if !recorded[m.ID] {
+			state.Pending = append(state.Pending, m)
+		}
+	}
+	return state, nil
+}
+
+func (r *Runner) Pending(ctx context.Context) ([]Migration, error) {
+	applied, err := r.ledger.Applied(ctx)
+	if err != nil {
+		return nil, err
+	}
+	recorded := make(map[string]Applied, len(applied))
+	for _, record := range applied {
+		recorded[record.ID] = record
+	}
+
+	pending := make([]Migration, 0, len(r.pool))
+	for _, m := range r.pool {
+		record, ok := recorded[m.ID]
+		if !ok {
+			pending = append(pending, m)
+			continue
+		}
+		if record.Checksum != "" && record.Checksum != m.Checksum() {
+			return nil, fmt.Errorf("%w: %s was applied as %s but is now %s",
+				ErrChecksumMismatch, m.ID, record.Checksum, m.Checksum())
+		}
+	}
+	return pending, nil
+}
+
+func (r *Runner) Statements(m Migration) []string {
+	out := make([]string, 0, len(m.Up))
+	for _, op := range m.Up {
+		if renderable, ok := op.(Statementer); ok {
+			out = append(out, renderable.Statements(r.dialect)...)
+			continue
+		}
+		out = append(out, "-- "+op.Describe())
+	}
+	return out
+}
+
+func (r *Runner) Apply(ctx context.Context, m Migration) error {
+	started := time.Now()
+	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, op := range m.Up {
+			if err := r.applyOp(ctx, tx, op); err != nil {
+				return fmt.Errorf("%s: %s: %w", m.ID, op.Describe(), err)
+			}
+		}
+		return r.ledger.Record(ctx, tx, m, time.Since(started))
+	})
+}
+
+func (r *Runner) applyOp(ctx context.Context, tx *gorm.DB, op Op) error {
+	if runnable, ok := op.(Executor); ok {
+		return runnable.Exec(ctx, tx)
+	}
+	renderable, ok := op.(Statementer)
+	if !ok {
+		return fmt.Errorf("operation cannot be executed")
+	}
+	for _, statement := range renderable.Statements(r.dialect) {
+		if err := tx.WithContext(ctx).Exec(statement).Error; err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-func (r *Runner) Apply() (Report, error) {
-	report, err := r.Plan()
-	if err != nil {
-		return Report{}, err
-	}
-	for _, change := range report.Changes {
-		if err := r.ApplyChange(change); err != nil {
-			return report, err
-		}
-	}
-	return report, nil
-}
-
-func (r *Runner) modelFor(inspect inspector, table string) (model.Model, error) {
-	for _, m := range r.models {
-		name, err := inspect.tableName(m)
-		if err != nil {
-			return model.Model{}, err
-		}
-		if name == table {
-			return m, nil
-		}
-	}
-	return model.Model{}, fmt.Errorf("coyote/migrate: no model for table %s", table)
 }

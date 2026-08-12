@@ -11,6 +11,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/farhapartex/coyote/contrib/migrate"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/session"
@@ -65,7 +66,20 @@ func prodSettings(fns ...func(*settings.Settings)) []func(*settings.Settings) {
 
 func newTestApp(t *testing.T, fns ...func(*settings.Settings)) *app.App {
 	t.Helper()
-	return app.NewFrom(devSettings(t, fns...))
+	a := app.NewFrom(devSettings(t, fns...))
+	syncSchema(t, a)
+	return a
+}
+
+func syncSchema(t *testing.T, a *app.App) {
+	t.Helper()
+	handle, err := a.DB()
+	if err != nil {
+		t.Fatalf("opening database: %v", err)
+	}
+	if err := migrate.Sync(handle, a.Models()); err != nil {
+		t.Fatalf("syncing schema: %v", err)
+	}
 }
 
 func newTestManager() *session.Manager {

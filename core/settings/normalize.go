@@ -24,6 +24,13 @@ func (s *Settings) normalize() {
 		s.BaseDir = abs
 	}
 
+	if s.Migrations.Dir == "" {
+		s.Migrations.Dir = "migrations"
+	}
+	if !filepath.IsAbs(s.Migrations.Dir) {
+		s.Migrations.Dir = filepath.Join(s.BaseDir, s.Migrations.Dir)
+	}
+
 	for i := range s.Databases {
 		db := &s.Databases[i]
 		if db.Alias == "" {

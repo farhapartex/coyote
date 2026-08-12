@@ -9,9 +9,9 @@ without one. It ships with settings, sessions, authentication, HTML template ren
 working admin portal.
 
 Authentication state lives in the session; everything else is persisted, with a SQLite database
-configured out of the box. `go tool coyote migrate` builds the schema from your entities. The
-`auth.Store` and `session.Store` implementations are still the in-memory ones — wiring them onto
-GORM is the next step.
+configured out of the box. Users are stored in the database, so an account created with
+`createsuperadmin` in one process is there for the server in another. Sessions are still held in
+memory, which means a restart signs everyone out.
 
 ## Install
 
@@ -100,6 +100,56 @@ are seeded:
 | `admin`  | `coyote123` | superadmin |
 | `editor` | `coyote123` | plain user (cannot reach the admin portal) |
 
+## Commands
+
+Coyote ships one management command, registered as a Go tool so it is versioned with your project:
+
+```
+go get -tool github.com/farhapartex/coyote/cmd/coyote
+```
+
+Run it from the directory holding your `main.go` and `settings.go`.
+
+| Command | What it does |
+| --- | --- |
+| `go tool coyote start` | Build and run the project, reporting migration and user state first |
+| `go tool coyote makemigrations` | Diff your models against the snapshot and write a migration file |
+| `go tool coyote migrate` | Apply migrations that have not been applied yet |
+| `go tool coyote sqlmigrate` | Print the SQL a pending migration would run, without applying it |
+| `go tool coyote createsuperadmin` | Create a superadmin who can sign in to the admin portal |
+| `go tool coyote version` | Print the coyote version |
+| `go tool coyote help` | List the commands |
+
+| Flag | Command | Purpose |
+| --- | --- | --- |
+| `--port=N` | `start` | Listen on N instead of the port in `settings.go` |
+| `--host=H` | `start` | Bind to H instead of the host in `settings.go` |
+| `--name=NAME` | `makemigrations` | Name the migration instead of guessing one |
+| `--username=U` | `createsuperadmin` | Skip the username prompt |
+| `--email=E` | `createsuperadmin` | Skip the email prompt |
+| `--password=P` | `createsuperadmin` | Skip the password prompt |
+
+`createsuperadmin` also reads `COYOTE_SUPERADMIN_USERNAME`, `_EMAIL` and `_PASSWORD`, which is the
+safer route in scripts since the prompt echoes what you type.
+
+A new project starts like this:
+
+```
+go tool coyote makemigrations --name=initial
+go tool coyote migrate
+go tool coyote createsuperadmin
+go tool coyote start
+```
+
+`go coyote start` is not possible — the `go` command cannot be extended with new subcommands, and
+`go tool` is the closest supported form. The tool builds and runs the main package in the current
+directory, so your own `settings.go` applies; it passes the subcommand through `COYOTE_COMMAND` and
+any overrides through `COYOTE_PORT` / `COYOTE_HOST`. Your `main.go` needs nothing beyond
+`app.New()` and `Run()` — `Run` dispatches to whichever command was asked for.
+
+Note that `migrate` currently refuses unless the server is already listening on the configured
+address.
+
 ## Layout
 
 Coyote follows MVT. `core/` holds the framework; `contrib/` holds tooling built on top of it;
@@ -153,19 +203,13 @@ Coyote ships a management command, registered as a Go tool so it is versioned wi
 ```
 go get -tool github.com/farhapartex/coyote/cmd/coyote
 
-go tool coyote start                # serve on the port from settings.go
+go tool coyote start                 # serve on the port from settings.go
 go tool coyote start --port=5000     # override it for this run
 go tool coyote migrate               # apply pending schema changes
-go tool coyote help
 ```
 
-`go coyote start` is not possible — the `go` command cannot be extended with new subcommands.
-`go tool` is the closest supported form. The tool builds and runs the main package in the current
-directory, so your `settings.go` is the one that applies; it passes the subcommand through
-`COYOTE_COMMAND` and any overrides through `COYOTE_PORT` / `COYOTE_HOST`. Your `main.go` needs
-nothing beyond `app.New()` and `Run()` — `Run` dispatches to the requested command.
-
-`migrate` refuses to do anything unless the server is already listening on the configured address:
+See [Commands](#commands) for the full list. `migrate` refuses to do anything unless the server is
+already listening on the configured address:
 
 ```
 $ go tool coyote migrate
@@ -189,17 +233,93 @@ Running it again reports `schema is up to date, nothing to apply`.
 
 ### Migrations
 
-Schema comes from your entities through GORM's `AutoMigrate` — there is no hand-written DDL and no
-migration files to keep in sync. `contrib/migrate` adds the part GORM lacks: it inspects the live
-database first, so it can tell you *what* is about to change and report each step.
+Schema changes are versioned. You edit a model, generate a migration, review it, commit it, and
+apply it — and the framework records what ran so nothing runs twice.
 
-```go
-a.RegisterModel(model.Of(Post{}), model.Named("legacy_orders", Order{}))
+```
+edit model  →  makemigrations  →  review + commit  →  migrate
+                    ↑ snapshot.json                     ↓ coyote_migrations
 ```
 
-`auth.User` is registered for you. What is detected today: missing tables, and columns added to an
-existing table. Renames, drops, and type changes are not — GORM's `AutoMigrate` is additive by
-design, and destructive operations should not happen implicitly.
+```
+$ go tool coyote makemigrations --name=add_product_stock
+$ go tool coyote sqlmigrate          # print the SQL without applying it
+$ go tool coyote migrate
+```
+
+`makemigrations` diffs your structs against `migrations/snapshot.json`, not against the live
+database, so it works with nothing connected — on a fresh clone or in CI. It writes a numbered Go
+file and updates the snapshot; commit both together.
+
+```go
+package migrations
+
+// Generated by: go tool coyote makemigrations
+// Edit freely before applying — this file is the source of truth once committed.
+
+import (
+	"github.com/farhapartex/coyote/core/model"
+
+	"github.com/farhapartex/coyote/contrib/migrate"
+)
+
+func init() {
+	migrate.Register(migrate.Migration{
+		ID: "0002_add_product_stock",
+		Up: []migrate.Op{
+			// add column products.stock
+			migrate.AddColumn{Table: "products", Column: {Name: "stock", Kind: model.KindInt}},
+		},
+	})
+}
+```
+
+Migration files are Go, not `.sql`, so one file works on every engine — operations render to
+SQLite, Postgres, or MySQL at apply time. Blank import the package once from your main package so
+the `init` functions run:
+
+```go
+import _ "your/module/migrations"
+```
+
+**Operations:** `CreateTable`, `DropTable`, `AddColumn`, `DropColumn`, `RenameColumn`,
+`CreateIndex`, `DropIndex`, plus two escape hatches:
+
+```go
+migrate.RunSQL{SQLite: "...", Postgres: "...", Note: "why"}
+
+migrate.RunGo{Note: "backfill slugs", Func: func(ctx context.Context, tx *gorm.DB) error {
+	return tx.Table("products").Where("slug = ''").
+		Update("slug", gorm.Expr("lower(name)")).Error
+}}
+```
+
+`RunGo` is the reason migrations are Go files: a data migration can call your own code, and the
+ledger guarantees it runs exactly once.
+
+**Guarantees.** Each migration applies inside a transaction — a failure rolls back the schema
+change *and* the ledger row together, so a half-applied migration cannot be recorded. The ledger
+stores a checksum of every migration, so editing one that already ran is caught rather than
+silently skipped:
+
+```
+coyote/migrate: a migration changed after it was applied: 0002_add_stock
+  was applied as 6f1c… but is now 91ab…
+```
+
+**What is deliberately manual.** The diff generates drops and warns about them; it never guesses a
+rename. If you renamed a column, it emits a drop plus an add and tells you to replace them:
+
+```
+review before applying:
+  ! if products.title became name, replace the drop and add with migrate.RenameColumn to keep the data
+  ! products.stock is NOT NULL without a default; existing rows need a value
+```
+
+That is a deliberate choice — silently destroying a column of data is worse than asking.
+
+For prototyping, `migrate.Sync(handle, models)` runs GORM's `AutoMigrate` directly, with no files
+and no ledger. Convenient in tests; do not point it at production.
 
 ### Tests
 
@@ -296,7 +416,7 @@ panic: coyote/settings: improperly configured:
 | `Auth.LoginURL` | `/admin/login` | Where guards send anonymous visitors |
 | `Auth.PasswordMinLength` | `8` | |
 | `Auth.PBKDF2Iterations` | `600000` | Lower it in tests to keep them fast |
-| `Auth.UserStore` | `MemoryStore` | Any `auth.Store` |
+| `Auth.UserStore` | database-backed | Any `auth.Store`; falls back to memory with no database |
 | `Templates.FS` | none | An `fs.FS`, usually from `go:embed` |
 | `Templates.Dir` | none | A directory path instead of an `fs.FS`; mutually exclusive with `FS` |
 | `Templates.Layout` | `layouts/base.html` | |
@@ -446,6 +566,58 @@ deadline on every request.
 
 Swap `MemoryStore` for your own `session.Store` (`Load`, `Save`, `Delete`) when a database
 arrives.
+
+## First run
+
+A fresh install has no schema and no users. The framework tells you so on startup — a real check
+against the ledger, not a first-boot flag:
+
+```
+$ go tool coyote start
+WARN  this database has no schema yet and no migrations are declared; run: go tool coyote makemigrations && go tool coyote migrate
+INFO  coyote listening addr=127.0.0.1:8081
+```
+
+Once migrations exist but have not been applied it says so, and once applied it checks whether
+anyone can actually sign in:
+
+```
+WARN  no migrations have been applied to this database; nothing will work until you run: go tool coyote migrate pending=1
+WARN  migrations are pending; run: go tool coyote migrate pending=1 applied=2
+WARN  there are no users yet, so nobody can sign in; run: go tool coyote createsuperadmin
+INFO  migrations up to date applied=3
+```
+
+The server still starts in every case — an unreachable database downgrades to a warning rather
+than refusing to boot.
+
+So the bootstrap sequence for a new project is:
+
+```
+go tool coyote makemigrations --name=initial
+go tool coyote migrate
+go tool coyote createsuperadmin
+go tool coyote start
+```
+
+### createsuperadmin
+
+```
+go tool coyote createsuperadmin
+go tool coyote createsuperadmin --username=root --email=root@site.com --password=secret
+COYOTE_SUPERADMIN_PASSWORD=secret go tool coyote createsuperadmin --username=root
+```
+
+Flags win, then the `COYOTE_SUPERADMIN_*` environment variables, then an interactive prompt for
+whatever is still missing. The password is **echoed** while you type — use the environment variable
+form in scripts and shared terminals. The command refuses to run before the `users` table exists:
+
+```
+coyote/cli: the users table does not exist yet; run: go tool coyote makemigrations && go tool coyote migrate
+```
+
+Users are created through the same service the admin portal uses, so the password is hashed by one
+code path.
 
 ## The user entity
 
@@ -671,8 +843,6 @@ go test -race ./tests/
 
 ## Not here yet
 
-The `auth.Store` and `session.Store` implementations are still in-memory, so migrated tables are
-not yet read or written by the running app — that wiring is next. `SecretKey` is validated and
-surfaced but unused, reserved for signed cookies and tokens. Also missing: a form/validation layer,
-destructive migration handling, Postgres and MySQL drivers, a static asset pipeline, and project
-scaffolding.
+`session.Store` is still in-memory, so restarting the server signs everyone out. `SecretKey` is
+validated and surfaced but unused, reserved for signed cookies and tokens. Also missing: a
+form/validation layer, down migrations, and project scaffolding.

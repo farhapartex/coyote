@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/farhapartex/coyote/contrib/cli"
+	"github.com/farhapartex/coyote/contrib/migrate"
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/settings"
@@ -22,6 +23,7 @@ type fakeApp struct {
 	handle   *gorm.DB
 	dbErr    error
 	serveErr error
+	auth     *auth.Service
 }
 
 func (f *fakeApp) Serve() error {
@@ -36,6 +38,14 @@ func (f *fakeApp) Models() []model.Model { return f.models }
 func (f *fakeApp) DB() (*gorm.DB, error) { return f.handle, f.dbErr }
 
 func (f *fakeApp) Log() *slog.Logger { return slog.Default() }
+
+func (f *fakeApp) AuthService() *auth.Service {
+	if f.auth == nil {
+		service, _ := newTestAuth()
+		f.auth = service
+	}
+	return f.auth
+}
 
 func listenOnFreePort(t *testing.T) (string, func()) {
 	t.Helper()
@@ -124,7 +134,7 @@ func TestMigrateRefusesWhenServerIsDown(t *testing.T) {
 	}
 }
 
-func TestMigrateRunsWhenServerIsUp(t *testing.T) {
+func TestMigrateWithNoDeclaredMigrations(t *testing.T) {
 	addr, stop := listenOnFreePort(t)
 	defer stop()
 
@@ -137,21 +147,13 @@ func TestMigrateRunsWhenServerIsUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := out.String()
-	for _, want := range []string{"server", "running on " + addr, "create table users", "ok", "applied 1 change"} {
+	for _, want := range []string{"server", "running on " + addr, "no migrations declared"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("output missing %q:\n%s", want, body)
 		}
 	}
-	if !handle.Migrator().HasTable(&auth.User{}) {
-		t.Error("migrate did not create the users table")
-	}
-
-	out.Reset()
-	if err := cli.Default().Run(cli.Context{App: app, Out: out}, cli.NameMigrate); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "up to date") {
-		t.Errorf("a second run should report up to date:\n%s", out.String())
+	if !handle.Migrator().HasTable(migrate.LedgerTable) {
+		t.Errorf("migrate should create the %s ledger", migrate.LedgerTable)
 	}
 }
 
