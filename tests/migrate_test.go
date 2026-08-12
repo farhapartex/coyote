@@ -1,12 +1,15 @@
 package tests
 
 import (
+	"context"
+	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/farhapartex/coyote/contrib/migrate"
-	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/contrib/migrate/dialect"
 	"github.com/farhapartex/coyote/core/db"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/settings"
@@ -14,13 +17,13 @@ import (
 )
 
 type widget struct {
-	ID    string `gorm:"primaryKey"`
-	Label string
+	ID    string `gorm:"primaryKey;size:64"`
+	Label string `gorm:"not null;size:120"`
 }
 
 type widgetV2 struct {
-	ID       string `gorm:"primaryKey"`
-	Label    string
+	ID       string `gorm:"primaryKey;size:64"`
+	Label    string `gorm:"not null;size:120"`
 	Quantity int
 }
 
@@ -29,9 +32,10 @@ func (widgetV2) TableName() string { return "widgets" }
 func newTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	cfg := settings.Database{
-		Alias:  "default",
-		Engine: settings.SQLite,
-		Name:   filepath.Join(t.TempDir(), "test.db"),
+		Alias:        "default",
+		Engine:       settings.SQLite,
+		Name:         filepath.Join(t.TempDir(), "test.db"),
+		MaxOpenConns: 1,
 	}
 	handle, err := db.Open(cfg, db.Options{})
 	if err != nil {
@@ -41,143 +45,353 @@ func newTestDB(t *testing.T) *gorm.DB {
 	return handle
 }
 
-func TestMigratePlanReportsMissingTable(t *testing.T) {
-	handle := newTestDB(t)
-	runner := migrate.New(handle, []model.Model{model.Of(widget{})})
-
-	report, err := runner.Plan()
+func schemaFor(t *testing.T, handle *gorm.DB, entity any) *model.Schema {
+	t.Helper()
+	schema, err := model.Describe(handle, entity)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Empty() {
-		t.Fatal("a fresh database should have pending changes")
+	return schema
+}
+
+func TestDiffCreatesMissingTable(t *testing.T) {
+	handle := newTestDB(t)
+	desired := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widget{})})
+
+	change := migrate.Diff(migrate.Snapshot{}, desired)
+	if change.Empty() {
+		t.Fatal("a fresh snapshot should produce changes")
 	}
-	if len(report.Changes) != 1 {
-		t.Fatalf("expected 1 change, got %d", len(report.Changes))
+	created, ok := change.Ops[0].(migrate.CreateTable)
+	if !ok {
+		t.Fatalf("first op = %T, want CreateTable", change.Ops[0])
 	}
-	change := report.Changes[0]
-	if change.Table != "widgets" {
-		t.Errorf("table = %q, want widgets (gorm naming)", change.Table)
+	if created.Table.Name != "widgets" {
+		t.Errorf("table = %q", created.Table.Name)
 	}
-	if !change.Created {
-		t.Error("change should be a table creation")
-	}
-	if !strings.Contains(change.String(), "create table widgets") {
-		t.Errorf("unexpected description: %q", change.String())
+	if !strings.Contains(change.Ops[0].Describe(), "create table widgets") {
+		t.Errorf("describe = %q", change.Ops[0].Describe())
 	}
 }
 
-func TestMigrateAppliesAndIsIdempotent(t *testing.T) {
+func TestDiffIsEmptyWhenSnapshotMatches(t *testing.T) {
 	handle := newTestDB(t)
-	runner := migrate.New(handle, []model.Model{model.Of(widget{})})
-
-	report, err := runner.Apply()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(report.Changes) != 1 {
-		t.Fatalf("expected 1 applied change, got %d", len(report.Changes))
-	}
-	if !handle.Migrator().HasTable(&widget{}) {
-		t.Fatal("table was not created")
-	}
-
-	again, err := runner.Plan()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !again.Empty() {
-		t.Errorf("second plan should be empty, got %v", again.Tables())
-	}
-
-	third, err := runner.Apply()
-	if err != nil {
-		t.Fatalf("re-applying should be a no-op: %v", err)
-	}
-	if !third.Empty() {
-		t.Error("re-applying should report no changes")
+	desired := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widget{})})
+	if change := migrate.Diff(desired, desired); !change.Empty() {
+		t.Errorf("expected no changes, got %d", len(change.Ops))
 	}
 }
 
-func TestMigrateDetectsNewColumn(t *testing.T) {
+func TestDiffDetectsAddedColumn(t *testing.T) {
 	handle := newTestDB(t)
+	before := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widget{})})
+	after := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetV2{})})
 
-	first := migrate.New(handle, []model.Model{model.Of(widget{})})
-	if _, err := first.Apply(); err != nil {
-		t.Fatal(err)
+	change := migrate.Diff(before, after)
+	if len(change.Ops) != 1 {
+		t.Fatalf("ops = %d, want 1", len(change.Ops))
 	}
-
-	second := migrate.New(handle, []model.Model{model.Of(widgetV2{})})
-	report, err := second.Plan()
-	if err != nil {
-		t.Fatal(err)
+	added, ok := change.Ops[0].(migrate.AddColumn)
+	if !ok {
+		t.Fatalf("op = %T, want AddColumn", change.Ops[0])
 	}
-	if report.Empty() {
-		t.Fatal("adding a field should produce a pending change")
-	}
-	change := report.Changes[0]
-	if change.Created {
-		t.Error("table already exists, so this is an alteration")
-	}
-	if len(change.AddedColumns) != 1 || change.AddedColumns[0] != "quantity" {
-		t.Errorf("added columns = %v, want [quantity]", change.AddedColumns)
-	}
-
-	if _, err := second.Apply(); err != nil {
-		t.Fatal(err)
-	}
-	if !handle.Migrator().HasColumn(&widgetV2{}, "quantity") {
-		t.Error("column was not added")
+	if added.Table != "widgets" || added.Column.Name != "quantity" {
+		t.Errorf("unexpected op: %+v", added)
 	}
 }
 
-func TestMigrateCreatesUserTableFromEntity(t *testing.T) {
-	handle := newTestDB(t)
-	runner := migrate.New(handle, []model.Model{model.Of(auth.User{})})
+func TestDiffWarnsAboutPossibleRenameAndDrops(t *testing.T) {
+	before := migrate.Snapshot{Tables: []migrate.Table{{
+		Name: "widgets",
+		Columns: []migrate.Column{
+			{Name: "id", Kind: migrate.KindString, PrimaryKey: true},
+			{Name: "title", Kind: migrate.KindString},
+		},
+	}}}
+	after := migrate.Snapshot{Tables: []migrate.Table{{
+		Name: "widgets",
+		Columns: []migrate.Column{
+			{Name: "id", Kind: migrate.KindString, PrimaryKey: true},
+			{Name: "name", Kind: migrate.KindString},
+		},
+	}}}
 
-	if _, err := runner.Apply(); err != nil {
+	change := migrate.Diff(before, after)
+	joined := strings.Join(change.Warnings, " ")
+	if !strings.Contains(joined, "RenameColumn") {
+		t.Errorf("expected a rename hint, got %v", change.Warnings)
+	}
+
+	dropped := migrate.Diff(before, migrate.Snapshot{})
+	if len(dropped.Ops) != 1 {
+		t.Fatalf("ops = %d, want 1", len(dropped.Ops))
+	}
+	if _, ok := dropped.Ops[0].(migrate.DropTable); !ok {
+		t.Errorf("op = %T, want DropTable", dropped.Ops[0])
+	}
+	if !strings.Contains(strings.Join(dropped.Warnings, " "), "destroy its data") {
+		t.Error("dropping a table should warn about data loss")
+	}
+}
+
+func TestGeneratedFileIsValidGoAndCarriesComments(t *testing.T) {
+	handle := newTestDB(t)
+	dir := t.TempDir()
+	desired := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widget{})})
+
+	generated, err := migrate.Generate(dir, "create widgets", migrate.Diff(migrate.Snapshot{}, desired))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if !handle.Migrator().HasTable(&auth.User{}) {
-		t.Fatal("users table was not created")
+	if filepath.Base(generated.Path) != "0001_create_widgets.go" {
+		t.Errorf("path = %q", generated.Path)
 	}
 
-	for _, column := range []string{
-		"id", "first_name", "last_name", "email", "username", "password",
-		"is_active", "is_superadmin", "last_login_at", "created_at", "updated_at",
+	raw, err := os.ReadFile(generated.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+	for _, want := range []string{
+		"package migrations",
+		"// Generated by: go tool coyote makemigrations",
+		"migrate.Register(migrate.Migration{",
+		`ID: "0001_create_widgets"`,
+		"// create table widgets",
+		"migrate.CreateTable{",
+		"model.KindString",
 	} {
-		if !handle.Migrator().HasColumn(&auth.User{}, column) {
-			t.Errorf("missing column %q", column)
+		if !strings.Contains(source, want) {
+			t.Errorf("generated file missing %q:\n%s", want, source)
 		}
 	}
-	if !handle.Migrator().HasIndex(&auth.User{}, "Username") {
-		t.Error("expected the unique index on username")
+
+	next, err := migrate.NextSequence(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next != 2 {
+		t.Errorf("next sequence = %d, want 2", next)
 	}
 }
 
-func TestModelRegistry(t *testing.T) {
-	registry := model.NewRegistry(model.Of(widget{}))
-	if registry.Len() != 1 {
-		t.Fatalf("Len = %d", registry.Len())
+func TestSnapshotRoundTrip(t *testing.T) {
+	handle := newTestDB(t)
+	dir := t.TempDir()
+	desired := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widget{})})
+
+	if err := migrate.SaveSnapshot(dir, desired); err != nil {
+		t.Fatal(err)
 	}
-	registry.Add(model.Named("things", widgetV2{}))
-	if registry.Len() != 2 {
-		t.Fatalf("Len = %d", registry.Len())
+	loaded, err := migrate.LoadSnapshot(dir)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := registry.All()[1].Table; got != "things" {
-		t.Errorf("table override = %q", got)
+	if len(loaded.Tables) != 1 || loaded.Tables[0].Name != "widgets" {
+		t.Fatalf("loaded = %+v", loaded)
 	}
-	if len(registry.Entities()) != 2 {
-		t.Error("Entities should mirror the models")
+	if change := migrate.Diff(loaded, desired); !change.Empty() {
+		t.Errorf("a round tripped snapshot should diff clean, got %d ops", len(change.Ops))
+	}
+
+	missing, err := migrate.LoadSnapshot(t.TempDir())
+	if err != nil {
+		t.Errorf("a missing snapshot should not be an error: %v", err)
+	}
+	if len(missing.Tables) != 0 {
+		t.Error("a missing snapshot should be empty")
 	}
 }
 
-func TestDBRejectsUnsupportedEngine(t *testing.T) {
-	_, err := db.Open(settings.Database{Alias: "x", Engine: settings.Postgres, Name: "db", Host: "h", Port: 5432}, db.Options{})
-	if err == nil {
-		t.Fatal("expected an error for an engine with no bundled driver")
+func TestRunnerAppliesAndRecordsOnce(t *testing.T) {
+	handle := newTestDB(t)
+	ctx := context.Background()
+	schema := schemaFor(t, handle, widget{})
+	change := migrate.Diff(migrate.Snapshot{}, migrate.SnapshotOf([]*model.Schema{schema}))
+
+	first := migrate.Migration{ID: "0001_create_widgets", Up: change.Ops}
+	runner := migrate.NewRunner(handle, settings.SQLite, []migrate.Migration{first})
+
+	if err := runner.Prepare(ctx); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(err.Error(), "unsupported engine") {
-		t.Errorf("error = %v", err)
+	pending, err := runner.Pending(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("pending = %d, want 1", len(pending))
+	}
+	if err := runner.Apply(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	if !handle.Migrator().HasTable("widgets") {
+		t.Error("table was not created")
+	}
+
+	pending, err = runner.Pending(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 0 {
+		t.Errorf("pending after apply = %d, want 0", len(pending))
+	}
+
+	applied, err := runner.Applied(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(applied) != 1 || applied[0].ID != "0001_create_widgets" {
+		t.Fatalf("ledger = %+v", applied)
+	}
+	if applied[0].Checksum == "" {
+		t.Error("the ledger should record a checksum")
+	}
+}
+
+func TestRunnerRejectsEditedMigration(t *testing.T) {
+	handle := newTestDB(t)
+	ctx := context.Background()
+	schema := schemaFor(t, handle, widget{})
+	ops := migrate.Diff(migrate.Snapshot{}, migrate.SnapshotOf([]*model.Schema{schema})).Ops
+
+	original := migrate.Migration{ID: "0001_create_widgets", Up: ops}
+	runner := migrate.NewRunner(handle, settings.SQLite, []migrate.Migration{original})
+	if err := runner.Prepare(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Apply(ctx, original); err != nil {
+		t.Fatal(err)
+	}
+
+	edited := migrate.Migration{ID: "0001_create_widgets", Up: append(ops,
+		migrate.AddColumn{Table: "widgets", Column: migrate.Column{Name: "sneaky", Kind: migrate.KindString}})}
+	tampered := migrate.NewRunner(handle, settings.SQLite, []migrate.Migration{edited})
+
+	if _, err := tampered.Pending(ctx); !errors.Is(err, migrate.ErrChecksumMismatch) {
+		t.Errorf("got %v, want ErrChecksumMismatch", err)
+	}
+}
+
+func TestRunnerRollsBackAFailedMigration(t *testing.T) {
+	handle := newTestDB(t)
+	ctx := context.Background()
+
+	broken := migrate.Migration{ID: "0001_broken", Up: []migrate.Op{
+		migrate.CreateTable{Table: migrate.Table{
+			Name:    "good",
+			Columns: []migrate.Column{{Name: "id", Kind: migrate.KindString, PrimaryKey: true}},
+		}},
+		migrate.RunSQL{Any: "THIS IS NOT SQL"},
+	}}
+	runner := migrate.NewRunner(handle, settings.SQLite, []migrate.Migration{broken})
+	if err := runner.Prepare(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Apply(ctx, broken); err == nil {
+		t.Fatal("expected the migration to fail")
+	}
+	if handle.Migrator().HasTable("good") {
+		t.Error("a failed migration must roll back the whole transaction")
+	}
+	applied, _ := runner.Applied(ctx)
+	if len(applied) != 0 {
+		t.Error("a failed migration must not be recorded")
+	}
+}
+
+func TestDataMigrationRunsGoCode(t *testing.T) {
+	handle := newTestDB(t)
+	ctx := context.Background()
+	schema := schemaFor(t, handle, widget{})
+	create := migrate.Diff(migrate.Snapshot{}, migrate.SnapshotOf([]*model.Schema{schema})).Ops
+
+	backfilled := false
+	migrations := []migrate.Migration{
+		{ID: "0001_create_widgets", Up: create},
+		{ID: "0002_backfill", Note: "seed a widget", Up: []migrate.Op{
+			migrate.RunGo{Note: "seed", Func: func(ctx context.Context, tx *gorm.DB) error {
+				backfilled = true
+				return tx.Table("widgets").Create(map[string]any{"id": "w1", "label": "Seeded"}).Error
+			}},
+		}},
+	}
+
+	runner := migrate.NewRunner(handle, settings.SQLite, migrations)
+	if err := runner.Prepare(ctx); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := runner.Pending(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range pending {
+		if err := runner.Apply(ctx, m); err != nil {
+			t.Fatalf("%s: %v", m.ID, err)
+		}
+	}
+	if !backfilled {
+		t.Error("the data migration did not run")
+	}
+
+	var count int64
+	handle.Table("widgets").Count(&count)
+	if count != 1 {
+		t.Errorf("rows = %d, want 1", count)
+	}
+
+	pending, _ = runner.Pending(ctx)
+	if len(pending) != 0 {
+		t.Error("a data migration must not run twice")
+	}
+}
+
+func TestSQLRenderingPerDialect(t *testing.T) {
+	table := migrate.Table{
+		Name: "widgets",
+		Columns: []migrate.Column{
+			{Name: "id", Kind: migrate.KindString, Size: 64, PrimaryKey: true, NotNull: true},
+			{Name: "label", Kind: migrate.KindString, Size: 120, NotNull: true},
+			{Name: "price", Kind: migrate.KindFloat},
+			{Name: "made_at", Kind: migrate.KindTime},
+		},
+	}
+	op := migrate.CreateTable{Table: table}
+
+	for _, c := range []struct {
+		engine settings.Engine
+		want   []string
+	}{
+		{settings.SQLite, []string{`"widgets"`, "TEXT", "REAL", "DATETIME"}},
+		{settings.Postgres, []string{`"widgets"`, "VARCHAR(64)", "DOUBLE PRECISION", "TIMESTAMPTZ"}},
+		{settings.MySQL, []string{"`widgets`", "VARCHAR(120)", "DOUBLE", "DATETIME"}},
+	} {
+		statements := op.Statements(dialect.For(c.engine))
+		joined := strings.Join(statements, "\n")
+		for _, want := range c.want {
+			if !strings.Contains(joined, want) {
+				t.Errorf("%s SQL missing %q:\n%s", c.engine, want, joined)
+			}
+		}
+	}
+}
+
+func TestRegistryOrdersAndRejectsDuplicates(t *testing.T) {
+	registry := migrate.NewRegistry()
+	if err := registry.Add(
+		migrate.Migration{ID: "0002_second"},
+		migrate.Migration{ID: "0001_first"},
+	); err != nil {
+		t.Fatal(err)
+	}
+	all := registry.All()
+	if len(all) != 2 || all[0].ID != "0001_first" {
+		t.Fatalf("registry order = %+v", all)
+	}
+	if err := registry.Add(migrate.Migration{ID: "0001_first"}); err == nil {
+		t.Error("duplicate ids should be rejected")
+	}
+	if err := registry.Add(migrate.Migration{}); err == nil {
+		t.Error("a migration without an ID should be rejected")
 	}
 }

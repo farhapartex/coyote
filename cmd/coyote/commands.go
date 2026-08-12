@@ -39,3 +39,45 @@ func migrate(args []string) error {
 	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameMigrate)
 	return invoke(env)
 }
+
+func makeMigrations(args []string) error {
+	fs := flag.NewFlagSet("makemigrations", flag.ContinueOnError)
+	name := fs.String("name", "", "name for the generated migration")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameMakeMigrations)
+	if *name != "" {
+		env = append(env, cli.EnvName+"="+*name)
+	}
+	return invoke(env)
+}
+
+func createSuperadmin(args []string) error {
+	fs := flag.NewFlagSet("createsuperadmin", flag.ContinueOnError)
+	username := fs.String("username", "", "username for the superadmin")
+	email := fs.String("email", "", "email for the superadmin")
+	password := fs.String("password", "", "password for the superadmin")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameCreateSuperadmin)
+	for key, value := range map[string]string{
+		cli.EnvUsername: *username,
+		cli.EnvEmail:    *email,
+		cli.EnvPassword: *password,
+	} {
+		if value != "" {
+			env = append(env, key+"="+value)
+		}
+	}
+	return invoke(env)
+}
+
+func sqlMigrate(args []string) error {
+	fs := flag.NewFlagSet("sqlmigrate", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return invoke(append(os.Environ(), cli.EnvCommand+"="+cli.NameSQLMigrate))
+}

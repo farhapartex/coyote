@@ -1,10 +1,21 @@
 package cli
 
-import "io"
+import (
+	"io"
+	"os"
+)
 
 type Context struct {
 	App Application
 	Out io.Writer
+	In  io.Reader
+}
+
+func (c Context) Input() io.Reader {
+	if c.In == nil {
+		return os.Stdin
+	}
+	return c.In
 }
 
 type Command interface {

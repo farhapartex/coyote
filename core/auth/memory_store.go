@@ -74,14 +74,7 @@ func (m *MemoryStore) Create(u *User) error {
 		}
 	}
 
-	now := time.Now()
-	if u.ID == "" {
-		u.ID = newUserID()
-	}
-	if u.CreatedAt.IsZero() {
-		u.CreatedAt = now
-	}
-	u.UpdatedAt = now
+	Prepare(u)
 
 	m.users[u.ID] = u.Clone()
 	m.byName[name] = u.ID
@@ -113,11 +106,6 @@ func (m *MemoryStore) Update(u *User) error {
 			return ErrEmailExists
 		}
 	}
-	if existing.IsSuperadmin && existing.IsActive &&
-		(!u.IsSuperadmin || !u.IsActive) && m.countSuperadmins() < 2 {
-		return ErrLastSuperadmin
-	}
-
 	delete(m.byName, normalize(existing.Username))
 	delete(m.byEmail, normalize(existing.Email))
 	m.byName[name] = u.ID
@@ -137,9 +125,6 @@ func (m *MemoryStore) Delete(id string) error {
 	u, ok := m.users[id]
 	if !ok {
 		return ErrUserNotFound
-	}
-	if u.IsSuperadmin && u.IsActive && m.countSuperadmins() < 2 {
-		return ErrLastSuperadmin
 	}
 	delete(m.byName, normalize(u.Username))
 	delete(m.byEmail, normalize(u.Email))
@@ -166,12 +151,14 @@ func (m *MemoryStore) Count() int {
 	return len(m.users)
 }
 
-func (m *MemoryStore) countSuperadmins() int {
+func (m *MemoryStore) CountActiveSuperadmins() (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	n := 0
 	for _, u := range m.users {
 		if u.IsSuperadmin && u.IsActive {
 			n++
 		}
 	}
-	return n
+	return n, nil
 }

@@ -3,16 +3,24 @@ package model
 const listColumnLimit = 4
 
 type Field struct {
-	Name       string
-	Column     string
-	Label      string
-	Kind       Kind
-	Size       int
-	Required   bool
-	Nullable   bool
-	PrimaryKey bool
-	Generated  bool
-	Sensitive  bool
+	Name          string
+	Column        string
+	Label         string
+	Kind          Kind
+	Size          int
+	Required      bool
+	Nullable      bool
+	PrimaryKey    bool
+	AutoIncrement bool
+	Generated     bool
+	Sensitive     bool
+	Default       string
+}
+
+type Index struct {
+	Name    string
+	Columns []string
+	Unique  bool
 }
 
 func (f Field) Editable() bool { return !f.Generated && !f.PrimaryKey }
@@ -23,6 +31,7 @@ type Schema struct {
 	Label    string
 	Plural   string
 	Fields   []Field
+	Indexes  []Index
 	Key      Field
 	listOnly []string
 	hidden   map[string]bool

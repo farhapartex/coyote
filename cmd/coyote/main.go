@@ -34,6 +34,12 @@ func run(args []string) error {
 		return start(rest)
 	case cli.NameMigrate:
 		return migrate(rest)
+	case cli.NameMakeMigrations:
+		return makeMigrations(rest)
+	case cli.NameSQLMigrate:
+		return sqlMigrate(rest)
+	case cli.NameCreateSuperadmin:
+		return createSuperadmin(rest)
 	default:
 		fmt.Print(usage)
 		return fmt.Errorf("unknown command %q", command)

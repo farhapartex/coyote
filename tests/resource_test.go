@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/farhapartex/coyote/admin"
-	"github.com/farhapartex/coyote/contrib/migrate"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/repo"
@@ -59,14 +58,7 @@ func migratedApp(t *testing.T, entities ...any) *app.App {
 		models = append(models, model.Of(entity))
 	}
 	a.RegisterModel(models...)
-
-	handle, err := a.DB()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := migrate.New(handle, a.Models()).Apply(); err != nil {
-		t.Fatalf("migrating: %v", err)
-	}
+	syncSchema(t, a)
 	return a
 }
 

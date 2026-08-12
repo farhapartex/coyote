@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "tables": [
+    {
+      "name": "checkouts",
+      "columns": [
+        {
+          "name": "id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "reference",
+          "kind": "string",
+          "size": 64,
+          "notNull": true
+        },
+        {
+          "name": "total",
+          "kind": "float",
+          "size": 64
+        },
+        {
+          "name": "paid_at",
+          "kind": "time"
+        },
+        {
+          "name": "created_at",
+          "kind": "time"
+        },
+        {
+          "name": "updated_at",
+          "kind": "time"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_checkouts_reference",
+          "columns": [
+            "reference"
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "columns": [
+        {
+          "name": "id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "name",
+          "kind": "string",
+          "size": 200,
+          "notNull": true
+        },
+        {
+          "name": "sku",
+          "kind": "string",
+          "size": 64,
+          "notNull": true
+        },
+        {
+          "name": "price",
+          "kind": "float",
+          "size": 64
+        },
+        {
+          "name": "stock",
+          "kind": "int",
+          "size": 64
+        },
+        {
+          "name": "description",
+          "kind": "text",
+          "size": 2000
+        },
+        {
+          "name": "is_published",
+          "kind": "bool"
+        },
+        {
+          "name": "created_at",
+          "kind": "time"
+        },
+        {
+          "name": "updated_at",
+          "kind": "time"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_products_is_published",
+          "columns": [
+            "is_published"
+          ]
+        },
+        {
+          "name": "idx_products_sku",
+          "columns": [
+            "sku"
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "first_name",
+          "kind": "string"
+        },
+        {
+          "name": "last_name",
+          "kind": "string"
+        },
+        {
+          "name": "email",
+          "kind": "string",
+          "size": 320
+        },
+        {
+          "name": "username",
+          "kind": "string",
+          "size": 64,
+          "notNull": true
+        },
+        {
+          "name": "password",
+          "kind": "string",
+          "notNull": true
+        },
+        {
+          "name": "is_active",
+          "kind": "bool",
+          "default": "true"
+        },
+        {
+          "name": "is_superadmin",
+          "kind": "bool"
+        },
+        {
+          "name": "last_login_at",
+          "kind": "time"
+        },
+        {
+          "name": "created_at",
+          "kind": "time"
+        },
+        {
+          "name": "updated_at",
+          "kind": "time"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_users_email",
+          "columns": [
+            "email"
+          ]
+        },
+        {
+          "name": "idx_users_is_active",
+          "columns": [
+            "is_active"
+          ]
+        },
+        {
+          "name": "idx_users_is_superadmin",
+          "columns": [
+            "is_superadmin"
+          ]
+        },
+        {
+          "name": "idx_users_username",
+          "columns": [
+            "username"
+          ],
+          "unique": true
+        }
+      ]
+    }
+  ]
+}

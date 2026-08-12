@@ -17,6 +17,9 @@ func Default() Settings {
 			IdleTimeout:       2 * time.Minute,
 			ShutdownTimeout:   10 * time.Second,
 		},
+		Migrations: Migrations{
+			Dir: "migrations",
+		},
 		Sessions: Sessions{
 			CookieName:      "coyote_session",
 			Lifetime:        12 * time.Hour,

@@ -6,34 +6,15 @@ import (
 
 	"github.com/farhapartex/coyote/admin"
 	"github.com/farhapartex/coyote/core/app"
-	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/session"
 	"github.com/farhapartex/coyote/core/view"
+
+	_ "github.com/farhapartex/coyote/example/migrations"
 )
 
 func main() {
 	application := app.New()
-
-	if _, err := application.Auth.CreateUser(auth.NewUser{
-		Username:     "admin",
-		Email:        "admin@example.com",
-		FirstName:    "Ada",
-		LastName:     "Lovelace",
-		Password:     "coyote123",
-		IsSuperadmin: true,
-	}); err != nil {
-		log.Fatalf("seeding admin user: %v", err)
-	}
-	if _, err := application.Auth.CreateUser(auth.NewUser{
-		Username:  "editor",
-		Email:     "editor@example.com",
-		FirstName: "Grace",
-		LastName:  "Hopper",
-		Password:  "coyote123",
-	}); err != nil {
-		log.Fatalf("seeding editor user: %v", err)
-	}
 
 	application.RegisterModel(model.Of(Product{}), model.Of(Checkout{}))
 

@@ -26,16 +26,21 @@ type Settings struct {
 
 	Databases []Database
 
-	Server    Server
-	Sessions  Sessions
-	Auth      Auth
-	Templates Templates
-	Static    Static
-	Admin     Admin
-	Logging   Logging
+	Server     Server
+	Migrations Migrations
+	Sessions   Sessions
+	Auth       Auth
+	Templates  Templates
+	Static     Static
+	Admin      Admin
+	Logging    Logging
 
 	secretKeyGenerated bool
 	commandOverrides   []string
+}
+
+type Migrations struct {
+	Dir string
 }
 
 type Server struct {

@@ -31,6 +31,7 @@ func NewService(users Store, sessions *session.Manager, opts Options) *Service {
 	if users == nil {
 		users = NewMemoryStore()
 	}
+	users = Guarded(users)
 	if opts.MinPasswordLength < 1 {
 		opts.MinPasswordLength = DefaultMinPasswordLen
 	}
