@@ -387,11 +387,94 @@ panic: coyote/settings: improperly configured:
 `Configure` may only be called once. Call it from `init()` in `settings.go` so it runs before
 `main`, mirroring how Django loads its settings module first.
 
+### Environments
+
+Every project runs in one of three environments, and each carries a preset of sane defaults so you
+are not hand-hardening production settings from scratch:
+
+```go
+settings.Configure(
+	settings.Preset(settings.Env("APP_ENV", "development")),
+	func(s *settings.Settings) {
+		s.SecretKey = settings.Env("SECRET_KEY", "")
+	},
+)
+```
+
+A preset is just a mutator, so it composes with the ones after it — your own overrides always win.
+
+| | development | staging and production |
+| --- | --- | --- |
+| `Debug` | on | off |
+| `Logging` | `debug`, text | `info`, json |
+| `Sessions.Secure` | off | on |
+| `AllowedHosts` | localhost if unset | must be set |
+| Template caching | reload every request | cached |
+| Server timeouts | none | read 15s, write 30s, shutdown 20s |
+
+Names are forgiving — `dev`, `local`, `stage`, `prod` and `live` all resolve — but an unrecognised
+one is a configuration error rather than a silent fallback. Two safety rules are enforced:
+
+```
+coyote/settings: improperly configured: Debug must be off when Environment is production
+coyote/settings: improperly configured: Environment "banana" is not recognised; use "development", "staging" or "production"
+```
+
+`s.IsDevelopment()`, `s.IsStaging()`, `s.IsProduction()` and `s.IsDeployed()` are available to
+application code, and the active environment is logged at startup.
+
+### Loading values from a file
+
+Settings stay in code — that part does not change. What a file can supply is **values**, which your
+`settings.go` then reads through the `Env` helpers. Secrets stay out of source control without
+introducing a second place where configuration is decided.
+
+```go
+func init() {
+	settings.MustLoadDotEnv(".env")
+
+	settings.Configure(settings.Preset(settings.Env("APP_ENV", "development")), func(s *settings.Settings) {
+		s.SecretKey = settings.Env("SECRET_KEY", "")
+		s.Server.Port = settings.EnvInt("PORT", 8000)
+	})
+}
+```
+
+```
+# .env
+APP_ENV=production
+SECRET_KEY="a long random value"
+ALLOWED_HOSTS=example.com, www.example.com
+```
+
+**A real environment variable always wins over the file**, so a container or CI can override
+anything without editing it. With several files, the first to define a key wins. A missing `.env` is
+not an error; use `settings.RequiredDotEnv(path)` when it must exist.
+
+The parser handles comments, blank lines, an optional `export` prefix, single quotes as literals,
+double quotes with `\n` escapes, inline comments, and empty values. A malformed line is reported with
+its line number rather than silently skipped.
+
+Any other format is a matter of implementing one method, which is why no YAML or TOML dependency is
+bundled:
+
+```go
+type Source interface {
+	Name() string
+	Values() (map[string]string, error)
+}
+
+settings.Load(myTOMLSource{path}, settings.DotEnv(".env"))
+```
+
+`settings.Map` is a built-in source, handy in tests.
+
 ### Every setting and its default
 
 | Setting | Default | Notes |
 | --- | --- | --- |
 | `Debug` | `false` | Enables template reload, verbose render errors, relaxed host checks |
+| `Environment` | `development` | `development`, `staging` or `production`; see presets below |
 | `BaseDir` | working directory | Root that relative paths resolve against |
 | `Databases` | one SQLite entry at `<BaseDir>/coyote.db` | First entry is the default connection |
 | `SecretKey` | none | Required. Under `Debug` an ephemeral key is generated with a warning |

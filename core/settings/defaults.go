@@ -5,6 +5,7 @@ import "time"
 func Default() Settings {
 	return Settings{
 		Debug:        false,
+		Environment:  Development,
 		AllowedHosts: nil,
 		BaseDir:      workingDir(),
 		Databases: []Database{

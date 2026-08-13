@@ -20,6 +20,7 @@ const (
 
 type Settings struct {
 	Debug        bool
+	Environment  Profile
 	SecretKey    string
 	AllowedHosts []string
 	BaseDir      string
