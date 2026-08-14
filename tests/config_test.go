@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/lib/dotenv"
 )
 
 func writeFile(t *testing.T, name, contents string) string {
@@ -19,8 +20,8 @@ func writeFile(t *testing.T, name, contents string) string {
 	return path
 }
 
-func TestParseDotEnv(t *testing.T) {
-	values, err := settings.ParseDotEnv(strings.NewReader(`
+func TestDotEnvParse(t *testing.T) {
+	values, err := dotenv.Parse(strings.NewReader(`
 # a comment
 export EXPORTED=yes
 
@@ -63,9 +64,9 @@ DOTTED.KEY=allowed
 	}
 }
 
-func TestParseDotEnvReportsBadLines(t *testing.T) {
+func TestDotEnvParseReportsBadLines(t *testing.T) {
 	for _, bad := range []string{"NOEQUALS\n", "1INVALID=x\n", `UNTERMINATED="oops` + "\n"} {
-		if _, err := settings.ParseDotEnv(strings.NewReader(bad)); err == nil {
+		if _, err := dotenv.Parse(strings.NewReader(bad)); err == nil {
 			t.Errorf("expected an error for %q", bad)
 		} else if !strings.Contains(err.Error(), "line 1") {
 			t.Errorf("error should name the line, got %v", err)

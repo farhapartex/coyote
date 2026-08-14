@@ -6,6 +6,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/session"
 	"github.com/farhapartex/coyote/core/view"
+	"github.com/farhapartex/coyote/lib/text"
 )
 
 type sessionRow struct {
@@ -39,7 +40,7 @@ func (a *Admin) sessionList(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = append(rows, sessionRow{
 			ID:       s.ID(),
-			Short:    truncate(s.ID(), 16),
+			Short:    text.Truncate(s.ID(), 16),
 			Username: username,
 			Created:  s.CreatedAt(),
 			Expires:  s.ExpiresAt(),

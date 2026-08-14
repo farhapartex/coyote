@@ -1,4 +1,4 @@
-package model
+package text
 
 import "strings"
 
@@ -8,24 +8,14 @@ var acronyms = map[string]string{
 	"xml": "XML", "pdf": "PDF", "sms": "SMS", "vat": "VAT", "gst": "GST",
 }
 
-var sensitiveNames = map[string]bool{
-	"password": true,
-	"secret":   true,
-	"token":    true,
-	"api_key":  true,
-}
-
-func Humanise(column string) string {
-	words := strings.Split(column, "_")
+func Humanise(name string) string {
+	words := strings.Split(name, "_")
 	kept := make([]string, 0, len(words))
-	for i, w := range words {
-		if w == "" {
+	for _, word := range words {
+		if word == "" {
 			continue
 		}
-		lower := strings.ToLower(w)
-		if i == len(words)-1 && lower == "at" && len(words) > 1 {
-			continue
-		}
+		lower := strings.ToLower(word)
 		if acronym, ok := acronyms[lower]; ok {
 			kept = append(kept, acronym)
 			continue
@@ -50,9 +40,7 @@ func Titleise(name string) string {
 	return b.String()
 }
 
-func isSensitive(column string) bool {
-	if sensitiveNames[column] {
-		return true
-	}
-	return strings.HasSuffix(column, "_password") || strings.HasSuffix(column, "_secret")
+func Acronym(word string) (string, bool) {
+	acronym, ok := acronyms[strings.ToLower(strings.TrimSpace(word))]
+	return acronym, ok
 }

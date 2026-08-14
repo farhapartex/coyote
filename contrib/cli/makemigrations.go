@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/farhapartex/coyote/contrib/migrate"
+	"github.com/farhapartex/coyote/lib/text"
 )
 
 const NameMakeMigrations = "makemigrations"
@@ -77,7 +78,7 @@ func suggestName(change migrate.Change) string {
 		}
 	}
 	if len(change.Ops) > 0 {
-		return migrate.Slugify(change.Ops[0].Describe())
+		return text.Slugify(change.Ops[0].Describe())
 	}
 	return "auto"
 }

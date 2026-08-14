@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/farhapartex/coyote/lib/text"
 	"gorm.io/gorm"
 )
 
@@ -18,8 +19,8 @@ func Describe(handle *gorm.DB, entity any) (*Schema, error) {
 	out := &Schema{
 		Table:  parsed.Table,
 		Slug:   parsed.Table,
-		Label:  Titleise(parsed.Name),
-		Plural: Humanise(parsed.Table),
+		Label:  text.Titleise(parsed.Name),
+		Plural: text.Humanise(parsed.Table),
 	}
 
 	for _, column := range parsed.DBNames {
@@ -34,7 +35,7 @@ func Describe(handle *gorm.DB, entity any) (*Schema, error) {
 		described := Field{
 			Name:          field.Name,
 			Column:        field.DBName,
-			Label:         Humanise(field.DBName),
+			Label:         text.Humanise(labelFor(field.DBName, kind)),
 			Kind:          kind,
 			Size:          field.Size,
 			Nullable:      nullable || !field.NotNull,
@@ -72,6 +73,13 @@ func Describe(handle *gorm.DB, entity any) (*Schema, error) {
 		return nil, fmt.Errorf("coyote/model: %s has no primary key", out.Table)
 	}
 	return out, nil
+}
+
+func labelFor(column string, kind Kind) string {
+	if kind == KindTime {
+		return strings.TrimSuffix(column, "_at")
+	}
+	return column
 }
 
 func isTimestamp(column string) bool {

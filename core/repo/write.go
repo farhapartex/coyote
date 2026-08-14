@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/farhapartex/coyote/core/id"
 	"github.com/farhapartex/coyote/core/model"
+	"github.com/farhapartex/coyote/lib/id"
 )
 
 func (s *store) Insert(ctx context.Context, schema *model.Schema, record model.Record) (string, error) {

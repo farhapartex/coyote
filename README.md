@@ -156,6 +156,10 @@ Coyote follows MVT. `core/` holds the framework; `contrib/` holds tooling built 
 `admin/`, `cmd/`, `tests/`, and `example/` sit beside them.
 
 ```
+lib/
+  text/         casing, slugs, folding, truncation — no framework dependencies
+  dotenv/       the .env parser, io.Reader in, map out
+  id/           UUID generation
 core/
   app/          the application object: wiring, lifecycle, render entry point
   router/       URL dispatch — groups, method helpers, static, route table
@@ -193,8 +197,12 @@ auth, settings, db  ┘   ↑
 model ──────────────────┴── contrib/cli → contrib/migrate
 ```
 
-Nothing under `core/` imports `admin`, `tests`, or `example`, and only `core/app` imports
-`contrib/cli` — commands reach the application through an interface, never the concrete type.
+Two tests enforce this rather than trusting discipline: one asserts nothing under `lib/` imports a
+local package, the other asserts nothing under `core/` reaches into `contrib`, `admin` or `cmd`.
+
+There is exactly one accepted inversion — `core/app/serve.go` imports `contrib/cli` so `app.Run()`
+can dispatch subcommands. It is listed explicitly in the test, which also fails if the exception
+ever stops being needed.
 
 ### Commands
 
