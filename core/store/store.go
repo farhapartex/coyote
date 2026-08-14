@@ -1,4 +1,4 @@
-package repo
+package store
 
 import (
 	"github.com/farhapartex/coyote/core/model"

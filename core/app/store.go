@@ -2,7 +2,7 @@ package app
 
 import (
 	"github.com/farhapartex/coyote/core/model"
-	"github.com/farhapartex/coyote/core/repo"
+	"github.com/farhapartex/coyote/core/store"
 )
 
 func (a *App) Store() (model.Store, error) {
@@ -10,7 +10,7 @@ func (a *App) Store() (model.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.storeOnce.Do(func() { a.store = repo.New(handle) })
+	a.storeOnce.Do(func() { a.store = store.New(handle) })
 	return a.store, nil
 }
 

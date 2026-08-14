@@ -2,7 +2,7 @@ package app
 
 import (
 	"github.com/farhapartex/coyote/core/auth"
-	"github.com/farhapartex/coyote/core/repo"
+	"github.com/farhapartex/coyote/core/store"
 )
 
 func userStore(s Settings, a *App) auth.Store {
@@ -12,7 +12,7 @@ func userStore(s Settings, a *App) auth.Store {
 	if s.Database().Engine == "" {
 		return auth.NewMemoryStore()
 	}
-	return repo.LazyUsers(a.DB)
+	return store.LazyUsers(a.DB)
 }
 
 func (a *App) AuthService() *auth.Service { return a.Auth }

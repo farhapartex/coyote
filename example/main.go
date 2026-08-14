@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/farhapartex/coyote/admin"
+	"github.com/farhapartex/coyote/contrib/admin"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/session"

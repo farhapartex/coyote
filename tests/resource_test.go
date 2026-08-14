@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/farhapartex/coyote/admin"
+	"github.com/farhapartex/coyote/contrib/admin"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/model"
-	"github.com/farhapartex/coyote/core/repo"
 	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/core/store"
 )
 
 type Product struct {
@@ -148,13 +148,13 @@ func TestListColumnsCapAndOverrides(t *testing.T) {
 func TestStoreCRUDRoundTrip(t *testing.T) {
 	a := migratedApp(t, Product{})
 	schema, _ := a.Describe(Product{})
-	store, err := a.Store()
+	records, err := a.Store()
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
 
-	id, err := store.Insert(ctx, schema, model.Record{
+	id, err := records.Insert(ctx, schema, model.Record{
 		"name": "Desert Boot", "sku": "DB-1", "price": 89.95, "stock": int64(12), "is_published": true,
 	})
 	if err != nil {
@@ -164,7 +164,7 @@ func TestStoreCRUDRoundTrip(t *testing.T) {
 		t.Errorf("expected a generated uuid, got %q", id)
 	}
 
-	found, err := store.Find(ctx, schema, id)
+	found, err := records.Find(ctx, schema, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,10 +175,10 @@ func TestStoreCRUDRoundTrip(t *testing.T) {
 		t.Error("bool did not round trip")
 	}
 
-	if err := store.Update(ctx, schema, id, model.Record{"name": "Desert Boot II", "stock": int64(3)}); err != nil {
+	if err := records.Update(ctx, schema, id, model.Record{"name": "Desert Boot II", "stock": int64(3)}); err != nil {
 		t.Fatal(err)
 	}
-	found, _ = store.Find(ctx, schema, id)
+	found, _ = records.Find(ctx, schema, id)
 	if found.String("name") != "Desert Boot II" {
 		t.Errorf("update did not apply: %+v", found)
 	}
@@ -186,7 +186,7 @@ func TestStoreCRUDRoundTrip(t *testing.T) {
 		t.Error("the key changed on update")
 	}
 
-	page, err := store.List(ctx, schema, model.Query{Limit: 10})
+	page, err := records.List(ctx, schema, model.Query{Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,13 +194,13 @@ func TestStoreCRUDRoundTrip(t *testing.T) {
 		t.Errorf("list = %d records, total %d", len(page.Records), page.Total)
 	}
 
-	if err := store.Delete(ctx, schema, id); err != nil {
+	if err := records.Delete(ctx, schema, id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Find(ctx, schema, id); !errors.Is(err, repo.ErrNotFound) {
+	if _, err := records.Find(ctx, schema, id); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}
-	if err := store.Update(ctx, schema, id, model.Record{"name": "x"}); !errors.Is(err, repo.ErrNotFound) {
+	if err := records.Update(ctx, schema, id, model.Record{"name": "x"}); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("updating a missing record: got %v, want ErrNotFound", err)
 	}
 }
@@ -281,8 +281,8 @@ func TestDynamicCRUDOverHTTP(t *testing.T) {
 	}
 
 	schema, _ := a.Describe(Product{})
-	store, _ := a.Store()
-	page, _ := store.List(context.Background(), schema, model.Query{Limit: 5})
+	records, _ := a.Store()
+	page, _ := records.List(context.Background(), schema, model.Query{Limit: 5})
 	if page.Total != 1 {
 		t.Fatalf("expected 1 row, got %d", page.Total)
 	}
@@ -306,7 +306,7 @@ func TestDynamicCRUDOverHTTP(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update = %d, want 303", rec.Code)
 	}
-	updated, err := store.Find(context.Background(), schema, id)
+	updated, err := records.Find(context.Background(), schema, id)
 	if err != nil {
 		t.Fatalf("the key was changed by a tampered form: %v", err)
 	}
@@ -322,7 +322,7 @@ func TestDynamicCRUDOverHTTP(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("delete = %d, want 303", rec.Code)
 	}
-	if _, err := store.Find(context.Background(), schema, id); !errors.Is(err, repo.ErrNotFound) {
+	if _, err := records.Find(context.Background(), schema, id); !errors.Is(err, store.ErrNotFound) {
 		t.Error("record should be deleted")
 	}
 }
@@ -350,8 +350,8 @@ func TestDynamicFormValidation(t *testing.T) {
 	}
 
 	schema, _ := a.Describe(Product{})
-	store, _ := a.Store()
-	page, _ := store.List(context.Background(), schema, model.Query{Limit: 5})
+	records, _ := a.Store()
+	page, _ := records.List(context.Background(), schema, model.Query{Limit: 5})
 	if page.Total != 0 {
 		t.Errorf("invalid submissions must not persist, found %d rows", page.Total)
 	}
@@ -393,8 +393,8 @@ func TestReadOnlyResourceRejectsWrites(t *testing.T) {
 	}
 
 	schema, _ := a.Describe(Product{})
-	store, _ := a.Store()
-	page, _ := store.List(context.Background(), schema, model.Query{Limit: 5})
+	records, _ := a.Store()
+	page, _ := records.List(context.Background(), schema, model.Query{Limit: 5})
 	if page.Total != 0 {
 		t.Error("a read only resource must not accept writes")
 	}

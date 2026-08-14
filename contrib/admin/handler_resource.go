@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/farhapartex/coyote/core/model"
-	"github.com/farhapartex/coyote/core/repo"
+	"github.com/farhapartex/coyote/core/store"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -19,7 +19,7 @@ type listRow struct {
 
 func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		store, ok := a.storeFor(w, r)
+		records, ok := a.storeFor(w, r)
 		if !ok {
 			return
 		}
@@ -28,7 +28,7 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 		if n, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && n > 1 {
 			page = n
 		}
-		result, err := store.List(r.Context(), entry.schema, model.Query{
+		result, err := records.List(r.Context(), entry.schema, model.Query{
 			Limit:  pageSize,
 			Offset: (page - 1) * pageSize,
 			Order:  entry.order,
@@ -66,7 +66,7 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 
 func (a *Admin) resourceForm(entry managed) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		store, ok := a.storeFor(w, r)
+		records, ok := a.storeFor(w, r)
 		if !ok {
 			return
 		}
@@ -74,7 +74,7 @@ func (a *Admin) resourceForm(entry managed) http.HandlerFunc {
 		id := r.PathValue("id")
 		var record model.Record
 		if id != "" {
-			found, err := store.Find(r.Context(), entry.schema, id)
+			found, err := records.Find(r.Context(), entry.schema, id)
 			if err != nil {
 				a.notFoundOrFail(w, r, err)
 				return
@@ -87,7 +87,7 @@ func (a *Admin) resourceForm(entry managed) http.HandlerFunc {
 
 func (a *Admin) resourceCreate(entry managed) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		store, ok := a.writableStore(w, r, entry)
+		records, ok := a.writableStore(w, r, entry)
 		if !ok {
 			return
 		}
@@ -101,7 +101,7 @@ func (a *Admin) resourceCreate(entry managed) http.HandlerFunc {
 			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", bound.Errors)
 			return
 		}
-		if _, err := store.Insert(r.Context(), entry.schema, bound.Record); err != nil {
+		if _, err := records.Insert(r.Context(), entry.schema, bound.Record); err != nil {
 			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", map[string]string{"": err.Error()})
 			return
 		}
@@ -112,7 +112,7 @@ func (a *Admin) resourceCreate(entry managed) http.HandlerFunc {
 
 func (a *Admin) resourceUpdate(entry managed) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		store, ok := a.writableStore(w, r, entry)
+		records, ok := a.writableStore(w, r, entry)
 		if !ok {
 			return
 		}
@@ -127,8 +127,8 @@ func (a *Admin) resourceUpdate(entry managed) http.HandlerFunc {
 			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, bound.Errors)
 			return
 		}
-		if err := store.Update(r.Context(), entry.schema, id, bound.Record); err != nil {
-			if errors.Is(err, repo.ErrNotFound) {
+		if err := records.Update(r.Context(), entry.schema, id, bound.Record); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
 				a.notFound(w, r)
 				return
 			}
@@ -142,12 +142,12 @@ func (a *Admin) resourceUpdate(entry managed) http.HandlerFunc {
 
 func (a *Admin) resourceDelete(entry managed) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		store, ok := a.writableStore(w, r, entry)
+		records, ok := a.writableStore(w, r, entry)
 		if !ok {
 			return
 		}
-		if err := store.Delete(r.Context(), entry.schema, r.PathValue("id")); err != nil {
-			if errors.Is(err, repo.ErrNotFound) {
+		if err := records.Delete(r.Context(), entry.schema, r.PathValue("id")); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
 				a.notFound(w, r)
 				return
 			}

@@ -5,17 +5,17 @@ import (
 	"net/http"
 
 	"github.com/farhapartex/coyote/core/model"
-	"github.com/farhapartex/coyote/core/repo"
+	"github.com/farhapartex/coyote/core/store"
 	"github.com/farhapartex/coyote/core/view"
 )
 
 func (a *Admin) storeFor(w http.ResponseWriter, r *http.Request) (model.Store, bool) {
-	store, err := a.app.Store()
+	records, err := a.app.Store()
 	if err != nil {
 		a.fail(w, r, err)
 		return nil, false
 	}
-	return store, true
+	return records, true
 }
 
 func (a *Admin) writableStore(w http.ResponseWriter, r *http.Request, entry managed) (model.Store, bool) {
@@ -28,7 +28,7 @@ func (a *Admin) writableStore(w http.ResponseWriter, r *http.Request, entry mana
 }
 
 func (a *Admin) notFoundOrFail(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, repo.ErrNotFound) {
+	if errors.Is(err, store.ErrNotFound) {
 		a.notFound(w, r)
 		return
 	}

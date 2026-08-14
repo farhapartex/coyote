@@ -62,7 +62,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/farhapartex/coyote/admin"
+	"github.com/farhapartex/coyote/contrib/admin"
 	"github.com/farhapartex/coyote/core/app"
 )
 
@@ -165,20 +165,25 @@ core/
   router/       URL dispatch — groups, method helpers, static, route table
   view/         view helpers — template data, redirects, flash messages      (V)
   template/     the html/template engine with layouts and partials          (T)
-  model/        model registry: which entities the schema is built from      (M)
-  auth/         the User entity, its store, passwords, login guards          (M)
+  model/        entity metadata: schema introspection, registry, Store port  (M)
+  store/        the GORM adapters behind model.Store and auth.Store          (M)
+  auth/         the User entity, passwords, login guards                     (M)
   db/           GORM connection, pool tuning, pragmas, slog bridge
   session/      Session, Store interface, MemoryStore, cookie manager
   middleware/   logging, recovery, allowed hosts, secure headers, CSRF
   settings/     the settings type, defaults, validation, env helpers
 contrib/
-  cli/          the management commands (start, migrate) and their registry
-  migrate/      schema planning and application through GORM AutoMigrate
+  admin/        the admin portal — optional, mounted by your app
+  cli/          the management commands and their registry
+  migrate/      migration operations, diffing, generation, the ledger
 cmd/coyote/     the `go tool coyote` front end
-admin/          the built-in admin portal (embedded templates)
 tests/          the whole test suite, one package, black box
 example/        a small site using the framework
 ```
+
+`core` is what the framework needs to exist; `contrib` is what you opt into. Nothing in `core`
+imports `contrib/admin`, which is why the admin portal lives there — you either call
+`admin.Mount(app)` or you never compile it in.
 
 Each package is split one responsibility per file — `core/settings` alone is `settings.go`,
 `defaults.go`, `database.go`, `configure.go`, `normalize.go`, `accessors.go`, `secret.go`, `env.go`,
@@ -906,12 +911,12 @@ func (productResource) HiddenColumns() []string { return []string{"internal_note
 ```
 core/model    Schema, Field, Kind, Describe — introspection from gorm tags
 core/model    Store interface, Record, Query — the data-access contract
-core/repo     the gorm-backed Store implementation
-core/id       UUID generation
-admin         Resource interfaces, registry, generic handlers, two templates
+core/store    the gorm-backed Store implementation
+lib/id        UUID generation
+contrib/admin Resource interfaces, registry, generic handlers, two templates
 ```
 
-The admin depends only on `model.Store`, never on `core/repo`, so a different backend is a matter of
+The admin depends only on `model.Store`, never on `core/store`, so a different backend is a matter of
 supplying another implementation. One list template and one form template serve every resource.
 
 ## Security defaults

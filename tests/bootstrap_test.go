@@ -12,8 +12,8 @@ import (
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/model"
-	"github.com/farhapartex/coyote/core/repo"
 	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/core/store"
 )
 
 func captureLogs(t *testing.T) (*bytes.Buffer, *slog.Logger) {
@@ -57,7 +57,7 @@ func TestUsersLiveInTheDatabase(t *testing.T) {
 
 func TestDatabaseUserStoreBehaviour(t *testing.T) {
 	a := newTestApp(t)
-	store := a.Auth.Users()
+	users := a.Auth.Users()
 
 	created, err := a.Auth.CreateUser(auth.NewUser{
 		Username: "jane", Email: "Jane@Example.com", FirstName: "Jane", Password: "supersecret",
@@ -72,15 +72,15 @@ func TestDatabaseUserStoreBehaviour(t *testing.T) {
 		t.Error("timestamps should be set on create")
 	}
 
-	byName, err := store.ByUsername("JANE")
+	byName, err := users.ByUsername("JANE")
 	if err != nil || byName.ID != created.ID {
 		t.Errorf("case-insensitive username lookup failed: %v", err)
 	}
-	byEmail, err := store.ByEmail("jane@example.com")
+	byEmail, err := users.ByEmail("jane@example.com")
 	if err != nil || byEmail.ID != created.ID {
 		t.Errorf("case-insensitive email lookup failed: %v", err)
 	}
-	if _, err := store.ByID("missing"); !errors.Is(err, auth.ErrUserNotFound) {
+	if _, err := users.ByID("missing"); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Errorf("got %v, want ErrUserNotFound", err)
 	}
 
@@ -98,10 +98,10 @@ func TestDatabaseUserStoreBehaviour(t *testing.T) {
 	}
 
 	created.FirstName = "Janet"
-	if err := store.Update(created); err != nil {
+	if err := users.Update(created); err != nil {
 		t.Fatal(err)
 	}
-	reloaded, _ := store.ByID(created.ID)
+	reloaded, _ := users.ByID(created.ID)
 	if reloaded.FirstName != "Janet" {
 		t.Errorf("update did not persist: %+v", reloaded)
 	}
@@ -109,37 +109,37 @@ func TestDatabaseUserStoreBehaviour(t *testing.T) {
 		t.Error("update must not move CreatedAt")
 	}
 
-	if store.Count() != 3 {
-		t.Errorf("Count = %d, want 3", store.Count())
+	if users.Count() != 3 {
+		t.Errorf("Count = %d, want 3", users.Count())
 	}
-	if len(store.All()) != 3 {
-		t.Errorf("All returned %d users", len(store.All()))
+	if len(users.All()) != 3 {
+		t.Errorf("All returned %d users", len(users.All()))
 	}
 
-	if err := store.Delete(created.ID); err != nil {
+	if err := users.Delete(created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.ByID(created.ID); !errors.Is(err, auth.ErrUserNotFound) {
+	if _, err := users.ByID(created.ID); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Error("user should be deleted")
 	}
-	if err := store.Delete("missing"); !errors.Is(err, auth.ErrUserNotFound) {
+	if err := users.Delete("missing"); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Errorf("got %v, want ErrUserNotFound", err)
 	}
 }
 
 func TestLastSuperadminGuardAppliesToEveryStore(t *testing.T) {
-	for name, store := range map[string]auth.Store{
+	for name, backend := range map[string]auth.Store{
 		"memory":   auth.NewMemoryStore(),
 		"database": nil,
 	} {
 		t.Run(name, func(t *testing.T) {
-			target := store
+			target := backend
 			if target == nil {
 				handle := newTestDB(t)
 				if err := migrate.Sync(handle, []model.Model{model.Of(auth.User{})}); err != nil {
 					t.Fatal(err)
 				}
-				target = repo.Users(handle)
+				target = store.Users(handle)
 			}
 			service := auth.NewService(target, newTestManager(), auth.Options{
 				Hasher: auth.Hasher{Iterations: 1000}, MinPasswordLength: 8,

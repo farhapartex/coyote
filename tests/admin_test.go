@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/farhapartex/coyote/admin"
+	"github.com/farhapartex/coyote/contrib/admin"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/settings"
