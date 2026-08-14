@@ -1036,6 +1036,7 @@ supplying another implementation. One list template and one form template serve 
 - `AllowedHosts` is enforced on every request: an unlisted `Host` header gets a 400.
 - Settings are validated at startup, so an unsafe production config fails before serving traffic.
 - `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` are set on every response.
+- Every request gets an id, returned as `X-Request-Id` and attached to its access log line.
 - Login on an unknown username still runs a hash to even out response timing.
 - `?next=` redirect targets are restricted to same-origin paths.
 - Panics are recovered, logged with a stack trace, and returned as a plain 500.

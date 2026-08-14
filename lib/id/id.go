@@ -2,6 +2,7 @@ package id
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 )
 
@@ -17,6 +18,22 @@ func New() (string, error) {
 
 func MustNew() string {
 	value, err := New()
+	if err != nil {
+		panic(err)
+	}
+	return value
+}
+
+func Short() (string, error) {
+	buf := make([]byte, 6)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("coyote/id: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+func MustShort() string {
+	value, err := Short()
 	if err != nil {
 		panic(err)
 	}

@@ -99,6 +99,7 @@ func NewFrom(s Settings) *App {
 
 	a.global = []Middleware{
 		middleware.Recoverer(a.Logger),
+		requestID(s),
 		middleware.RequestLogger(a.Logger),
 		middleware.AllowedHosts(s.AllowedHosts, s.Debug),
 		middleware.SecureHeaders,

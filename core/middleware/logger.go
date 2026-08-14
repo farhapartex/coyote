@@ -15,13 +15,17 @@ func RequestLogger(logger *slog.Logger) Middleware {
 			if rec.status == 0 {
 				rec.status = http.StatusOK
 			}
-			logger.Info("request",
+			attrs := []any{
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
 				slog.Int("status", rec.status),
 				slog.Int("bytes", rec.bytes),
 				slog.Duration("took", time.Since(start).Round(time.Microsecond)),
-			)
+			}
+			if requestID := RequestIDFrom(r.Context()); requestID != "" {
+				attrs = append(attrs, slog.String("request_id", requestID))
+			}
+			logger.Info("request", attrs...)
 		})
 	}
 }
