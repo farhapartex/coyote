@@ -54,6 +54,7 @@ func (s Settings) validate() error {
 		s.validateTemplates,
 		s.validateStatic,
 		s.validateAdmin,
+		s.validateSecurity,
 		s.validateLogging,
 	} {
 		check(add)

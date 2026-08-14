@@ -99,13 +99,12 @@ func NewFrom(s Settings) *App {
 
 	a.global = []Middleware{
 		middleware.Recoverer(a.Logger),
+		requestID(s),
 		middleware.RequestLogger(a.Logger),
 		middleware.AllowedHosts(s.AllowedHosts, s.Debug),
 		middleware.SecureHeaders,
 	}
-	if s.Server.TLS.HSTS > 0 {
-		a.global = append(a.global, middleware.HSTS(s.Server.TLS.HSTS))
-	}
+	a.global = append(a.global, securityPolicies(s)...)
 	a.global = append(a.global, sessions.Middleware, a.Auth.Middleware)
 
 	if fsys := staticFS(s); fsys != nil {

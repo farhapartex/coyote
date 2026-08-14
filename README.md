@@ -915,6 +915,98 @@ a.Group("/me", a.Auth.RequireLogin(login))
 a.Group("/root", a.Auth.RequireSuperadmin(login))
 ```
 
+## Rate limiting
+
+```go
+s.Security.RateLimit = settings.RateLimit{
+	Requests: 60,
+	Window:   time.Minute,
+	Burst:    100,
+}
+```
+
+A token bucket per client: `Requests` per `Window` is the sustained rate, `Burst` the short-term
+ceiling. Over the limit returns 429 with `Retry-After`, and every response carries `RateLimit-Limit`
+and `RateLimit-Remaining`.
+
+Clients are identified by IP. `X-Forwarded-For` is **ignored unless `TrustProxy` is set**, because
+without a proxy in front, anyone can send that header and mint themselves a fresh budget on every
+request. Set it only when a proxy you control rewrites the header.
+
+For anything other than an IP — an API key, a tenant, an account — supply your own key:
+
+```go
+a.Use(middleware.RateLimitBy(policy, func(r *http.Request) string {
+	return r.Header.Get("X-Api-Key")
+}))
+```
+
+Buckets live in memory and stale ones are swept, so the map does not grow with every unique visitor.
+That also means each process has its own budget: behind several instances the effective limit is
+per instance until a shared backend exists.
+
+## CORS
+
+Off until you list origins. A request with no `Origin` header is left alone entirely.
+
+```go
+s.Security.CORS = settings.CORS{
+	Origins:          []string{"https://app.example.com"},
+	AllowCredentials: true,
+	MaxAge:           10 * time.Minute,
+}
+```
+
+Methods and headers have sensible defaults, preflights are answered with 204, and `Vary` is set on
+`Origin` (plus the request-method and request-header names on preflights) so caches cannot serve one
+origin's response to another.
+
+Two rules are enforced at startup rather than discovered in a browser console:
+
+```
+Security.CORS cannot combine the "*" origin with AllowCredentials; browsers reject that pairing, so list the origins you mean
+Security.CORS origin "app.example.com" needs a scheme, for example https://app.example.com
+```
+
+Note what CORS is not: an unlisted origin still gets its response for a simple `GET`, because the
+*browser* enforces the block, not the server. Preflights are refused outright. If you need the
+server to reject the request itself, that is authentication's job, not CORS's.
+
+## Compression
+
+```go
+s.Security.Compress = true
+s.Security.CompressLevel = 6   // 1-9, or 0 for the default
+```
+
+Gzip is applied only where it helps. Responses are left alone when the client did not ask for it,
+when the body is under 1 KB, when something already set `Content-Encoding`, when the status carries
+no body, and for content types that do not shrink — images, video, audio, zip, PDF. `Vary:
+Accept-Encoding` is always set, including on uncompressed responses, so a cache cannot hand a
+gzipped body to a client that cannot read it. `Content-Length` is dropped once the body is
+compressed, and `Flush` still reaches the client, so streaming responses keep working.
+
+## Content Security Policy
+
+Off by default, because a policy that breaks your pages is worse than none. Turn it on with a policy
+string, or start from the strict default:
+
+```go
+s.Security.CSP = settings.DefaultCSP
+s.Security.CSPReportOnly = true    // observe first, enforce later
+```
+
+`DefaultCSP` allows nothing but your own origin, forbids objects and framing, and carries no
+`unsafe-inline`. Inline styles and scripts are handled with a **nonce** instead: write `{nonce}`
+anywhere in the policy and each response gets a fresh one, reachable in templates as `.Nonce`.
+
+```html
+<style nonce="{{.Nonce}}"> … </style>
+```
+
+The admin portal's own inline stylesheet already carries the nonce, so it keeps working under the
+strict default. `middleware.NonceFrom(r.Context())` gives you the same value in a handler.
+
 ## CSRF
 
 `a.CSRF` rejects unsafe methods without a valid token, read from the `csrf_token` form field
@@ -1036,6 +1128,8 @@ supplying another implementation. One list template and one form template serve 
 - `AllowedHosts` is enforced on every request: an unlisted `Host` header gets a 400.
 - Settings are validated at startup, so an unsafe production config fails before serving traffic.
 - `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` are set on every response.
+- Every request gets an id, returned as `X-Request-Id` and attached to its access log line.
+- A Content Security Policy is available with per-request nonces; off until you set `Security.CSP`.
 - Login on an unknown username still runs a hash to even out response timing.
 - `?next=` redirect targets are restricted to same-origin paths.
 - Panics are recovered, logged with a stack trace, and returned as a plain 500.

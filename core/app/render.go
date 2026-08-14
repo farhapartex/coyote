@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/farhapartex/coyote/core/middleware"
 	"github.com/farhapartex/coyote/core/session"
 )
 
@@ -38,6 +39,7 @@ func (a *App) Context(r *http.Request, data Data) Data {
 	data.SetDefault("CSRFToken", a.Sessions.CSRFToken(r))
 	data.SetDefault("Version", Version)
 	data.SetDefault("Debug", a.Settings.Debug)
+	data.SetDefault("Nonce", middleware.NonceFrom(r.Context()))
 	if sess != nil {
 		data.SetDefault("Flashes", sess.Flashes())
 	}

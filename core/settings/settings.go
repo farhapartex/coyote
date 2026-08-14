@@ -29,6 +29,7 @@ type Settings struct {
 	Databases []Database
 
 	Server     Server
+	Security   Security
 	Migrations Migrations
 	Sessions   Sessions
 	Auth       Auth

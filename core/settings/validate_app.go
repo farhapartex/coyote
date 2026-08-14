@@ -1,6 +1,9 @@
 package settings
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 func (s Settings) validateAuth(add func(string)) {
 	if s.Auth.PasswordMinLength < 6 {
@@ -44,6 +47,67 @@ func (s Settings) validateAdmin(add func(string)) {
 	}
 	if s.Admin.SiteName == "" {
 		add("Admin.SiteName is empty")
+	}
+}
+
+func (s Settings) validateSecurity(add func(string)) {
+	if s.Security.CSPReportOnly && s.Security.CSP == "" {
+		add("Security.CSPReportOnly is set but Security.CSP is empty, so no policy would be reported")
+	}
+
+	cors := s.Security.CORS
+	if cors.AllowsAnyOrigin() && cors.AllowCredentials {
+		add("Security.CORS cannot combine the \"*\" origin with AllowCredentials; " +
+			"browsers reject that pairing, so list the origins you mean")
+	}
+	if cors.AllowsAnyOrigin() && len(cors.Origins) > 1 {
+		add("Security.CORS lists \"*\" alongside other origins; remove the others or drop the wildcard")
+	}
+	for _, origin := range cors.Origins {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed == "" {
+			add("Security.CORS contains an empty origin")
+			continue
+		}
+		if trimmed == "*" {
+			continue
+		}
+		if !strings.HasPrefix(trimmed, "http://") && !strings.HasPrefix(trimmed, "https://") {
+			add("Security.CORS origin " + strconv.Quote(trimmed) + " needs a scheme, for example https://" + trimmed)
+		}
+		if strings.HasSuffix(trimmed, "/") {
+			add("Security.CORS origin " + strconv.Quote(trimmed) + " must not end with a slash")
+		}
+	}
+	if s.Security.CompressLevel != 0 && (s.Security.CompressLevel < 1 || s.Security.CompressLevel > 9) {
+		add("Security.CompressLevel must be between 1 and 9, or 0 for the default")
+	}
+	if s.Security.CompressLevel != 0 && !s.Security.Compress {
+		add("Security.CompressLevel is set but Security.Compress is false")
+	}
+
+	limit := s.Security.RateLimit
+	if limit.Requests < 0 {
+		add("Security.RateLimit.Requests cannot be negative")
+	}
+	if limit.Window < 0 {
+		add("Security.RateLimit.Window cannot be negative")
+	}
+	if limit.Requests > 0 && limit.Window == 0 {
+		add("Security.RateLimit.Requests is set without a Window, so there is no period to limit over")
+	}
+	if limit.Window > 0 && limit.Requests == 0 {
+		add("Security.RateLimit.Window is set without Requests, so nothing would be limited")
+	}
+	if limit.Burst < 0 {
+		add("Security.RateLimit.Burst cannot be negative")
+	}
+	if limit.Burst > 0 && limit.Burst < limit.Requests {
+		add("Security.RateLimit.Burst is smaller than Requests, which would throttle below the rate you asked for")
+	}
+
+	if cors.MaxAge < 0 {
+		add("Security.CORS.MaxAge cannot be negative")
 	}
 }
 
