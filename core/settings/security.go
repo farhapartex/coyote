@@ -2,4 +2,14 @@ package settings
 
 type Security struct {
 	TrustRequestID bool
+	CSP            string
+	CSPReportOnly  bool
 }
+
+const DefaultCSP = "default-src 'self'; " +
+	"script-src 'self' {nonce}; " +
+	"style-src 'self' {nonce}; " +
+	"img-src 'self' data:; " +
+	"object-src 'none'; " +
+	"base-uri 'self'; " +
+	"frame-ancestors 'none'"

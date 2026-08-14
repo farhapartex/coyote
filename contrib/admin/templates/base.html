@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{block "title" .}}Admin{{end}} · {{.SiteName}}</title>
 <link rel="icon" type="image/png" href="{{.Prefix}}/favicon.png">
-<style>
+<style{{with .Nonce}} nonce="{{.}}"{{end}}>
   :root {
     --bg: #f2f6f8;
     --surface: #fff;

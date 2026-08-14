@@ -104,9 +104,7 @@ func NewFrom(s Settings) *App {
 		middleware.AllowedHosts(s.AllowedHosts, s.Debug),
 		middleware.SecureHeaders,
 	}
-	if s.Server.TLS.HSTS > 0 {
-		a.global = append(a.global, middleware.HSTS(s.Server.TLS.HSTS))
-	}
+	a.global = append(a.global, securityPolicies(s)...)
 	a.global = append(a.global, sessions.Middleware, a.Auth.Middleware)
 
 	if fsys := staticFS(s); fsys != nil {

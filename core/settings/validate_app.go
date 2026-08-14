@@ -47,6 +47,12 @@ func (s Settings) validateAdmin(add func(string)) {
 	}
 }
 
+func (s Settings) validateSecurity(add func(string)) {
+	if s.Security.CSPReportOnly && s.Security.CSP == "" {
+		add("Security.CSPReportOnly is set but Security.CSP is empty, so no policy would be reported")
+	}
+}
+
 func (s Settings) validateLogging(add func(string)) {
 	switch strings.ToLower(s.Logging.Level) {
 	case "debug", "info", "warn", "warning", "error":

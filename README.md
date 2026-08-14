@@ -915,6 +915,27 @@ a.Group("/me", a.Auth.RequireLogin(login))
 a.Group("/root", a.Auth.RequireSuperadmin(login))
 ```
 
+## Content Security Policy
+
+Off by default, because a policy that breaks your pages is worse than none. Turn it on with a policy
+string, or start from the strict default:
+
+```go
+s.Security.CSP = settings.DefaultCSP
+s.Security.CSPReportOnly = true    // observe first, enforce later
+```
+
+`DefaultCSP` allows nothing but your own origin, forbids objects and framing, and carries no
+`unsafe-inline`. Inline styles and scripts are handled with a **nonce** instead: write `{nonce}`
+anywhere in the policy and each response gets a fresh one, reachable in templates as `.Nonce`.
+
+```html
+<style nonce="{{.Nonce}}"> … </style>
+```
+
+The admin portal's own inline stylesheet already carries the nonce, so it keeps working under the
+strict default. `middleware.NonceFrom(r.Context())` gives you the same value in a handler.
+
 ## CSRF
 
 `a.CSRF` rejects unsafe methods without a valid token, read from the `csrf_token` form field
@@ -1037,6 +1058,7 @@ supplying another implementation. One list template and one form template serve 
 - Settings are validated at startup, so an unsafe production config fails before serving traffic.
 - `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` are set on every response.
 - Every request gets an id, returned as `X-Request-Id` and attached to its access log line.
+- A Content Security Policy is available with per-request nonces; off until you set `Security.CSP`.
 - Login on an unknown username still runs a hash to even out response timing.
 - `?next=` redirect targets are restricted to same-origin paths.
 - Panics are recovered, logged with a stack trace, and returned as a plain 500.
