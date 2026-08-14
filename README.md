@@ -915,6 +915,36 @@ a.Group("/me", a.Auth.RequireLogin(login))
 a.Group("/root", a.Auth.RequireSuperadmin(login))
 ```
 
+## Rate limiting
+
+```go
+s.Security.RateLimit = settings.RateLimit{
+	Requests: 60,
+	Window:   time.Minute,
+	Burst:    100,
+}
+```
+
+A token bucket per client: `Requests` per `Window` is the sustained rate, `Burst` the short-term
+ceiling. Over the limit returns 429 with `Retry-After`, and every response carries `RateLimit-Limit`
+and `RateLimit-Remaining`.
+
+Clients are identified by IP. `X-Forwarded-For` is **ignored unless `TrustProxy` is set**, because
+without a proxy in front, anyone can send that header and mint themselves a fresh budget on every
+request. Set it only when a proxy you control rewrites the header.
+
+For anything other than an IP — an API key, a tenant, an account — supply your own key:
+
+```go
+a.Use(middleware.RateLimitBy(policy, func(r *http.Request) string {
+	return r.Header.Get("X-Api-Key")
+}))
+```
+
+Buckets live in memory and stale ones are swept, so the map does not grow with every unique visitor.
+That also means each process has its own budget: behind several instances the effective limit is
+per instance until a shared backend exists.
+
 ## CORS
 
 Off until you list origins. A request with no `Origin` header is left alone entirely.

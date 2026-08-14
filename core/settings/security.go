@@ -7,6 +7,7 @@ type Security struct {
 	CORS           CORS
 	Compress       bool
 	CompressLevel  int
+	RateLimit      RateLimit
 }
 
 const DefaultCSP = "default-src 'self'; " +

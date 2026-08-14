@@ -16,6 +16,9 @@ func securityPolicies(s Settings) []Middleware {
 	if s.Security.Compress {
 		out = append(out, middleware.Compress(s.Security.CompressLevel))
 	}
+	if s.Security.RateLimit.Enabled() {
+		out = append(out, middleware.RateLimit(s.Security.RateLimit))
+	}
 	return out
 }
 

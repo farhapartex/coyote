@@ -86,6 +86,26 @@ func (s Settings) validateSecurity(add func(string)) {
 		add("Security.CompressLevel is set but Security.Compress is false")
 	}
 
+	limit := s.Security.RateLimit
+	if limit.Requests < 0 {
+		add("Security.RateLimit.Requests cannot be negative")
+	}
+	if limit.Window < 0 {
+		add("Security.RateLimit.Window cannot be negative")
+	}
+	if limit.Requests > 0 && limit.Window == 0 {
+		add("Security.RateLimit.Requests is set without a Window, so there is no period to limit over")
+	}
+	if limit.Window > 0 && limit.Requests == 0 {
+		add("Security.RateLimit.Window is set without Requests, so nothing would be limited")
+	}
+	if limit.Burst < 0 {
+		add("Security.RateLimit.Burst cannot be negative")
+	}
+	if limit.Burst > 0 && limit.Burst < limit.Requests {
+		add("Security.RateLimit.Burst is smaller than Requests, which would throttle below the rate you asked for")
+	}
+
 	if cors.MaxAge < 0 {
 		add("Security.CORS.MaxAge cannot be negative")
 	}
