@@ -31,6 +31,14 @@ func (s Settings) LogLevel() slog.Level {
 	}
 }
 
+func (s Settings) IsDevelopment() bool { return s.Environment == Development }
+
+func (s Settings) IsStaging() bool { return s.Environment == Staging }
+
+func (s Settings) IsProduction() bool { return s.Environment == Production }
+
+func (s Settings) IsDeployed() bool { return s.Environment.Deployed() }
+
 func (s Settings) AutoReloadTemplates() bool { return s.Debug }
 
 func (s Settings) Database() Database {

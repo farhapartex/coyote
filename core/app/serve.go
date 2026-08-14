@@ -35,6 +35,7 @@ func (a *App) Serve() error {
 		a.Logger.Info("coyote listening",
 			slog.String("addr", s.Addr()),
 			slog.String("version", Version),
+			slog.String("environment", string(s.Environment)),
 			slog.Bool("debug", s.Debug),
 		)
 		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/lib/text"
 	"gorm.io/gorm"
 )
 
@@ -42,14 +43,14 @@ func (s *userStore) ByID(id string) (*auth.User, error) {
 }
 
 func (s *userStore) ByUsername(username string) (*auth.User, error) {
-	return s.first("lower(username) = ?", normalise(username))
+	return s.first("lower(username) = ?", text.Fold(username))
 }
 
 func (s *userStore) ByEmail(email string) (*auth.User, error) {
-	if normalise(email) == "" {
+	if text.Fold(email) == "" {
 		return nil, auth.ErrUserNotFound
 	}
-	return s.first("lower(email) = ?", normalise(email))
+	return s.first("lower(email) = ?", text.Fold(email))
 }
 
 func (s *userStore) first(condition string, args ...any) (*auth.User, error) {
@@ -164,7 +165,7 @@ func (s *userStore) CountActiveSuperadmins() (int, error) {
 func (s *userStore) assertUnique(handle *gorm.DB, u *auth.User) error {
 	var clashes int64
 	err := handle.Model(&auth.User{}).
-		Where("lower(username) = ? AND id <> ?", normalise(u.Username), u.ID).
+		Where("lower(username) = ? AND id <> ?", text.Fold(u.Username), u.ID).
 		Count(&clashes).Error
 	if err != nil {
 		return fmt.Errorf("coyote/repo: checking username: %w", err)
@@ -172,11 +173,11 @@ func (s *userStore) assertUnique(handle *gorm.DB, u *auth.User) error {
 	if clashes > 0 {
 		return auth.ErrUserExists
 	}
-	if normalise(u.Email) == "" {
+	if text.Fold(u.Email) == "" {
 		return nil
 	}
 	err = handle.Model(&auth.User{}).
-		Where("lower(email) = ? AND id <> ?", normalise(u.Email), u.ID).
+		Where("lower(email) = ? AND id <> ?", text.Fold(u.Email), u.ID).
 		Count(&clashes).Error
 	if err != nil {
 		return fmt.Errorf("coyote/repo: checking email: %w", err)
@@ -196,8 +197,4 @@ func translate(err error) error {
 		return auth.ErrUserExists
 	}
 	return fmt.Errorf("coyote/repo: writing user: %w", err)
-}
-
-func normalise(value string) string {
-	return strings.ToLower(strings.TrimSpace(value))
 }

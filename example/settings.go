@@ -25,10 +25,13 @@ func init() {
 		log.Fatal(err)
 	}
 
-	settings.Configure(func(s *settings.Settings) {
-		s.Debug = settings.EnvBool("DEBUG", true)
+	settings.MustLoadDotEnv(".env")
+
+	settings.Configure(settings.Preset(settings.Env("APP_ENV", "development")), func(s *settings.Settings) {
 		s.SecretKey = settings.Env("SECRET_KEY", "development-only-key-do-not-ship-this-value")
-		s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", []string{"127.0.0.1", "localhost"})
+		if hosts := settings.EnvList("ALLOWED_HOSTS", nil); hosts != nil {
+			s.AllowedHosts = hosts
+		}
 
 		s.Server.Host = settings.Env("HOST", "127.0.0.1")
 		s.Server.Port = settings.EnvInt("PORT", 8081)
@@ -58,6 +61,5 @@ func init() {
 		s.Admin.SiteName = "Coyote demo"
 		s.Admin.Tagline = "session framework preview"
 
-		s.Logging.Level = "debug"
 	})
 }

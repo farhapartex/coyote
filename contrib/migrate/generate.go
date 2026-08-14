@@ -7,14 +7,13 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/farhapartex/coyote/lib/text"
 )
 
 const generatedPackage = "migrations"
 
-var (
-	fileNamePattern = regexp.MustCompile(`^(\d{4})_[a-z0-9_]+\.go$`)
-	slugPattern     = regexp.MustCompile(`[^a-z0-9]+`)
-)
+var fileNamePattern = regexp.MustCompile(`^(\d{4})_[a-z0-9_]+\.go$`)
 
 type Generated struct {
 	ID       string
@@ -45,13 +44,11 @@ func NextSequence(dir string) (int, error) {
 	return highest + 1, nil
 }
 
-func Slugify(name string) string {
-	slug := slugPattern.ReplaceAllString(strings.ToLower(strings.TrimSpace(name)), "_")
-	slug = strings.Trim(slug, "_")
-	if slug == "" {
-		return "auto"
+func slugFor(name string) string {
+	if slug := text.Slugify(name); slug != "" {
+		return slug
 	}
-	return slug
+	return "auto"
 }
 
 func Generate(dir, name string, change Change) (Generated, error) {
@@ -59,7 +56,7 @@ func Generate(dir, name string, change Change) (Generated, error) {
 	if err != nil {
 		return Generated{}, err
 	}
-	slug := Slugify(name)
+	slug := slugFor(name)
 	id := fmt.Sprintf("%04d_%s", sequence, slug)
 	path := filepath.Join(dir, id+".go")
 

@@ -15,7 +15,7 @@ func (a *Admin) loginForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.render(w, r, http.StatusOK, "login.html", view.Data{
-		"Next": safeNext(r.URL.Query().Get("next"), a.prefix+"/"),
+		"Next": view.SafeNext(r.URL.Query().Get("next"), a.prefix+"/"),
 	})
 }
 
@@ -26,7 +26,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	username := strings.TrimSpace(r.PostForm.Get("username"))
 	password := r.PostForm.Get("password")
-	next := safeNext(r.PostForm.Get("next"), a.prefix+"/")
+	next := view.SafeNext(r.PostForm.Get("next"), a.prefix+"/")
 
 	user, err := a.app.Auth.Authenticate(username, password)
 	if err != nil {

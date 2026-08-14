@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/farhapartex/coyote/lib/text"
 )
 
 type MemoryStore struct {
@@ -45,7 +47,7 @@ func (m *MemoryStore) ByEmail(email string) (*User, error) {
 }
 
 func (m *MemoryStore) lookup(index map[string]string, key string) (*User, error) {
-	id, ok := index[normalize(key)]
+	id, ok := index[text.Fold(key)]
 	if !ok {
 		return nil, ErrUserNotFound
 	}
@@ -63,11 +65,11 @@ func (m *MemoryStore) Create(u *User) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	name := normalize(u.Username)
+	name := text.Fold(u.Username)
 	if _, exists := m.byName[name]; exists {
 		return ErrUserExists
 	}
-	email := normalize(u.Email)
+	email := text.Fold(u.Email)
 	if email != "" {
 		if _, exists := m.byEmail[email]; exists {
 			return ErrEmailExists
@@ -96,18 +98,18 @@ func (m *MemoryStore) Update(u *User) error {
 		return ErrUserNotFound
 	}
 
-	name := normalize(u.Username)
+	name := text.Fold(u.Username)
 	if id, taken := m.byName[name]; taken && id != u.ID {
 		return ErrUserExists
 	}
-	email := normalize(u.Email)
+	email := text.Fold(u.Email)
 	if email != "" {
 		if id, taken := m.byEmail[email]; taken && id != u.ID {
 			return ErrEmailExists
 		}
 	}
-	delete(m.byName, normalize(existing.Username))
-	delete(m.byEmail, normalize(existing.Email))
+	delete(m.byName, text.Fold(existing.Username))
+	delete(m.byEmail, text.Fold(existing.Email))
 	m.byName[name] = u.ID
 	if email != "" {
 		m.byEmail[email] = u.ID
@@ -126,8 +128,8 @@ func (m *MemoryStore) Delete(id string) error {
 	if !ok {
 		return ErrUserNotFound
 	}
-	delete(m.byName, normalize(u.Username))
-	delete(m.byEmail, normalize(u.Email))
+	delete(m.byName, text.Fold(u.Username))
+	delete(m.byEmail, text.Fold(u.Email))
 	delete(m.users, id)
 	return nil
 }

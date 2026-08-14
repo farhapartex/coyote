@@ -421,14 +421,20 @@ func TestManageBeforeMountIsRejected(t *testing.T) {
 	}
 }
 
-func TestHumaniseLabels(t *testing.T) {
+func TestFieldLabels(t *testing.T) {
+	a := migratedApp(t, Product{})
+	schema, _ := a.Describe(Product{})
+
+	labels := map[string]string{}
+	for _, f := range schema.Fields {
+		labels[f.Column] = f.Label
+	}
 	for column, want := range map[string]string{
-		"id": "ID", "sku": "SKU", "first_name": "First name",
-		"is_published": "Is published", "created_at": "Created",
-		"api_key": "API key",
+		"id": "ID", "sku": "SKU", "is_published": "Is published",
+		"created_at": "Created", "released_at": "Released",
 	} {
-		if got := model.Humanise(column); got != want {
-			t.Errorf("Humanise(%q) = %q, want %q", column, got, want)
+		if labels[column] != want {
+			t.Errorf("label for %q = %q, want %q", column, labels[column], want)
 		}
 	}
 }

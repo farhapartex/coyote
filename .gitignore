@@ -4,3 +4,4 @@ coyote-example
 *.db-wal
 *.db-shm
 phases
+.env

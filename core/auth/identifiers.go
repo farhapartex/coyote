@@ -1,15 +1,10 @@
 package auth
 
 import (
-	"strings"
 	"time"
 
-	"github.com/farhapartex/coyote/core/id"
+	"github.com/farhapartex/coyote/lib/id"
 )
-
-func normalize(value string) string {
-	return strings.ToLower(strings.TrimSpace(value))
-}
 
 func newUserID() string {
 	value, err := id.New()
