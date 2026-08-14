@@ -23,14 +23,14 @@ func main() {
 
 	application.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
 		application.Render(w, r, "pages/home.html", view.Data{"Title": "Home", "HideNav": true})
-	})
+	}).Named("home")
 
 	application.Get("/about", func(w http.ResponseWriter, r *http.Request) {
 		application.Render(w, r, "pages/about.html", view.Data{
 			"Title":        "About",
 			"DatabaseName": application.Settings.Database().Name,
 		})
-	})
+	}).Named("about")
 
 	application.Get("/notes", func(w http.ResponseWriter, r *http.Request) {
 		sess := session.FromRequest(r)
@@ -39,7 +39,7 @@ func main() {
 			"Title": "Session notes",
 			"Notes": notes,
 		})
-	}, application.CSRF)
+	}, application.CSRF).Named("notes")
 
 	application.Post("/notes", func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {

@@ -35,6 +35,8 @@ func init() {
 
 		s.Server.Host = settings.Env("HOST", "127.0.0.1")
 		s.Server.Port = settings.EnvInt("PORT", 8081)
+		s.Server.TLS.CertFile = settings.Env("TLS_CERT", "")
+		s.Server.TLS.KeyFile = settings.Env("TLS_KEY", "")
 
 		s.Databases = []settings.Database{
 			{

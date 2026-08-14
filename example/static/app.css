@@ -1,10 +1,11 @@
 :root {
-  --bg: #faf8f5;
+  --bg: #f7fafc;
   --surface: #ffffff;
-  --border: #e2ddd4;
-  --text: #201d19;
-  --muted: #7d7469;
-  --brand: #8a4b2a;
+  --border: #dce6ec;
+  --text: #16242b;
+  --muted: #6b7f8a;
+  --brand: #00add8;
+  --brand-dark: #007d9c;
 }
 * { box-sizing: border-box; }
 body {
@@ -17,7 +18,7 @@ a { color: var(--brand); }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .9em;
-  background: #f0ebe4;
+  background: #eaf1f5;
   padding: 1px 5px;
   border-radius: 4px;
 }
@@ -39,8 +40,13 @@ main { max-width: 760px; margin: 0 auto; padding: 32px 24px 48px; }
   text-align: center;
   gap: 4px;
 }
+.hero .mark {
+  width: clamp(140px, 26vw, 220px);
+  height: auto;
+  margin-bottom: 6px;
+}
 .hero .wordmark {
-  font-size: clamp(64px, 14vw, 132px);
+  font-size: clamp(56px, 12vw, 112px);
   line-height: 1;
   margin: 0;
   font-weight: 750;
@@ -64,7 +70,7 @@ main { max-width: 760px; margin: 0 auto; padding: 32px 24px 48px; }
   font-weight: 600;
   text-decoration: none;
 }
-.hero .cta:hover { background: #6d3a20; }
+.hero .cta:hover { background: var(--brand-dark); }
 h1 { font-size: 30px; margin: 0 0 8px; }
 h2 { font-size: 20px; margin: 32px 0 10px; }
 .lead { color: var(--muted); margin-top: 0; }
@@ -89,7 +95,7 @@ button {
   padding: 10px 18px; font-size: 15px; font-weight: 550; cursor: pointer;
   background: var(--brand); color: #fff; border: none; border-radius: 8px;
 }
-button:hover { background: #6d3a20; }
+button:hover { background: var(--brand-dark); }
 .flash { padding: 11px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 15px; border: 1px solid; }
 .flash.success { background: #e7f2e6; color: #245c2b; border-color: #b9d9b8; }
 .flash.error { background: #fbe9e7; color: #8c2f21; border-color: #f0c2bb; }
