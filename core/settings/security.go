@@ -4,6 +4,7 @@ type Security struct {
 	TrustRequestID bool
 	CSP            string
 	CSPReportOnly  bool
+	CORS           CORS
 }
 
 const DefaultCSP = "default-src 'self'; " +

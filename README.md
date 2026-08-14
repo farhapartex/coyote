@@ -915,6 +915,33 @@ a.Group("/me", a.Auth.RequireLogin(login))
 a.Group("/root", a.Auth.RequireSuperadmin(login))
 ```
 
+## CORS
+
+Off until you list origins. A request with no `Origin` header is left alone entirely.
+
+```go
+s.Security.CORS = settings.CORS{
+	Origins:          []string{"https://app.example.com"},
+	AllowCredentials: true,
+	MaxAge:           10 * time.Minute,
+}
+```
+
+Methods and headers have sensible defaults, preflights are answered with 204, and `Vary` is set on
+`Origin` (plus the request-method and request-header names on preflights) so caches cannot serve one
+origin's response to another.
+
+Two rules are enforced at startup rather than discovered in a browser console:
+
+```
+Security.CORS cannot combine the "*" origin with AllowCredentials; browsers reject that pairing, so list the origins you mean
+Security.CORS origin "app.example.com" needs a scheme, for example https://app.example.com
+```
+
+Note what CORS is not: an unlisted origin still gets its response for a simple `GET`, because the
+*browser* enforces the block, not the server. Preflights are refused outright. If you need the
+server to reject the request itself, that is authentication's job, not CORS's.
+
 ## Content Security Policy
 
 Off by default, because a policy that breaks your pages is worse than none. Turn it on with a policy

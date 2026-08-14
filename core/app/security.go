@@ -10,6 +10,9 @@ func securityPolicies(s Settings) []Middleware {
 	if s.Security.CSP != "" {
 		out = append(out, middleware.CSP(s.Security.CSP, s.Security.CSPReportOnly))
 	}
+	if s.Security.CORS.Enabled() {
+		out = append(out, middleware.CORS(s.Security.CORS))
+	}
 	return out
 }
 
