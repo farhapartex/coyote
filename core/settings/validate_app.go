@@ -79,6 +79,13 @@ func (s Settings) validateSecurity(add func(string)) {
 			add("Security.CORS origin " + strconv.Quote(trimmed) + " must not end with a slash")
 		}
 	}
+	if s.Security.CompressLevel != 0 && (s.Security.CompressLevel < 1 || s.Security.CompressLevel > 9) {
+		add("Security.CompressLevel must be between 1 and 9, or 0 for the default")
+	}
+	if s.Security.CompressLevel != 0 && !s.Security.Compress {
+		add("Security.CompressLevel is set but Security.Compress is false")
+	}
+
 	if cors.MaxAge < 0 {
 		add("Security.CORS.MaxAge cannot be negative")
 	}

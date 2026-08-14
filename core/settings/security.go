@@ -5,6 +5,8 @@ type Security struct {
 	CSP            string
 	CSPReportOnly  bool
 	CORS           CORS
+	Compress       bool
+	CompressLevel  int
 }
 
 const DefaultCSP = "default-src 'self'; " +

@@ -47,5 +47,5 @@ func newNonce() string {
 	if _, err := rand.Read(buf); err != nil {
 		return ""
 	}
-	return base64.RawStdEncoding.EncodeToString(buf)
+	return base64.RawURLEncoding.EncodeToString(buf)
 }

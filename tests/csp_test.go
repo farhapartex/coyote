@@ -11,7 +11,7 @@ import (
 	"github.com/farhapartex/coyote/core/settings"
 )
 
-var noncePattern = regexp.MustCompile(`'nonce-([A-Za-z0-9+/]{22})'`)
+var noncePattern = regexp.MustCompile(`'nonce-([A-Za-z0-9_-]{22})'`)
 
 func TestCSPStaticPolicy(t *testing.T) {
 	handler := middleware.CSP("default-src 'self'", false)(http.HandlerFunc(noop))
@@ -53,6 +53,9 @@ func TestCSPNonceIsPerRequestAndReachable(t *testing.T) {
 	match := noncePattern.FindStringSubmatch(policy)
 	if match == nil {
 		t.Fatalf("no nonce in policy %q", policy)
+	}
+	if strings.ContainsAny(match[1], "+/") {
+		t.Errorf("the nonce should avoid characters html/template escapes, got %q", match[1])
 	}
 	if match[1] != fromContext {
 		t.Errorf("policy nonce %q does not match context nonce %q", match[1], fromContext)

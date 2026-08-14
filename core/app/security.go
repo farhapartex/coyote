@@ -13,6 +13,9 @@ func securityPolicies(s Settings) []Middleware {
 	if s.Security.CORS.Enabled() {
 		out = append(out, middleware.CORS(s.Security.CORS))
 	}
+	if s.Security.Compress {
+		out = append(out, middleware.Compress(s.Security.CompressLevel))
+	}
 	return out
 }
 
