@@ -14,6 +14,10 @@ func (s Server) Addr() string {
 
 func (s Settings) Addr() string { return s.Server.Addr() }
 
+func (s Settings) Scheme() string { return s.Server.TLS.Scheme() }
+
+func (s Settings) BaseURL() string { return s.Scheme() + "://" + s.Addr() }
+
 func (s Settings) SecretKeyGenerated() bool { return s.secretKeyGenerated }
 
 func (s Settings) CommandOverrides() []string { return s.commandOverrides }

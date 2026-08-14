@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/farhapartex/coyote/contrib/cli"
+	"github.com/farhapartex/coyote/core/certs"
 )
 
 func (a *App) Run() error {
@@ -26,6 +27,16 @@ func (a *App) Serve() error {
 		WriteTimeout:      s.Server.WriteTimeout,
 		IdleTimeout:       s.Server.IdleTimeout,
 	}
+	if s.Server.TLS.Enabled() {
+		config, err := certs.TLSConfig(s.Server.TLS, s.AllowedHosts)
+		if err != nil {
+			return err
+		}
+		a.server.TLSConfig = config
+	}
+	if s.Server.Configure != nil {
+		s.Server.Configure(a.server)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -33,12 +44,14 @@ func (a *App) Serve() error {
 	errs := make(chan error, 1)
 	go func() {
 		a.Logger.Info("coyote listening",
-			slog.String("addr", s.Addr()),
+			slog.String("url", s.BaseURL()),
 			slog.String("version", Version),
 			slog.String("environment", string(s.Environment)),
+			slog.Bool("tls", s.Server.TLS.Enabled()),
+			slog.Bool("autocert", s.Server.TLS.Managed()),
 			slog.Bool("debug", s.Debug),
 		)
-		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := a.listen(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errs <- err
 		}
 	}()
@@ -59,4 +72,16 @@ func (a *App) Serve() error {
 		a.Logger.Error("closing database", slog.Any("error", err))
 	}
 	return a.server.Shutdown(shutdownCtx)
+}
+
+func (a *App) listen() error {
+	tls := a.Settings.Server.TLS
+	switch {
+	case !tls.Enabled():
+		return a.server.ListenAndServe()
+	case tls.Managed():
+		return a.server.ListenAndServeTLS("", "")
+	default:
+		return a.server.ListenAndServeTLS(tls.CertFile, tls.KeyFile)
+	}
 }

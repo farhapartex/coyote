@@ -1,4 +1,8 @@
-# Coyote
+<p align="center">
+  <img src="./assets/coyote.png" alt="Coyote" width="220">
+</p>
+
+<h1 align="center">coyote</h1>
 
 A session-first web framework for Go, shaped like Django but sized for the standard library.
 Routing, sessions, auth, templates, and the admin portal are pure standard library; persistence
@@ -499,6 +503,15 @@ settings.Load(myTOMLSource{path}, settings.DotEnv(".env"))
 | `Server.IdleTimeout` | `2m` | |
 | `Server.ReadHeaderTimeout` | `10s` | |
 | `Server.ShutdownTimeout` | `10s` | Grace period on SIGINT/SIGTERM |
+| `Server.TLS.CertFile` / `.KeyFile` | none | Both set means serve HTTPS |
+| `Server.TLS.MinVersion` | TLS 1.2 | |
+| `Server.TLS.HSTS` | none | Adds `Strict-Transport-Security`; requires TLS |
+| `Server.TLS.Config` | none | A `*tls.Config` used as-is, for mTLS or your own ACME manager |
+| `Server.TLS.Autocert` | `false` | Obtain and renew certificates from Let's Encrypt |
+| `Server.TLS.AcceptTOS` | `false` | Required with `Autocert`; agrees to the authority's terms |
+| `Server.TLS.CacheDir` | `certs` | Where issued certificates are stored |
+| `Server.TLS.Staging` | `false` | Use the ACME staging directory while testing |
+| `Server.Configure` | none | `func(*http.Server)` hook called before listening |
 | `Sessions.CookieName` | `coyote_session` | |
 | `Sessions.Lifetime` | `12h` | |
 | `Sessions.Rolling` | `false` | Extend the deadline on every request |
@@ -606,6 +619,103 @@ a.Post("/notes", createNote, a.CSRF)
 
 `a.Routes()` returns the registered route table. The router is usable on its own — `router.New()`
 gives you the same dispatch without the rest of the framework.
+
+### Named routes
+
+Every registration returns the route, so a name is one chained call. Nothing forces you to name a
+route; do it where you want to build the URL later.
+
+```go
+a.Get("/{$}", home).Named("home")
+a.Get("/posts/{id}", show).Named("post.detail")
+a.Get("/files/{path...}", serve).Named("file")
+```
+
+Reverse them from Go, or from a template with the built-in `url` function:
+
+```go
+a.Reverse("post.detail", 42)        // "/posts/42", error
+a.MustReverse("post.detail", 42)    // "/posts/42", panics
+```
+
+```html
+<a href="{{url "post.detail" .ID}}">read</a>
+```
+
+Values fill the wildcards in order and are path-escaped, except `{path...}` which keeps its slashes.
+A wrong name, a missing value, an empty value or too many values is an error, and in a template that
+fails the render rather than emitting a broken link. Naming two routes the same panics at
+registration, where you will see it immediately.
+
+Group prefixes are included, so a route registered as `/status/{code}` inside `a.Group("/api")`
+reverses to `/api/status/200`.
+
+### HTTPS
+
+Point `Server.TLS` at a certificate and key and `Run` serves over TLS:
+
+```go
+settings.Configure(func(s *settings.Settings) {
+	s.Server.TLS.CertFile = settings.Env("TLS_CERT", "")
+	s.Server.TLS.KeyFile = settings.Env("TLS_KEY", "")
+	s.Server.TLS.HSTS = 30 * 24 * time.Hour
+})
+```
+
+```
+INFO coyote listening url=https://127.0.0.1:8443 environment=production tls=true
+```
+
+**HTTP/2 comes with it.** Go negotiates h2 over TLS automatically — no setting, no dependency.
+
+`MinVersion` defaults to TLS 1.2. For anything the framework does not model there is
+`Server.TLS.Config`, a `*tls.Config` used as-is (mTLS, a custom cipher list, your own ACME manager),
+and `Server.Configure func(*http.Server)`, called just before listening — that is where h2c goes if
+you need cleartext HTTP/2 behind a proxy.
+
+### Certificates from Let's Encrypt
+
+Coyote can obtain and renew certificates itself, so a bare VM needs no reverse proxy:
+
+```go
+s.Server.TLS.Autocert  = true
+s.Server.TLS.AcceptTOS = true
+s.Server.TLS.Staging   = settings.EnvBool("ACME_STAGING", false)
+```
+
+**Hosts come from `AllowedHosts`** — the names you already declare are the names certificates are
+issued for, so there is no second list to keep in step. Certificates are cached in
+`Server.TLS.CacheDir` (`certs/` under `BaseDir` by default); keep that directory across deploys or
+you will re-issue on every restart and meet the rate limits.
+
+Validation refuses the combinations that would otherwise fail at runtime, in the dark:
+
+```
+coyote/settings: improperly configured:
+  - Server.TLS.Autocert needs Server.TLS.AcceptTOS set to true; issuing a certificate means agreeing to the certificate authority's terms of service
+  - Server.TLS.Autocert cannot use the "*" host; a certificate authority needs real host names
+  - Server.TLS.Autocert validates over TLS on port 443, so Server.Port must be 443; for anything else supply your own Server.TLS.Config
+```
+
+Three things worth knowing:
+
+- **`AcceptTOS` is deliberately explicit.** Issuing a certificate means agreeing to the authority's
+  terms, and the framework will not do that for you behind a default.
+- **Validation happens over TLS on port 443** (TLS-ALPN-01), so no second listener on :80 is needed —
+  but the port must be 443 and reachable from the internet.
+- **Use `Staging` while you iterate.** Let's Encrypt's production rate limits are strict and a deploy
+  loop will hit them; the staging directory issues untrusted certificates without the limits.
+
+Two middlewares support a TLS deployment, both aware of `X-Forwarded-Proto` so they work behind a
+terminating proxy:
+
+```go
+a.Use(middleware.RequireHTTPS)   // redirect plain HTTP to https
+```
+
+`middleware.HSTS` is added for you when `Server.TLS.HSTS` is set, and only emits the header on
+connections that are actually secure. Setting HSTS without TLS is a configuration error — a browser
+that sees it will refuse plain HTTP to your host for the whole duration.
 
 One `net/http` behaviour to know: a pattern ending in `/` matches a whole subtree, so `Get("/", …)`
 answers *every* unmatched path and nothing ever 404s. Use `{$}` when you mean the exact path:

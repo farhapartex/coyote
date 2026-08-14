@@ -3,6 +3,50 @@ package settings
 import "strings"
 
 func (s Settings) validateServer(add func(string)) {
+	tls := s.Server.TLS
+	if tls.Config == nil {
+		if tls.CertFile != "" && tls.KeyFile == "" {
+			add("Server.TLS.CertFile is set without Server.TLS.KeyFile")
+		}
+		if tls.KeyFile != "" && tls.CertFile == "" {
+			add("Server.TLS.KeyFile is set without Server.TLS.CertFile")
+		}
+	}
+	if tls.Autocert {
+		if !tls.AcceptTOS {
+			add("Server.TLS.Autocert needs Server.TLS.AcceptTOS set to true; " +
+				"issuing a certificate means agreeing to the certificate authority's terms of service")
+		}
+		if tls.CertFile != "" || tls.KeyFile != "" {
+			add("Server.TLS.Autocert cannot be combined with CertFile and KeyFile; choose one")
+		}
+		if tls.Config != nil {
+			add("Server.TLS.Autocert cannot be combined with a supplied Config; put your own manager in the Config instead")
+		}
+		if tls.CacheDir == "" {
+			add("Server.TLS.CacheDir is empty; certificates would be re-issued on every restart")
+		}
+		if len(s.AllowedHosts) == 0 {
+			add("Server.TLS.Autocert needs AllowedHosts; it is the list of names certificates are issued for")
+		}
+		for _, host := range s.AllowedHosts {
+			if strings.TrimSpace(host) == "*" {
+				add("Server.TLS.Autocert cannot use the \"*\" host; a certificate authority needs real host names")
+			}
+		}
+		if s.Server.Port != 443 {
+			add("Server.TLS.Autocert validates over TLS on port 443, so Server.Port must be 443; " +
+				"for anything else supply your own Server.TLS.Config")
+		}
+	}
+
+	if tls.HSTS < 0 {
+		add("Server.TLS.HSTS cannot be negative")
+	}
+	if tls.HSTS > 0 && !tls.Enabled() {
+		add("Server.TLS.HSTS only makes sense when TLS is enabled; a browser that sees it will refuse plain HTTP for that long")
+	}
+
 	if s.Server.Port < 1 || s.Server.Port > 65535 {
 		add("Server.Port must be between 1 and 65535")
 	}

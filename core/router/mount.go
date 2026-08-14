@@ -16,7 +16,7 @@ var mountMethods = []string{
 	http.MethodOptions,
 }
 
-func (r *Router) Mount(prefix string, h http.Handler, mw ...Middleware) {
+func (r *Router) Mount(prefix string, h http.Handler, mw ...Middleware) *Route {
 	full := joinPath(r.prefix, prefix)
 	if !strings.HasSuffix(full, "/") {
 		full += "/"
@@ -26,14 +26,14 @@ func (r *Router) Mount(prefix string, h http.Handler, mw ...Middleware) {
 	for _, method := range mountMethods {
 		r.mux.Handle(method+" "+full, wrapped)
 	}
-	*r.routes = append(*r.routes, Route{Method: "ANY", Pattern: full + "*"})
+	return r.record(&Route{Method: "ANY", Pattern: full + "*"})
 }
 
-func (r *Router) Static(prefix string, fsys fs.FS) {
+func (r *Router) Static(prefix string, fsys fs.FS) *Route {
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
 	full := joinPath(r.prefix, prefix)
 	r.mux.Handle("GET "+full, http.StripPrefix(full, http.FileServerFS(fsys)))
-	*r.routes = append(*r.routes, Route{Method: http.MethodGet, Pattern: full + "*"})
+	return r.record(&Route{Method: http.MethodGet, Pattern: full + "*"})
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/farhapartex/coyote/core/template"
 )
 
-//go:embed templates
+//go:embed templates assets
 var templateFS embed.FS
 
 type Admin struct {

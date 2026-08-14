@@ -24,6 +24,15 @@ func (s *Settings) normalize() {
 		s.BaseDir = abs
 	}
 
+	if s.Server.TLS.Autocert {
+		if s.Server.TLS.CacheDir == "" {
+			s.Server.TLS.CacheDir = "certs"
+		}
+		if !filepath.IsAbs(s.Server.TLS.CacheDir) {
+			s.Server.TLS.CacheDir = filepath.Join(s.BaseDir, s.Server.TLS.CacheDir)
+		}
+	}
+
 	if s.Migrations.Dir == "" {
 		s.Migrations.Dir = "migrations"
 	}

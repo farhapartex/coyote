@@ -28,6 +28,10 @@ func templateFS() fstest.MapFS {
 			`{{define "base.html"}}<html><body>{{block "content" .}}{{end}}</body></html>{{end}}`)},
 		"pages/hello.html": &fstest.MapFile{Data: []byte(
 			`{{define "content"}}<h1>{{.Name}}</h1><p>{{.Path}}</p>{{end}}`)},
+		"pages/link.html": &fstest.MapFile{Data: []byte(
+			`{{define "content"}}<a href="{{url "post.detail" 7}}">post</a>{{end}}`)},
+		"pages/badlink.html": &fstest.MapFile{Data: []byte(
+			`{{define "content"}}<a href="{{url "does.not.exist"}}">x</a>{{end}}`)},
 	}
 }
 

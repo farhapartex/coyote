@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/farhapartex/coyote/core/auth"
@@ -52,6 +53,8 @@ type Server struct {
 	IdleTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	ShutdownTimeout   time.Duration
+	TLS               TLS
+	Configure         func(*http.Server)
 }
 
 type Sessions struct {

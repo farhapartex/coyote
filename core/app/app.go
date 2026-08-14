@@ -79,17 +79,18 @@ func NewFrom(s Settings) *App {
 		Settings: s,
 		Logger:   logger,
 		Sessions: sessions,
-		Templates: template.New(template.Options{
-			FS:     templateFS(s),
-			Layout: s.Templates.Layout,
-			Shared: s.Templates.Shared,
-			Funcs:  s.Templates.Funcs,
-			Reload: s.AutoReloadTemplates(),
-		}),
 		Started:  time.Now(),
 		sessions: store,
 		models:   defaultModels(),
 	}
+
+	a.Templates = template.New(template.Options{
+		FS:     templateFS(s),
+		Layout: s.Templates.Layout,
+		Shared: s.Templates.Shared,
+		Funcs:  templateFuncs(s, a),
+		Reload: s.AutoReloadTemplates(),
+	})
 
 	a.Auth = auth.NewService(userStore(s, a), sessions, auth.Options{
 		Hasher:            auth.Hasher{Iterations: s.Auth.PBKDF2Iterations},
@@ -101,9 +102,11 @@ func NewFrom(s Settings) *App {
 		middleware.RequestLogger(a.Logger),
 		middleware.AllowedHosts(s.AllowedHosts, s.Debug),
 		middleware.SecureHeaders,
-		sessions.Middleware,
-		a.Auth.Middleware,
 	}
+	if s.Server.TLS.HSTS > 0 {
+		a.global = append(a.global, middleware.HSTS(s.Server.TLS.HSTS))
+	}
+	a.global = append(a.global, sessions.Middleware, a.Auth.Middleware)
 
 	if fsys := staticFS(s); fsys != nil {
 		a.Router.Static(s.Static.URL, fsys)

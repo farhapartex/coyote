@@ -4,20 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{block "title" .}}Admin{{end}} · {{.SiteName}}</title>
+<link rel="icon" type="image/png" href="{{.Prefix}}/favicon.png">
 <style>
   :root {
-    --bg: #f4f2ee;
+    --bg: #f2f6f8;
     --surface: #fff;
-    --border: #ded9d0;
-    --text: #23201c;
-    --muted: #7c7368;
-    --brand: #8a4b2a;
-    --brand-dark: #6d3a20;
-    --accent: #c8792f;
-    --rail: #3d2418;
-    --rail-fg: #f0e4da;
-    --rail-muted: #b39a89;
-    --rail-line: #55372a;
+    --border: #d8e2e8;
+    --text: #16242b;
+    --muted: #6b7f8a;
+    --brand: #00add8;
+    --brand-dark: #007d9c;
+    --accent: #5dc9e2;
+    --rail: #0e2a3d;
+    --rail-fg: #e6f4f9;
+    --rail-muted: #8fb4c6;
+    --rail-line: #1c405a;
     --ok-bg: #e7f2e6; --ok-fg: #245c2b; --ok-br: #b9d9b8;
     --err-bg: #fbe9e7; --err-fg: #8c2f21; --err-br: #f0c2bb;
     --warn-bg: #fdf3dd; --warn-fg: #7a5713; --warn-br: #ecd7a1;
@@ -46,7 +47,9 @@
     color: var(--rail-fg);
   }
   .rail a { color: inherit; text-decoration: none; }
-  .rail .brand { padding: 20px 18px 16px; border-bottom: 1px solid var(--rail-line); }
+  .rail .brand { display: flex; align-items: center; gap: 10px; padding: 18px; border-bottom: 1px solid var(--rail-line); }
+  .rail .brand img { width: 34px; height: 34px; flex: 0 0 34px; }
+  .rail .brand .words { min-width: 0; }
   .rail .brand strong { display: block; font-size: 16px; font-weight: 650; letter-spacing: .2px; }
   .rail .brand span { display: block; margin-top: 3px; font-size: 12px; color: var(--rail-muted); }
   .rail nav { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; overflow-y: auto; }
@@ -72,9 +75,9 @@
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 10px 16px; border-bottom: 1px solid var(--border); text-align: left; }
-  th { background: #faf8f5; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  th { background: #f7fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   tr:last-child td { border-bottom: none; }
-  tbody tr:hover { background: #fbf9f6; }
+  tbody tr:hover { background: #f8fbfc; }
 
   .muted { color: var(--muted); }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
@@ -90,15 +93,15 @@
   .btn { display: inline-block; padding: 8px 14px; border: 1px solid transparent; border-radius: 6px; background: var(--brand); color: #fff; font-size: 14px; font-weight: 550; }
   .btn:hover { background: var(--brand-dark); text-decoration: none; }
   .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
-  .btn.secondary:hover { background: #f1ede7; }
-  .btn.danger { background: #a03325; }
-  .btn.danger:hover { background: #85281c; }
+  .btn.secondary:hover { background: #eaf1f5; }
+  .btn.danger { background: #c0392b; }
+  .btn.danger:hover { background: #a02f22; }
   .btn.small { padding: 5px 10px; font-size: 13px; }
 
-  .tag { display: inline-block; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: #efeae2; color: var(--muted); font-size: 12px; }
+  .tag { display: inline-block; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: #eaf1f5; color: var(--muted); font-size: 12px; }
   .tag.on { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-br); }
   .tag.off { background: var(--err-bg); color: var(--err-fg); border-color: var(--err-br); }
-  .tag.brand { background: #f6e7da; color: var(--brand-dark); border-color: #e4c6ac; }
+  .tag.brand { background: #ddf2f9; color: #005f77; border-color: #a9dcea; }
 
   .flash { margin-bottom: 14px; padding: 11px 14px; border: 1px solid; border-radius: var(--radius); font-size: 14px; }
   .flash.success { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-br); }
@@ -120,6 +123,7 @@
 
   .login-wrap { max-width: 380px; margin: 8vh auto; padding: 0 20px; }
   .login-wrap .logo { margin-bottom: 20px; text-align: center; }
+  .login-wrap .logo img { width: 72px; height: 72px; margin-bottom: 10px; }
   .login-wrap .logo .name { font-size: 20px; font-weight: 680; color: var(--brand-dark); }
   .login-wrap .logo .sub { font-size: 13px; color: var(--muted); }
 
@@ -139,8 +143,11 @@
 {{if .User}}
 <aside class="rail">
   <div class="brand">
-    <a href="{{.Prefix}}/"><strong>{{.SiteName}}</strong></a>
-    {{if .Tagline}}<span>{{.Tagline}}</span>{{end}}
+    <img src="{{.Prefix}}/favicon.png" alt="">
+    <div class="words">
+      <a href="{{.Prefix}}/"><strong>{{.SiteName}}</strong></a>
+      {{if .Tagline}}<span>{{.Tagline}}</span>{{end}}
+    </div>
   </div>
   <nav>
     <a href="{{.Prefix}}/" class="{{if eq .Nav "dashboard"}}on{{end}}">Dashboard</a>

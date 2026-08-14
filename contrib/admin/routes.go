@@ -3,6 +3,7 @@ package admin
 import "github.com/farhapartex/coyote/core/app"
 
 func (a *Admin) routes(group *app.Router, loginURL string) {
+	group.Get("/favicon.png", a.favicon)
 	group.Get("/login", a.loginForm)
 	group.Post("/login", a.loginSubmit)
 
