@@ -57,13 +57,13 @@ func NewFrom(s Settings) *App {
 		logger = newLogger(s)
 	}
 
-	store := s.Sessions.Store
-	if store == nil {
-		store = session.NewMemoryStore(s.Sessions.CleanupInterval)
-	}
+	a := &App{}
+	store, sealer := sessionCarrier(s, a, logger)
 
 	sessions := session.NewManager(session.Options{
 		Store:      store,
+		Sealer:     sealer,
+		OnError:    func(err error) { logger.Error("session not written", "error", err) },
 		CookieName: s.Sessions.CookieName,
 		Lifetime:   s.Sessions.Lifetime,
 		Rolling:    s.Sessions.Rolling,
@@ -74,14 +74,14 @@ func NewFrom(s Settings) *App {
 		Domain:     s.Sessions.Domain,
 	})
 
-	a := &App{
+	*a = App{
 		Router:   router.New(),
 		Settings: s,
 		Logger:   logger,
 		Sessions: sessions,
 		Started:  time.Now(),
 		sessions: store,
-		models:   defaultModels(),
+		models:   defaultModels(s),
 	}
 
 	a.Templates = template.New(template.Options{

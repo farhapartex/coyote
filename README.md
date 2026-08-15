@@ -512,6 +512,7 @@ settings.Load(myTOMLSource{path}, settings.DotEnv(".env"))
 | `Server.TLS.CacheDir` | `certs` | Where issued certificates are stored |
 | `Server.TLS.Staging` | `false` | Use the ACME staging directory while testing |
 | `Server.Configure` | none | `func(*http.Server)` hook called before listening |
+| `Sessions.Backend` | `memory` | `memory`, `database`, or `cookie` |
 | `Sessions.CookieName` | `coyote_session` | |
 | `Sessions.Lifetime` | `12h` | |
 | `Sessions.Rolling` | `false` | Extend the deadline on every request |
@@ -747,8 +748,8 @@ of your own data. When `Debug` is true templates are re-parsed on each request.
 
 ## Sessions
 
-Sessions are stored server-side; the browser only ever holds an opaque id in an `HttpOnly`
-cookie.
+By default sessions are stored server-side and the browser only ever holds an opaque id in an
+`HttpOnly` cookie. The whole session can also travel in the cookie, sealed with `SecretKey`.
 
 ```go
 sess := session.FromRequest(r)
@@ -768,10 +769,60 @@ view.Redirect(w, r, "/notes")
 
 The cookie is written lazily, just before the response headers go out, so a session mutated
 anywhere in the handler chain is still persisted correctly. `SessionRolling: true` extends the
-deadline on every request.
+deadline on every request. A session that stays empty for the whole request is never written at
+all, so anonymous traffic costs no cookie and no row.
 
-Swap `MemoryStore` for your own `session.Store` (`Load`, `Save`, `Delete`) when a database
-arrives.
+### Where sessions live
+
+```go
+s.Sessions.Backend = settings.SessionsInDB
+```
+
+`memory` is the default: fast, zero setup, and everyone is signed out when the process restarts.
+`database` stores sessions in a `sessions` table so they survive restarts and are shared across
+instances. The table is a registered model, so `makemigrations` generates it like any other.
+`cookie` keeps nothing on the server at all.
+
+Values are encoded with **gob**, not JSON. That matters: JSON would turn every number into a
+`float64`, so `GetInt` would silently return `0` and `Flashes()` would break. Gob keeps the Go types
+intact. Custom types stored in a session need registering once:
+
+```go
+session.RegisterValue(MyType{})
+```
+
+One thing to weigh before switching: `Sessions.Rolling` marks the session modified on every request,
+so rolling expiry plus the database backend means a write per request. Leave `Rolling` off unless
+you need it.
+
+Any of these can be replaced with your own `session.Store` (`Load`, `Save`, `Delete`, plus `Count`,
+`All` and `DeleteByUserID` if you want the admin's session list to work).
+
+### Cookie sessions
+
+```go
+s.Sessions.Backend = settings.SessionsInCookie
+```
+
+The session is gob-encoded and then sealed with AES-256-GCM under a key derived from `SecretKey`
+via HKDF-SHA256. It is encrypted, not merely signed, so the contents are unreadable to the client,
+and any edit to the cookie fails authentication and is discarded as if no cookie had been sent. The
+expiry travels inside the sealed payload, so it cannot be extended by editing the cookie either.
+There is no store, no table and no lookup on the read path — nothing to scale.
+
+The price is that there is nowhere to revoke from, and it is worth being clear about what that
+costs:
+
+- Signing out deletes the browser's copy, but a cookie captured beforehand stays valid until it
+  expires. Keep `Sessions.Lifetime` short.
+- Changing a password cannot invalidate sessions that are already out there.
+- The admin's session list reports that it is unavailable, and `DeleteByUserID` has nothing to act
+  on.
+- Cookies are capped at 4 KB. A session that seals larger than that is refused, logged, and simply
+  not written — keep cookie sessions small.
+- Rotating `SecretKey` signs everybody out.
+
+`Sessions.Backend = "cookie"` requires a `SecretKey` in every environment, not just deployed ones.
 
 ## First run
 

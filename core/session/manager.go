@@ -11,6 +11,7 @@ var ErrNoSession = errors.New("coyote/session: no session in request context")
 
 type Options struct {
 	Store      Store
+	Sealer     *Sealer
 	CookieName string
 	Lifetime   time.Duration
 	Rolling    bool
@@ -19,10 +20,12 @@ type Options struct {
 	SameSite   http.SameSite
 	Path       string
 	Domain     string
+	OnError    func(error)
 }
 
 type Manager struct {
 	store      Store
+	carrier    carrier
 	cookieName string
 	lifetime   time.Duration
 	rolling    bool
@@ -31,10 +34,11 @@ type Manager struct {
 	sameSite   http.SameSite
 	path       string
 	domain     string
+	onError    func(error)
 }
 
 func NewManager(opts Options) *Manager {
-	if opts.Store == nil {
+	if opts.Sealer == nil && opts.Store == nil {
 		opts.Store = NewMemoryStore(5 * time.Minute)
 	}
 	if opts.CookieName == "" {
@@ -51,6 +55,7 @@ func NewManager(opts Options) *Manager {
 	}
 	return &Manager{
 		store:      opts.Store,
+		carrier:    carrierFor(opts),
 		cookieName: opts.CookieName,
 		lifetime:   opts.Lifetime,
 		rolling:    opts.Rolling,
@@ -59,10 +64,26 @@ func NewManager(opts Options) *Manager {
 		sameSite:   opts.SameSite,
 		path:       opts.Path,
 		domain:     opts.Domain,
+		onError:    opts.OnError,
 	}
 }
 
+func carrierFor(opts Options) carrier {
+	if opts.Sealer != nil {
+		return cookieCarrier{sealer: opts.Sealer}
+	}
+	return storeCarrier{store: opts.Store}
+}
+
 func (m *Manager) Store() Store { return m.store }
+
+func (m *Manager) Stateless() bool { return m.store == nil }
+
+func (m *Manager) report(err error) {
+	if m.onError != nil {
+		m.onError(err)
+	}
+}
 
 func (m *Manager) CookieName() string { return m.cookieName }
 
@@ -81,7 +102,7 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 func (m *Manager) load(r *http.Request) *Session {
 	cookie, err := r.Cookie(m.cookieName)
 	if err == nil && cookie.Value != "" {
-		if sess, ok := m.store.Load(cookie.Value); ok {
+		if sess, ok := m.carrier.load(cookie.Value); ok {
 			if m.rolling {
 				sess.touch(m.lifetime)
 			}

@@ -27,6 +27,7 @@ type Session struct {
 	created time.Time
 	expires time.Time
 	status  status
+	fresh   bool
 }
 
 func newSession(id string, lifetime time.Duration) *Session {
@@ -37,6 +38,7 @@ func newSession(id string, lifetime time.Duration) *Session {
 		created: now,
 		expires: now.Add(lifetime),
 		status:  modified,
+		fresh:   true,
 	}
 }
 
