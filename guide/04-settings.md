@@ -1,0 +1,200 @@
+# Settings
+
+[← Back to contents](README.md)
+
+Settings are declared in code, in one place, and validated before the server starts. There is no
+implicit configuration: `app.New()` panics if `settings.Configure` has not run.
+
+```
+$ go run .
+panic: coyote/settings: improperly configured: no settings have been configured
+
+	Coyote needs an explicit settings file. Create settings.go next to your main package:
+	...
+```
+
+## Declaring them
+
+`Configure` takes functions that mutate a `Settings` value already filled with defaults, so you
+write only what differs.
+
+```go
+settings.Configure(func(s *settings.Settings) {
+	s.Debug = false
+	s.SecretKey = settings.Env("SECRET_KEY", "")
+	s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", []string{"example.com"})
+	s.Sessions.Secure = true
+	s.Sessions.Lifetime = 24 * time.Hour
+})
+```
+
+Call it once, from `init()` in `settings.go`. Calling it twice is an error.
+
+At runtime the resolved values are available as `a.Settings`.
+
+## Validation
+
+Validation runs inside `Configure`, so mistakes surface at startup — all of them at once, not one
+per restart:
+
+```
+panic: coyote/settings: improperly configured:
+  - SecretKey is empty; set a random value of at least 32 characters
+  - AllowedHosts is empty; with Debug disabled you must list the hosts this site serves
+  - Sessions.SameSite must be "lax", "strict" or "none"
+  - Admin.Prefix cannot be "/", it would take over every route
+```
+
+## Environments
+
+Every project runs in one of three environments, and each carries a preset of sane defaults so you
+are not hand-hardening production from scratch:
+
+```go
+settings.Configure(
+	settings.Preset(settings.Env("APP_ENV", "development")),
+	func(s *settings.Settings) {
+		s.SecretKey = settings.Env("SECRET_KEY", "")
+	},
+)
+```
+
+A preset is just a mutator, so it composes with whatever follows — your overrides always win.
+
+| | development | staging and production |
+| --- | --- | --- |
+| `Debug` | on | off |
+| `Logging` | `debug`, text | `info`, json |
+| `Sessions.Secure` | off | on |
+| `AllowedHosts` | localhost if unset | must be set |
+| Template caching | reload every request | cached |
+| Server timeouts | none | read 15s, write 30s, shutdown 20s |
+
+Names are forgiving — `dev`, `local`, `stage`, `prod`, `live` all resolve — but an unrecognised one
+is a configuration error, not a silent fallback:
+
+```
+coyote/settings: improperly configured: Debug must be off when Environment is production
+coyote/settings: improperly configured: Environment "banana" is not recognised; use "development", "staging" or "production"
+```
+
+`s.IsDevelopment()`, `s.IsStaging()`, `s.IsProduction()` and `s.IsDeployed()` are available to your
+own code, and the active environment is logged at startup.
+
+## Values from a file
+
+Settings stay in code. What a file supplies is **values**, which `settings.go` reads through the
+`Env` helpers — so secrets stay out of source control without creating a second place where
+configuration is decided.
+
+```go
+func init() {
+	settings.MustLoadDotEnv(".env")
+
+	settings.Configure(settings.Preset(settings.Env("APP_ENV", "development")), func(s *settings.Settings) {
+		s.SecretKey = settings.Env("SECRET_KEY", "")
+		s.Server.Port = settings.EnvInt("PORT", 8000)
+	})
+}
+```
+
+```
+# .env
+APP_ENV=production
+SECRET_KEY="a long random value"
+ALLOWED_HOSTS=example.com, www.example.com
+```
+
+**A real environment variable always wins over the file**, so a container or CI can override
+anything. With several files, the first to define a key wins. A missing `.env` is not an error; use
+`settings.RequiredDotEnv(path)` when it must exist.
+
+The parser handles comments, blank lines, an optional `export` prefix, single quotes as literals,
+double quotes with `\n` escapes, inline comments, and empty values. A malformed line is reported
+with its line number rather than skipped.
+
+Other formats are one method away, which is why no YAML or TOML dependency is bundled:
+
+```go
+type Source interface {
+	Name() string
+	Values() (map[string]string, error)
+}
+
+settings.Load(myTOMLSource{path}, settings.DotEnv(".env"))
+```
+
+`settings.Map` is a built-in source, handy in tests.
+
+### Env helpers
+
+`settings.Env`, `EnvBool`, `EnvInt`, `EnvDuration`, `EnvList`. Each takes a key and a fallback. The
+framework itself never reads the environment — only your `settings.go` does, where you can see it.
+
+## Every setting and its default
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `Debug` | `false` | Template reload, verbose render errors, relaxed host checks |
+| `Environment` | `development` | `development`, `staging` or `production` |
+| `BaseDir` | working directory | Root that relative paths resolve against |
+| `SecretKey` | none | Required. Under `Debug` an ephemeral key is generated with a warning |
+| `AllowedHosts` | none | Required unless `Debug`. `"*"` allows any, `".example.com"` matches subdomains |
+| `Databases` | one SQLite entry at `<BaseDir>/coyote.db` | First entry is the default connection |
+| `Server.Host` | `127.0.0.1` | |
+| `Server.Port` | `8000` | |
+| `Server.ReadTimeout` | none | |
+| `Server.WriteTimeout` | none | |
+| `Server.IdleTimeout` | `2m` | |
+| `Server.ReadHeaderTimeout` | `10s` | |
+| `Server.ShutdownTimeout` | `10s` | Grace period on SIGINT/SIGTERM |
+| `Server.TLS.CertFile` / `.KeyFile` | none | Both set means serve HTTPS |
+| `Server.TLS.MinVersion` | TLS 1.2 | |
+| `Server.TLS.HSTS` | none | Adds `Strict-Transport-Security`; requires TLS |
+| `Server.TLS.Config` | none | A `*tls.Config` used as-is |
+| `Server.TLS.Autocert` | `false` | Obtain and renew certificates from Let's Encrypt |
+| `Server.TLS.AcceptTOS` | `false` | Required with `Autocert` |
+| `Server.TLS.CacheDir` | `certs` | Where issued certificates are stored |
+| `Server.TLS.Staging` | `false` | Use the ACME staging directory while testing |
+| `Server.Configure` | none | `func(*http.Server)` hook called before listening |
+| `Security.CSP` | none | Content Security Policy; off until set |
+| `Security.CSPReportOnly` | `false` | Report violations instead of blocking |
+| `Security.CORS` | off | See [CORS](20-cors.md) |
+| `Security.Compress` | `false` | gzip responses |
+| `Security.CompressLevel` | `0` | 1–9, or 0 for the default |
+| `Security.RateLimit` | off | See [Rate limiting](19-rate-limiting.md) |
+| `Security.TrustRequestID` | `false` | Accept an inbound `X-Request-Id` |
+| `Sessions.Backend` | `memory` | `memory`, `database` or `cookie` |
+| `Sessions.CookieName` | `coyote_session` | |
+| `Sessions.Lifetime` | `12h` | |
+| `Sessions.Rolling` | `false` | Extend the deadline on every request |
+| `Sessions.Secure` | `false` | Set true behind HTTPS |
+| `Sessions.HTTPOnly` | `true` | |
+| `Sessions.SameSite` | `lax` | `lax`, `strict` or `none` (requires `Secure`) |
+| `Sessions.Path` | `/` | |
+| `Sessions.Domain` | none | |
+| `Sessions.CleanupInterval` | `5m` | Expired-session sweep |
+| `Sessions.Store` | none | Supply your own `session.Store` |
+| `Auth.LoginURL` | `/admin/login` | Where guards send anonymous visitors |
+| `Auth.PasswordMinLength` | `8` | |
+| `Auth.PBKDF2Iterations` | `600000` | Lower it in tests to keep them fast |
+| `Auth.UserStore` | database-backed | Any `auth.Store`; falls back to memory with no database |
+| `Templates.FS` | none | An `fs.FS`, usually from `go:embed` |
+| `Templates.Dir` | none | A directory path instead of an `fs.FS`; mutually exclusive with `FS` |
+| `Templates.Layout` | `layouts/base.html` | |
+| `Templates.Shared` | `layouts/*.html`, `partials/*.html` | Parsed into every page |
+| `Templates.Funcs` | none | Extra template functions |
+| `Static.URL` | `/static/` | |
+| `Static.FS` / `Static.Dir` | none | Static files are served only when one is set |
+| `Migrations.Dir` | `migrations` | Where generated migrations are written |
+| `Admin.Prefix` | `/admin` | |
+| `Admin.SiteName` | `Coyote administration` | |
+| `Admin.Tagline` | none | |
+| `Logging.Level` | `info` | `debug`, `info`, `warn`, `error` |
+| `Logging.Format` | `text` | `text` or `json` |
+| `Logging.Logger` | none | Supply your own `*slog.Logger` |
+
+## Next
+
+- [Databases →](11-database.md) — the `Databases` list in detail
+- [Routing →](05-routing.md)
