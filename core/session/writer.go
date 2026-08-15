@@ -44,23 +44,25 @@ func (w *sessionWriter) commit() {
 		}
 		m, sess := w.manager, w.session
 		if old := sess.takeOldID(); old != "" {
-			_ = m.store.Delete(old)
+			_ = m.carrier.forget(old)
 		}
 		if sess.Destroyed() {
-			_ = m.store.Delete(sess.ID())
+			_ = m.carrier.forget(sess.ID())
 			http.SetCookie(w.ResponseWriter, m.cookie("", -1))
 			return
 		}
-		if !sess.Modified() {
+		if !sess.Modified() || (sess.isFresh() && sess.isEmpty()) {
 			return
 		}
-		if err := m.store.Save(sess); err != nil {
+		value, err := m.carrier.persist(sess)
+		if err != nil {
+			m.report(err)
 			return
 		}
 		maxAge := int(time.Until(sess.ExpiresAt()).Seconds())
 		if maxAge < 1 {
 			maxAge = 1
 		}
-		http.SetCookie(w.ResponseWriter, m.cookie(sess.ID(), maxAge))
+		http.SetCookie(w.ResponseWriter, m.cookie(value, maxAge))
 	})
 }

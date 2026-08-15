@@ -62,11 +62,15 @@ func (s Settings) validateSessions(add func(string)) {
 		if s.Database().Engine == "" {
 			add("Sessions.Backend is \"database\" but no database is configured")
 		}
+	case SessionsInCookie:
+		if s.SecretKey == "" {
+			add("Sessions.Backend is \"cookie\" but SecretKey is empty; the session is sealed with it")
+		}
 	default:
-		add("Sessions.Backend must be \"memory\" or \"database\"")
+		add("Sessions.Backend must be \"memory\", \"database\" or \"cookie\"")
 	}
-	if s.Sessions.Backend == SessionsInDB && s.Sessions.Store != nil {
-		add("Sessions.Backend is \"database\" but Sessions.Store is also set; choose one")
+	if s.Sessions.Backend != SessionsInMemory && s.Sessions.Store != nil {
+		add("Sessions.Backend is \"" + string(s.Sessions.Backend) + "\" but Sessions.Store is also set; choose one")
 	}
 
 	if s.Sessions.CookieName == "" {

@@ -21,6 +21,18 @@ func (s *Session) Modified() bool {
 	return s.status == modified
 }
 
+func (s *Session) isFresh() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.fresh
+}
+
+func (s *Session) isEmpty() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.values) == 0
+}
+
 func (s *Session) Expired() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

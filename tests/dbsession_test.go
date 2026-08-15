@@ -306,3 +306,21 @@ func TestMemoryRemainsTheDefault(t *testing.T) {
 		t.Errorf("Backend = %q, want memory by default", resolved.Sessions.Backend)
 	}
 }
+
+func TestAnonymousRequestsDoNotFillTheSessionsTable(t *testing.T) {
+	a := persistentApp(t)
+	a.Get("/public", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
+
+	for range 3 {
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/public", nil))
+	}
+
+	sessions, ok := a.ManageableSessions()
+	if !ok {
+		t.Fatal("the database backend should be manageable")
+	}
+	if count := sessions.Count(); count != 0 {
+		t.Errorf("a request that never touches the session should not be stored, got %d rows", count)
+	}
+}

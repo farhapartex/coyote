@@ -1,6 +1,8 @@
 package app
 
 import (
+	"log/slog"
+
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/session"
 	"github.com/farhapartex/coyote/core/store"
@@ -24,6 +26,18 @@ func sessionStore(s Settings, a *App) session.Store {
 		return store.LazySessions(a.DB, s.Sessions.CleanupInterval)
 	}
 	return session.NewMemoryStore(s.Sessions.CleanupInterval)
+}
+
+func sessionCarrier(s Settings, a *App, logger *slog.Logger) (session.Store, *session.Sealer) {
+	if !s.Sessions.Backend.Stateless() || s.Sessions.Store != nil {
+		return sessionStore(s, a), nil
+	}
+	sealer, err := session.NewSealer(s.SecretKey)
+	if err != nil {
+		logger.Error("falling back to in-memory sessions", "error", err)
+		return session.NewMemoryStore(s.Sessions.CleanupInterval), nil
+	}
+	return nil, sealer
 }
 
 func (a *App) AuthService() *auth.Service { return a.Auth }

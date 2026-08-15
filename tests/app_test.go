@@ -275,7 +275,9 @@ func TestSettingsDriveSessionCookie(t *testing.T) {
 		s.Sessions.Path = "/app"
 		s.Sessions.Domain = "example.com"
 	})
-	a.Get("/x", func(w http.ResponseWriter, r *http.Request) {})
+	a.Get("/x", func(w http.ResponseWriter, r *http.Request) {
+		session.FromRequest(r).Set("who", "jane")
+	})
 
 	rec := httptest.NewRecorder()
 	a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))

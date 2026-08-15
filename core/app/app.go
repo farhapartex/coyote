@@ -58,10 +58,12 @@ func NewFrom(s Settings) *App {
 	}
 
 	a := &App{}
-	store := sessionStore(s, a)
+	store, sealer := sessionCarrier(s, a, logger)
 
 	sessions := session.NewManager(session.Options{
 		Store:      store,
+		Sealer:     sealer,
+		OnError:    func(err error) { logger.Error("session not written", "error", err) },
 		CookieName: s.Sessions.CookieName,
 		Lifetime:   s.Sessions.Lifetime,
 		Rolling:    s.Sessions.Rolling,
