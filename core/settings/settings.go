@@ -59,6 +59,7 @@ type Server struct {
 }
 
 type Sessions struct {
+	Backend         SessionBackend
 	CookieName      string
 	Lifetime        time.Duration
 	Rolling         bool

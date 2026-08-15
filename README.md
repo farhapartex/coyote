@@ -770,8 +770,30 @@ The cookie is written lazily, just before the response headers go out, so a sess
 anywhere in the handler chain is still persisted correctly. `SessionRolling: true` extends the
 deadline on every request.
 
-Swap `MemoryStore` for your own `session.Store` (`Load`, `Save`, `Delete`) when a database
-arrives.
+### Where sessions live
+
+```go
+s.Sessions.Backend = settings.SessionsInDB
+```
+
+`memory` is the default: fast, zero setup, and everyone is signed out when the process restarts.
+`database` stores sessions in a `sessions` table so they survive restarts and are shared across
+instances. The table is a registered model, so `makemigrations` generates it like any other.
+
+Values are encoded with **gob**, not JSON. That matters: JSON would turn every number into a
+`float64`, so `GetInt` would silently return `0` and `Flashes()` would break. Gob keeps the Go types
+intact. Custom types stored in a session need registering once:
+
+```go
+session.RegisterValue(MyType{})
+```
+
+One thing to weigh before switching: `Sessions.Rolling` marks the session modified on every request,
+so rolling expiry plus the database backend means a write per request. Leave `Rolling` off unless
+you need it.
+
+Either way you can supply your own `session.Store` (`Load`, `Save`, `Delete`, plus `Count`, `All`
+and `DeleteByUserID` if you want the admin's session list to work).
 
 ## First run
 

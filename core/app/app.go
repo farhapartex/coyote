@@ -57,10 +57,8 @@ func NewFrom(s Settings) *App {
 		logger = newLogger(s)
 	}
 
-	store := s.Sessions.Store
-	if store == nil {
-		store = session.NewMemoryStore(s.Sessions.CleanupInterval)
-	}
+	a := &App{}
+	store := sessionStore(s, a)
 
 	sessions := session.NewManager(session.Options{
 		Store:      store,
@@ -74,14 +72,14 @@ func NewFrom(s Settings) *App {
 		Domain:     s.Sessions.Domain,
 	})
 
-	a := &App{
+	*a = App{
 		Router:   router.New(),
 		Settings: s,
 		Logger:   logger,
 		Sessions: sessions,
 		Started:  time.Now(),
 		sessions: store,
-		models:   defaultModels(),
+		models:   defaultModels(s),
 	}
 
 	a.Templates = template.New(template.Options{
