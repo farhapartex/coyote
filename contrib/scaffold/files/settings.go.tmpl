@@ -1,0 +1,41 @@
+package main
+
+import (
+	"embed"
+	"io/fs"
+
+	"github.com/farhapartex/coyote/core/settings"
+)
+
+//go:embed templates
+var templateFS embed.FS
+
+//go:embed static
+var staticFS embed.FS
+
+func init() {
+	templates, _ := fs.Sub(templateFS, "templates")
+	static, _ := fs.Sub(staticFS, "static")
+
+	settings.MustLoadDotEnv(".env")
+
+	settings.Configure(
+		settings.Preset(settings.Env("APP_ENV", "development")),
+		func(s *settings.Settings) {
+			s.SecretKey = settings.Env("SECRET_KEY", "")
+			s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", []string{"127.0.0.1", "localhost"})
+
+			s.Server.Host = settings.Env("HOST", "127.0.0.1")
+			s.Server.Port = settings.EnvInt("PORT", 8000)
+
+			s.Databases = []settings.Database{
+				settings.SQLiteDatabase("default", settings.Env("DB_NAME", "[[.Name]].db")),
+			}
+
+			s.Templates.FS = templates
+			s.Static.FS = static
+
+			s.Admin.SiteName = "[[.Title]] administration"
+		},
+	)
+}

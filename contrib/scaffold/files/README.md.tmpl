@@ -1,0 +1,37 @@
+# [[.Title]]
+
+Built with [Coyote](https://github.com/farhapartex/coyote).
+
+## Running it
+
+The first time, create the schema and an account to sign in with:
+
+```
+coyote start                              # in one terminal
+coyote makemigrations --name=initial      # in another
+coyote migrate
+coyote createsuperadmin
+```
+
+After that, `coyote start` is all you need.
+
+The site is on http://127.0.0.1:8000/ and the admin portal on http://127.0.0.1:8000/admin/.
+
+## Layout
+
+```
+main.go        routes and mounting
+settings.go    configuration; read by everything else
+migrations/    generated migrations; commit them
+templates/     layouts, partials and pages
+static/        css, images, javascript
+.env           local values, git-ignored
+```
+
+Migrations written by `coyote makemigrations` land in `migrations/`, which `main.go` imports blank
+so they register themselves at startup.
+
+## Configuration
+
+`.env` supplies values; `settings.go` decides what they mean. A real environment variable always
+wins over the file, so a container can override anything without editing it.

@@ -1,0 +1,11 @@
+{{define "content"}}
+<h1>[[.Title]] is running</h1>
+<p>This page is <code>templates/pages/home.html</code>, rendered by the route in <code>main.go</code>.</p>
+
+<h2>Next steps</h2>
+<ol>
+  <li>Add a model, then run <code>coyote makemigrations</code> and <code>coyote migrate</code>.</li>
+  <li>Register it with the admin portal to get CRUD screens for free.</li>
+  <li>Sign in at <a href="/admin/">/admin/</a> with the account from <code>coyote createsuperadmin</code>.</li>
+</ol>
+{{end}}

@@ -1,0 +1,26 @@
+{{define "base.html"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · [[.Title]]</title>
+  <link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="{{url "home"}}">[[.Title]]</a>
+    <nav>
+      <a href="/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <main>
+    {{range .Flashes}}<p class="flash flash-{{.Kind}}">{{.Message}}</p>{{end}}
+    {{block "content" .}}{{end}}
+  </main>
+
+  <footer>Built with Coyote {{.Version}}</footer>
+</body>
+</html>
+{{end}}

@@ -48,7 +48,7 @@ func (Migrate) Run(ctx Context) error {
 
 	if len(pending) == 0 {
 		if len(pool) == 0 {
-			fmt.Fprintln(ctx.Out, "no migrations declared; run: go tool coyote makemigrations")
+			fmt.Fprintln(ctx.Out, "no migrations declared; run: coyote makemigrations")
 			return nil
 		}
 		fmt.Fprintln(ctx.Out, "database is up to date, nothing to apply")

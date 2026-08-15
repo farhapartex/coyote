@@ -2,6 +2,9 @@
 
 [← Back to contents](README.md)
 
+You never clone the framework. It arrives as a Go module, and one command creates a project that
+already builds.
+
 ## Requirements
 
 | | |
@@ -10,14 +13,72 @@
 | Database | nothing to install — SQLite works out of the box |
 | C toolchain | not needed; the SQLite driver is cgo-free |
 
-## Add the framework
+## 1. Install the command
 
 ```
-go get github.com/farhapartex/coyote
+go install github.com/farhapartex/coyote/cmd/coyote@latest
 ```
 
-That single command brings everything with it. You do **not** install GORM, a SQLite driver, or a
-session library separately — they arrive as dependencies of the framework and are wired up for you:
+That is the only long path you will ever type. Everything after it is `coyote …`:
+
+```
+$ coyote version
+coyote 0.4.0
+```
+
+If the shell cannot find it, `go install` put the binary somewhere not on your `PATH`:
+
+```
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+Add that line to your shell profile once.
+
+## 2. Create a project
+
+```
+coyote new myshop
+cd myshop
+coyote start
+```
+
+`new` writes the project, then runs `go mod init`, pulls the framework, registers the management
+command as a project tool, and tidies — so the directory it leaves behind compiles as it stands.
+
+| Flag | Purpose |
+| --- | --- |
+| `--module=PATH` | module path for `go.mod`; defaults to the project name |
+| `--force` | scaffold into a directory that is not empty |
+| `--skip-deps` | write the files and skip the `go` commands |
+
+```
+coyote new myshop --module=github.com/jane/myshop
+```
+
+## What you get
+
+```
+myshop/
+  go.mod
+  main.go              routes and mounting
+  settings.go          configuration
+  migrations/          generated migrations; commit them
+  templates/
+    layouts/base.html
+    pages/home.html
+  static/site.css
+  .env                 local values, including a generated SecretKey
+  .env.example         the same keys, without the secret
+  .gitignore
+  README.md
+```
+
+The `SecretKey` in `.env` is generated per project with `crypto/rand`, and `.env` is git-ignored
+from the first commit — so no placeholder secret ever reaches your repository.
+
+## What comes with the module
+
+You do **not** install GORM, a SQLite driver, or a session library separately:
 
 | Dependency | Why it is there |
 | --- | --- |
@@ -28,26 +89,23 @@ session library separately — they arrive as dependencies of the framework and 
 
 Routing, sessions, templates, authentication, and the admin portal are standard library only.
 
-## Add the management command
+## Adding Coyote to a project you already have
 
-The CLI is installed as a **Go tool**, so its version is pinned in your `go.mod` next to everything
-else and every developer on the project runs the same one:
+Skip `new` and wire the two files yourself:
 
 ```
+go get github.com/farhapartex/coyote
 go get -tool github.com/farhapartex/coyote/cmd/coyote
 ```
 
-Check it:
+Then write `settings.go` and `main.go` as shown in the [quick start](02-quickstart.md). The second
+line is optional; it pins the command to that project so everyone runs the same version:
 
 ```
-$ go tool coyote version
-coyote 0.3.0
+go tool coyote start
 ```
 
-Run it from the directory that holds your `main.go` and `settings.go`.
-
-> `go coyote start` is not possible. The `go` command cannot be extended with new subcommands, so
-> `go tool coyote …` is the closest supported form.
+Both forms accept the same commands.
 
 ## Next
 
