@@ -1,0 +1,59 @@
+{{define "title"}}{{if .IsNew}}New role{{else}}{{.Form.Name}}{{end}}{{end}}
+
+{{define "content"}}
+<div class="page-head">
+  <h2>{{if .IsNew}}New role{{else}}{{.Form.Name}}{{end}}</h2>
+  <a class="btn secondary" href="{{.Prefix}}/roles">Back to roles</a>
+</div>
+
+{{if .Error}}<div class="alert error">{{.Error}}</div>{{end}}
+
+<div class="card">
+  <div class="form">
+    <form method="post" action="{{if .IsNew}}{{.Prefix}}/roles/new{{else}}{{.Prefix}}/roles/{{.Form.ID}}{{end}}">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+      <div class="row">
+        <label>Name
+          <input type="text" name="name" value="{{.Form.Name}}" required maxlength="100" autofocus>
+        </label>
+        <label>Description
+          <input type="text" name="description" value="{{.Form.Description}}" maxlength="255">
+        </label>
+      </div>
+
+      <h3 style="margin:24px 0 8px;font-size:15px">Permissions</h3>
+      {{if .Groups}}
+      <table>
+        <thead>
+          <tr><th>Resource</th><th>Create</th><th>Read</th><th>Update</th><th>Delete</th></tr>
+        </thead>
+        <tbody>
+          {{range .Groups}}
+          <tr>
+            <td><strong>{{.Resource}}</strong></td>
+            {{range .Items}}
+            <td>
+              <label class="inline" title="{{.Codename}}">
+                <input type="checkbox" name="permissions" value="{{.ID}}" {{if .Granted}}checked{{end}}>
+              </label>
+            </td>
+            {{end}}
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="muted">
+        No permissions exist yet. Run <code>coyote syncpermissions</code> to create them from your models.
+      </p>
+      {{end}}
+
+      <div class="actions">
+        <button class="btn" type="submit">{{if .IsNew}}Create role{{else}}Save changes{{end}}</button>
+        <a class="btn secondary" href="{{.Prefix}}/roles">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}

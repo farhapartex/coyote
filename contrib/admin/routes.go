@@ -18,6 +18,12 @@ func (a *Admin) routes(group *app.Router, loginURL string) {
 	privileged.Get("/users/{id}", a.userForm)
 	privileged.Post("/users/{id}", a.userUpdate)
 	privileged.Post("/users/{id}/delete", a.userDelete)
+	privileged.Get("/roles", a.roleList)
+	privileged.Get("/roles/new", a.roleForm)
+	privileged.Post("/roles/new", a.roleSave)
+	privileged.Get("/roles/{id}", a.roleForm)
+	privileged.Post("/roles/{id}", a.roleSave)
+	privileged.Post("/roles/{id}/delete", a.roleDelete)
 	privileged.Get("/sessions", a.sessionList)
 	privileged.Post("/sessions/{id}/revoke", a.sessionRevoke)
 

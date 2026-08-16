@@ -53,6 +53,22 @@
         {{end}}
       </div>
 
+      {{if .Roles}}
+      <h3 style="margin:20px 0 8px;font-size:15px">Roles</h3>
+      {{if eq .User.ID .Form.ID}}
+      <p class="muted" style="font-size:13px;margin:0">You cannot change your own roles.</p>
+      {{else}}
+      <div class="checks">
+        {{range .Roles}}
+        <label>
+          <input type="checkbox" name="roles" value="{{.ID}}" {{if .Held}}checked{{end}}>
+          <span>{{.Name}}</span>
+        </label>
+        {{end}}
+      </div>
+      {{end}}
+      {{end}}
+
       <div class="actions">
         <button class="btn" type="submit">{{if .IsNew}}Create user{{else}}Save changes{{end}}</button>
         <a class="btn secondary" href="{{.Prefix}}/users">Cancel</a>

@@ -28,9 +28,49 @@ func (a *Admin) userList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *Admin) roleChoices(userID string) ([]roleChoice, error) {
+	store := a.app.Auth.Permissions()
+	if store == nil {
+		return nil, nil
+	}
+	roles, err := store.AllRoles()
+	if err != nil {
+		return nil, err
+	}
+	held := map[string]bool{}
+	if userID != "" {
+		assigned, err := store.RolesForUser(userID)
+		if err != nil {
+			return nil, err
+		}
+		for _, roleID := range assigned {
+			held[roleID] = true
+		}
+	}
+	out := make([]roleChoice, 0, len(roles))
+	for _, role := range roles {
+		out = append(out, roleChoice{ID: role.ID, Name: role.Name, Held: held[role.ID]})
+	}
+	return out, nil
+}
+
+func (a *Admin) saveUserRoles(r *http.Request, userID string) error {
+	store := a.app.Auth.Permissions()
+	if store == nil {
+		return nil
+	}
+	return store.SetUserRoles(userID, r.PostForm["roles"])
+}
+
 func (a *Admin) userForm(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	data := view.Data{"Nav": "users", "IsNew": true, "Form": &auth.User{IsActive: true}}
+	choices, err := a.roleChoices(id)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	data["Roles"] = choices
 	if id != "" {
 		user, err := a.app.Auth.Users().ByID(id)
 		if err != nil {
@@ -83,6 +123,10 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if err := a.saveUserRoles(r, user.ID); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	view.Flash(r, "success", "User "+user.Username+" created.")
 	view.Redirect(w, r, a.prefix+"/users")
 }
@@ -134,6 +178,12 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := a.app.Auth.Users().Update(user); err != nil {
 		fail(err)
 		return
+	}
+	if !isSelf {
+		if err := a.saveUserRoles(r, user.ID); err != nil {
+			a.fail(w, r, err)
+			return
+		}
 	}
 	view.Flash(r, "success", "User "+user.Username+" updated.")
 	view.Redirect(w, r, a.prefix+"/users")

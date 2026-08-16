@@ -153,6 +153,7 @@
     <a href="{{.Prefix}}/" class="{{if eq .Nav "dashboard"}}on{{end}}">Dashboard</a>
     {{if .User.IsSuperadmin}}
     <a href="{{.Prefix}}/users" class="{{if eq .Nav "users"}}on{{end}}">Users</a>
+    {{if .Permissions}}<a href="{{.Prefix}}/roles" class="{{if eq .Nav "roles"}}on{{end}}">Roles</a>{{end}}
     <a href="{{.Prefix}}/sessions" class="{{if eq .Nav "sessions"}}on{{end}}">Sessions</a>
     {{end}}
     {{range .Resources}}
