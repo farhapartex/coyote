@@ -23,6 +23,7 @@ the same commands; `coyote` is shorter, `go tool coyote` is pinned.
 | `coyote makemigrations` | Diff your models against the snapshot and write a migration file |
 | `coyote migrate` | Apply migrations that have not been applied yet |
 | `coyote sqlmigrate` | Print the SQL a pending migration would run, without applying it |
+| `coyote syncpermissions` | Create the four permissions for every registered model |
 | `coyote createsuperadmin` | Create a superadmin who can sign in to the admin portal |
 | `coyote version` | Print the coyote version |
 | `coyote help` | List the commands |

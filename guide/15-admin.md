@@ -22,8 +22,11 @@ s.Admin.Tagline  = "internal tools"
 Out of the box you get a login screen, a dashboard, user management (create, edit, search, delete,
 password reset), and a list of active sessions with revoke.
 
-Access requires `IsStaff`. Managing users and sessions requires `IsSuperadmin` — staff who reach
-those URLs get a 403, and the sidebar does not show them the links.
+Access requires `IsStaff`. Managing users, roles and sessions requires `IsSuperadmin` — staff who
+reach those URLs get a 403, and the sidebar does not show them the links.
+
+What staff can do with your own managed resources is decided by
+[permissions](28-permissions.md).
 
 Built-in safety rules: editing your own account locks the role and status fields, self-deletion is
 refused, the last active superadmin cannot be removed, and changing a password revokes that user's
