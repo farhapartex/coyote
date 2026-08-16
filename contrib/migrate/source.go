@@ -25,6 +25,10 @@ func columnSource(c Column) string {
 	return "{" + strings.Join(parts, ", ") + "}"
 }
 
+func columnLiteral(c Column) string {
+	return "migrate.Column" + columnSource(c)
+}
+
 func stringsSource(values []string) string {
 	quoted := make([]string, 0, len(values))
 	for _, v := range values {
