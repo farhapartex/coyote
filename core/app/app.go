@@ -14,6 +14,7 @@ import (
 	"github.com/farhapartex/coyote/core/session"
 	"github.com/farhapartex/coyote/core/settings"
 	"github.com/farhapartex/coyote/core/template"
+	"github.com/farhapartex/coyote/core/upload"
 	"github.com/farhapartex/coyote/core/view"
 	"gorm.io/gorm"
 )
@@ -35,6 +36,7 @@ type App struct {
 	Sessions  *session.Manager
 	Auth      *auth.Service
 	Templates *template.Engine
+	Uploads   *upload.Service
 	Started   time.Time
 	global    []Middleware
 	server    *http.Server
@@ -84,6 +86,8 @@ func NewFrom(s Settings) *App {
 		models:   defaultModels(s),
 	}
 
+	a.Uploads = uploadService(s)
+
 	a.Templates = template.New(template.Options{
 		FS:     templateFS(s),
 		Layout: s.Templates.Layout,
@@ -114,6 +118,7 @@ func NewFrom(s Settings) *App {
 	if fsys := staticFS(s); fsys != nil {
 		a.Router.Static(s.Static.URL, fsys)
 	}
+	a.mountUploads()
 
 	if s.SecretKeyGenerated() {
 		a.Logger.Warn("SecretKey was empty, generated an ephemeral development key; set SecretKey in settings.go before deploying")

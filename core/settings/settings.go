@@ -9,6 +9,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/core/storage"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -36,6 +37,7 @@ type Settings struct {
 	Auth       Auth
 	Templates  Templates
 	Pagination Pagination
+	Uploads    Uploads
 	Static     Static
 	Admin      Admin
 	Logging    Logging
@@ -72,6 +74,20 @@ type Sessions struct {
 	Domain          string
 	CleanupInterval time.Duration
 	Store           session.Store
+}
+
+type Uploads struct {
+	Enabled   bool
+	Dir       string
+	MaxSize   int64
+	Allowed   []string
+	MaxPixels int
+	Serve     bool
+	URL       string
+	Private   bool
+	StageTTL  time.Duration
+	TrashTTL  time.Duration
+	Storage   storage.Storage
 }
 
 type Pagination struct {

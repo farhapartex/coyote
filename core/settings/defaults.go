@@ -49,6 +49,17 @@ func Default() Settings {
 		Pagination: Pagination{
 			PerPage: view.DefaultPerPage,
 		},
+		Uploads: Uploads{
+			Enabled:   false,
+			Dir:       "media",
+			MaxSize:   10 << 20,
+			MaxPixels: 50_000_000,
+			Allowed:   []string{"image/jpeg", "image/png", "image/gif", "application/pdf"},
+			Serve:     false,
+			URL:       "/media/",
+			StageTTL:  24 * time.Hour,
+			TrashTTL:  0,
+		},
 		Static: Static{
 			URL: "/static/",
 		},

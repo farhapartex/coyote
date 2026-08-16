@@ -34,6 +34,32 @@ func (s Settings) validatePagination(add func(string)) {
 	}
 }
 
+func (s Settings) validateUploads(add func(string)) {
+	if !s.Uploads.Enabled {
+		return
+	}
+	if s.Uploads.MaxSize <= 0 {
+		add("Uploads.MaxSize must be greater than zero")
+	}
+	if len(s.Uploads.Allowed) == 0 {
+		add("Uploads.Allowed is empty; list the content types you accept")
+	}
+	if s.Uploads.Dir == "" && s.Uploads.Storage == nil {
+		add("Uploads.Dir is empty; set a directory or supply Uploads.Storage")
+	}
+	if s.Uploads.Serve {
+		if s.Uploads.URL == "" || !strings.HasPrefix(s.Uploads.URL, "/") {
+			add("Uploads.URL must start with \"/\" when Uploads.Serve is on")
+		}
+		if s.Uploads.Private && s.SecretKey == "" {
+			add("Uploads.Private needs a SecretKey to sign URLs with")
+		}
+	}
+	if s.Uploads.StageTTL < 0 || s.Uploads.TrashTTL < 0 {
+		add("Uploads.StageTTL and Uploads.TrashTTL cannot be negative")
+	}
+}
+
 func (s Settings) validateTemplates(add func(string)) {
 	if s.Templates.Layout == "" {
 		add("Templates.Layout is empty")
