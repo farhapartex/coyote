@@ -5,3 +5,5 @@ coyote-example
 *.db-shm
 phases
 .env
+
+/coyote

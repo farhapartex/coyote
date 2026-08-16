@@ -5,9 +5,8 @@ import (
 	"os"
 
 	"github.com/farhapartex/coyote/contrib/cli"
+	"github.com/farhapartex/coyote/core/app"
 )
-
-const version = "0.4.0"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -28,8 +27,10 @@ func run(args []string) error {
 		fmt.Print(usage)
 		return nil
 	case "version", "--version":
-		fmt.Printf("coyote %s\n", version)
+		fmt.Printf("coyote %s\n", app.Version)
 		return nil
+	case "new":
+		return newProject(rest)
 	case cli.NameStart:
 		return start(rest)
 	case cli.NameMigrate:

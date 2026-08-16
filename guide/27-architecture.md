@@ -41,6 +41,7 @@ What you can replace, and the contract you implement:
 | Admin resources | `admin.Resource` and its optional siblings | `portal.Manage` |
 | Migration steps | `migrate.Op` | in a migration's `Up` |
 | Config sources | `settings.Source` | `settings.Load` |
+| Project template | files in `contrib/scaffold` | `coyote new` |
 | Middleware | `func(http.Handler) http.Handler` | `Use`, `Group`, per route |
 
 The admin portal depends on `model.Store` and never on `core/store`, which is why swapping the

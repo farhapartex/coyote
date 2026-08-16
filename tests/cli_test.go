@@ -126,7 +126,7 @@ func TestMigrateRefusesWhenServerIsDown(t *testing.T) {
 	if !errors.Is(err, cli.ErrServerNotRunning) {
 		t.Fatalf("got %v, want ErrServerNotRunning", err)
 	}
-	if !strings.Contains(err.Error(), "go tool coyote start") {
+	if !strings.Contains(err.Error(), "coyote start") {
 		t.Errorf("the error should tell the user how to start, got %v", err)
 	}
 	if out.Len() != 0 {

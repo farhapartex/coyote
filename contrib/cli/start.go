@@ -43,12 +43,12 @@ func ReportMigrationState(app Application) {
 	switch {
 	case state.Declared == 0 && state.FreshDatabase():
 		log.Warn("this database has no schema yet and no migrations are declared; " +
-			"run: go tool coyote makemigrations && go tool coyote migrate")
+			"run: coyote makemigrations && coyote migrate")
 	case state.FreshDatabase():
-		log.Warn("no migrations have been applied to this database; nothing will work until you run: go tool coyote migrate",
+		log.Warn("no migrations have been applied to this database; nothing will work until you run: coyote migrate",
 			slog.Int("pending", len(state.Pending)))
 	case len(state.Pending) > 0:
-		log.Warn("migrations are pending; run: go tool coyote migrate",
+		log.Warn("migrations are pending; run: coyote migrate",
 			slog.Int("pending", len(state.Pending)),
 			slog.Int("applied", state.Applied))
 	default:
@@ -56,6 +56,6 @@ func ReportMigrationState(app Application) {
 	}
 
 	if !state.FreshDatabase() && app.AuthService().Users().Count() == 0 {
-		log.Warn("there are no users yet, so nobody can sign in; run: go tool coyote createsuperadmin")
+		log.Warn("there are no users yet, so nobody can sign in; run: coyote createsuperadmin")
 	}
 }

@@ -2,30 +2,38 @@
 
 [← Back to contents](README.md)
 
-One management command, installed as a Go tool so its version is pinned in your `go.mod`:
+One management command. Install it once:
 
 ```
-go get -tool github.com/farhapartex/coyote/cmd/coyote
+go install github.com/farhapartex/coyote/cmd/coyote@latest
 ```
 
-Run it from the directory holding your `main.go` and `settings.go`.
+Every command except `new` runs from the directory holding your `main.go` and `settings.go`.
+
+A project created by `coyote new` also pins the command as a project tool, so `go tool coyote
+<command>` works there and runs the version recorded in that project's `go.mod`. Both forms accept
+the same commands; `coyote` is shorter, `go tool coyote` is pinned.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `go tool coyote start` | Build and run the project, reporting migration and user state first |
-| `go tool coyote makemigrations` | Diff your models against the snapshot and write a migration file |
-| `go tool coyote migrate` | Apply migrations that have not been applied yet |
-| `go tool coyote sqlmigrate` | Print the SQL a pending migration would run, without applying it |
-| `go tool coyote createsuperadmin` | Create a superadmin who can sign in to the admin portal |
-| `go tool coyote version` | Print the coyote version |
-| `go tool coyote help` | List the commands |
+| `coyote new <name>` | Create a new project in a directory of that name |
+| `coyote start` | Build and run the project, reporting migration and user state first |
+| `coyote makemigrations` | Diff your models against the snapshot and write a migration file |
+| `coyote migrate` | Apply migrations that have not been applied yet |
+| `coyote sqlmigrate` | Print the SQL a pending migration would run, without applying it |
+| `coyote createsuperadmin` | Create a superadmin who can sign in to the admin portal |
+| `coyote version` | Print the coyote version |
+| `coyote help` | List the commands |
 
 ## Flags
 
 | Flag | Command | Purpose |
 | --- | --- | --- |
+| `--module=PATH` | `new` | Module path for `go.mod`; defaults to the project name |
+| `--force` | `new` | Scaffold into a directory that is not empty |
+| `--skip-deps` | `new` | Write the files without running the `go` toolchain |
 | `--port=N` | `start` | Listen on N instead of the port in `settings.go` |
 | `--host=H` | `start` | Bind to H instead of the host in `settings.go` |
 | `--name=NAME` | `makemigrations` | Name the migration instead of guessing one |
@@ -39,10 +47,12 @@ route in scripts, since the prompt echoes what you type.
 ## A new project
 
 ```
-go tool coyote makemigrations --name=initial
-go tool coyote migrate
-go tool coyote createsuperadmin
-go tool coyote start
+coyote new myshop
+cd myshop
+coyote makemigrations --name=initial
+coyote migrate
+coyote createsuperadmin
+coyote start
 ```
 
 ## How it works
@@ -61,6 +71,9 @@ func main() {
 ```
 
 `a.Serve()` skips the dispatch and always serves, if you would rather wire commands yourself.
+
+`new` is the exception to all of this: it runs entirely inside the `coyote` binary, because there is
+no project to hand it to yet.
 
 > `go coyote start` is not possible: the `go` command cannot be extended with new subcommands.
 

@@ -54,7 +54,7 @@ New accounts are active, and not superadmin unless asked. For the first account 
 use the CLI instead — see [First run](24-first-run.md):
 
 ```
-go tool coyote createsuperadmin
+coyote createsuperadmin
 ```
 
 ## Passwords

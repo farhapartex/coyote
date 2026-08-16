@@ -60,7 +60,7 @@ func (c CreateSuperadmin) requireSchema(ctx Context) error {
 		return err
 	}
 	if !handle.Migrator().HasTable(&auth.User{}) {
-		return fmt.Errorf("%w; run: go tool coyote makemigrations && go tool coyote migrate", ErrSchemaMissing)
+		return fmt.Errorf("%w; run: coyote makemigrations && coyote migrate", ErrSchemaMissing)
 	}
 	return nil
 }

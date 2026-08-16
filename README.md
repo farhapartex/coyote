@@ -48,11 +48,18 @@ func main() {
 ## Install
 
 ```
-go get github.com/farhapartex/coyote
-go get -tool github.com/farhapartex/coyote/cmd/coyote
+go install github.com/farhapartex/coyote/cmd/coyote@latest
+
+coyote new myshop
+cd myshop
+coyote start
 ```
 
-Requires Go 1.25 or newer. GORM and the SQLite driver come with it — nothing to install separately.
+`new` scaffolds a project that already builds — settings, routes, a layout, a generated `SecretKey`
+in a git-ignored `.env` — then pulls the framework and tidies. Nothing to clone.
+
+Requires Go 1.25 or newer. GORM and the SQLite driver come with it; there is nothing else to
+install.
 
 ## Documentation
 

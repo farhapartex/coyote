@@ -75,8 +75,8 @@ when the [database session backend](13-sessions.md) is on).
 After registering a new model, generate and apply its migration:
 
 ```
-go tool coyote makemigrations --name=add_product
-go tool coyote migrate
+coyote makemigrations --name=add_product
+coyote migrate
 ```
 
 ## Reading the derived schema

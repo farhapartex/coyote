@@ -78,7 +78,8 @@ contrib/        what you opt into
   admin/        the admin portal
   cli/          management commands
   migrate/      migration operations, diffing, the ledger
-cmd/coyote/     the `go tool coyote` front end
+  scaffold/     the project template behind `coyote new`
+cmd/coyote/     the `coyote` command
 ```
 
 `core` never imports `contrib`. That is why the admin portal lives in `contrib/admin`: call

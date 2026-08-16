@@ -24,5 +24,5 @@ func RequireServer(addr string) error {
 	if ServerRunning(addr) {
 		return nil
 	}
-	return fmt.Errorf("%w at %s; start it first with: go tool coyote start", ErrServerNotRunning, addr)
+	return fmt.Errorf("%w at %s; start it first with: coyote start", ErrServerNotRunning, addr)
 }

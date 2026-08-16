@@ -1,0 +1,23 @@
+package main
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/farhapartex/coyote/contrib/admin"
+	"github.com/farhapartex/coyote/core/app"
+
+	_ "[[.Module]]/migrations"
+)
+
+func main() {
+	a := app.New()
+
+	admin.Mount(a)
+
+	a.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})
+	}).Named("home")
+
+	log.Fatal(a.Run())
+}

@@ -2,145 +2,126 @@
 
 [← Back to contents](README.md)
 
-A working site with an admin portal, from an empty directory. Nothing here is skipped — this is the
-whole file list.
+From nothing to a running site with an admin portal.
 
-## 1. Create the module
+## 1. Create the project
 
 ```
-mkdir hello && cd hello
-go mod init example.com/hello
-go get github.com/farhapartex/coyote
-go get -tool github.com/farhapartex/coyote/cmd/coyote
+coyote new myshop
+cd myshop
 ```
 
-## 2. `settings.go`
+If `coyote` is not on your PATH yet, see [Installation](01-installation.md).
 
-Every Coyote project declares its settings in code, and the app refuses to start without them.
+## 2. Start it
+
+```
+coyote start
+```
+
+```
+WARN  this database has no schema yet and no migrations are declared; run: coyote makemigrations && coyote migrate
+INFO  coyote listening url=http://127.0.0.1:8000 environment=development
+```
+
+The home page is already there. The warning is telling the truth: there are no tables yet, so
+nobody can sign in to the admin portal.
+
+## 3. Create the schema and an account
+
+Leave the server running and use a second terminal:
+
+```
+coyote makemigrations --name=initial
+coyote migrate
+coyote createsuperadmin
+```
+
+Now open `http://127.0.0.1:8000/admin/` and sign in.
+
+> `migrate` needs the server running — that is why this is a second terminal. See
+> [First run](24-first-run.md).
+
+## 4. Add a model
+
+Create `models.go`:
 
 ```go
 package main
 
-import (
-	"embed"
-	"io/fs"
+import "time"
 
-	"github.com/farhapartex/coyote/core/settings"
-)
-
-//go:embed templates
-var templateFS embed.FS
-
-func init() {
-	templates, _ := fs.Sub(templateFS, "templates")
-
-	settings.Configure(func(s *settings.Settings) {
-		s.Debug = true
-		s.SecretKey = settings.Env("SECRET_KEY", "development-only-key-change-me-please")
-		s.AllowedHosts = []string{"127.0.0.1", "localhost"}
-		s.Server.Port = 8000
-		s.Templates.FS = templates
-		s.Admin.SiteName = "Hello admin"
-	})
+type Note struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	Title     string `gorm:"size:200;not null"`
+	Body      string `gorm:"size:2000"`
+	Published bool   `gorm:"index"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 ```
 
-`init()` is deliberate: it runs before `main`, so settings exist by the time anything reads them.
-
-## 3. `main.go`
+Register it in `main.go`, and hand it to the admin portal:
 
 ```go
-package main
+import "github.com/farhapartex/coyote/core/model"
 
-import (
-	"log"
-	"net/http"
+type noteResource struct{}
 
-	"github.com/farhapartex/coyote/contrib/admin"
-	"github.com/farhapartex/coyote/core/app"
-)
+func (noteResource) Entity() any { return Note{} }
 
 func main() {
 	a := app.New()
 
-	admin.Mount(a)
+	a.RegisterModel(model.Of(Note{}))
 
-	a.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
-		a.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})
-	}).Named("home")
+	portal := admin.Mount(a)
+	portal.MustManage(noteResource{})
 
-	log.Fatal(a.Run())
+	...
 }
 ```
 
-## 4. Templates
+Then:
 
 ```
-templates/
-  layouts/base.html
-  pages/home.html
+coyote makemigrations --name=add_note
+coyote migrate
+```
+
+Restart the server and `/admin/notes` is there — list, create, edit, delete — with no routes,
+handlers, or templates written by you.
+
+## 5. Add a page of your own
+
+```go
+a.Get("/notes/{id}", func(w http.ResponseWriter, r *http.Request) {
+	a.Render(w, r, "pages/note.html", app.Data{"Title": "Note", "ID": r.PathValue("id")})
+}).Named("note.detail")
 ```
 
 ```html
-<!-- templates/layouts/base.html -->
-{{define "base.html"}}
-<!doctype html>
-<html>
-  <head><title>{{.Title}}</title></head>
-  <body>{{block "content" .}}{{end}}</body>
-</html>
-{{end}}
-```
-
-```html
-<!-- templates/pages/home.html -->
+<!-- templates/pages/note.html -->
 {{define "content"}}
-  <h1>Hello from Coyote</h1>
-  {{if .User}}<p>Signed in as {{.User.DisplayName}}</p>{{end}}
+  <h1>{{.Title}}</h1>
+  <p>id: {{.ID}}</p>
 {{end}}
 ```
 
-## 5. Create the schema and an account
-
-A fresh project has no tables and no users, so nobody could sign in to the portal yet. Three
-commands fix that, once:
+## Where things live
 
 ```
-go tool coyote makemigrations --name=initial
-go tool coyote migrate
-go tool coyote createsuperadmin
-```
-
-`migrate` needs the server running, so start it in another terminal first — see
-[First run](24-first-run.md) for the full sequence and the warnings the framework prints when you
-forget a step.
-
-## 6. Run it
-
-```
-go tool coyote start
-```
-
-```
-INFO coyote listening url=http://127.0.0.1:8000 environment=development
-```
-
-Open `http://localhost:8000/` and `http://localhost:8000/admin/`.
-
-## What you have now
-
-```
-hello/
-  go.mod
-  main.go
-  settings.go
-  migrations/
-  templates/
-  coyote.db
+main.go        routes and mounting
+settings.go    configuration; read by everything else
+models.go      your entities
+migrations/    generated; commit them
+templates/     layouts, partials, pages
+static/        css, images, javascript
+.env           local values, git-ignored
 ```
 
 ## Next
 
-- [Project layout →](03-project-layout.md) — where to put things as this grows
-- [Routing →](05-routing.md) — more than one page
-- [Models →](10-models.md) — your own tables, and CRUD screens for them
+- [Settings →](04-settings.md) — what you can configure and how
+- [Models →](10-models.md) — field types, tags, registration
+- [Admin portal →](15-admin.md) — customising those generated screens
