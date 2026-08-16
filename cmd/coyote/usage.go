@@ -12,6 +12,7 @@ commands:
   migrate           apply migrations that have not been applied yet
   sqlmigrate        print the SQL a pending migration would run
   syncpermissions   create the permissions for every registered model
+  collectstatic     fingerprint static files and write a manifest
   createsuperadmin  create a superadmin who can sign in to the admin portal
   version           print the coyote version
   help              print this message

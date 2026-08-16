@@ -48,6 +48,14 @@ func syncPermissions(args []string) error {
 	return invoke(append(os.Environ(), cli.EnvCommand+"="+cli.NameSyncPermissions))
 }
 
+func collectStatic(args []string) error {
+	fs := flag.NewFlagSet("collectstatic", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return invoke(append(os.Environ(), cli.EnvCommand+"="+cli.NameCollectStatic))
+}
+
 func makeMigrations(args []string) error {
 	fs := flag.NewFlagSet("makemigrations", flag.ContinueOnError)
 	name := fs.String("name", "", "name for the generated migration")

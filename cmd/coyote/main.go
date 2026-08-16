@@ -37,6 +37,8 @@ func run(args []string) error {
 		return migrate(rest)
 	case cli.NameSyncPermissions:
 		return syncPermissions(rest)
+	case cli.NameCollectStatic:
+		return collectStatic(rest)
 	case cli.NameMakeMigrations:
 		return makeMigrations(rest)
 	case cli.NameSQLMigrate:
