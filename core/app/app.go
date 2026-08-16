@@ -95,6 +95,7 @@ func NewFrom(s Settings) *App {
 	a.Auth = auth.NewService(userStore(s, a), sessions, auth.Options{
 		Hasher:            auth.Hasher{Iterations: s.Auth.PBKDF2Iterations},
 		MinPasswordLength: s.Auth.PasswordMinLength,
+		PasswordRules:     s.Auth.PasswordRules,
 	})
 
 	a.global = []Middleware{

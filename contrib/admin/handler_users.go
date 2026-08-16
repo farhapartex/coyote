@@ -118,7 +118,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if password := r.PostForm.Get("password"); password != "" {
-		if err := a.app.Auth.ValidatePassword(password); err != nil {
+		if err := a.app.Auth.ValidatePasswordFor(password, user); err != nil {
 			fail(err)
 			return
 		}

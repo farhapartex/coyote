@@ -75,6 +75,7 @@ type Sessions struct {
 type Auth struct {
 	LoginURL          string
 	PasswordMinLength int
+	PasswordRules     []auth.PasswordRule
 	PBKDF2Iterations  int
 	UserStore         auth.Store
 }

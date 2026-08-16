@@ -24,6 +24,7 @@ const (
 var (
 	ErrInvalidHash      = errors.New("coyote/auth: malformed password hash")
 	ErrPasswordTooShort = errors.New("coyote/auth: password is too short")
+	ErrPasswordRejected = errors.New("coyote/auth: password rejected")
 )
 
 type Hasher struct {
