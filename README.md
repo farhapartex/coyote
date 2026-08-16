@@ -40,6 +40,8 @@ func main() {
 - **Authentication** — a user entity, PBKDF2 passwords, sign-in, route guards, pluggable password
   rules, and optional login throttling.
 - **Permissions** — four permissions per model, bundled into roles, managed from the portal.
+- **Forms and uploads** — struct or schema binding with validation, and file uploads that stage,
+  sniff, and clean up after themselves.
 - **Migrations** — versioned, written in Go rather than SQL, applied in a transaction, checksummed
   so an edited migration is caught rather than silently skipped.
 - **Security by default** — allowed hosts, secure headers, CSRF, CSP with per-request nonces, rate
@@ -72,7 +74,7 @@ Start with the [quick start](guide/02-quickstart.md), or browse the full
 | --- | --- | --- |
 | **Getting started** | [Installation](guide/01-installation.md) · [Quick start](guide/02-quickstart.md) · [Project layout](guide/03-project-layout.md) | |
 | **Configuration** | [Settings](guide/04-settings.md) | |
-| **Requests** | [Routing](guide/05-routing.md) · [Named routes](guide/06-named-routes.md) · [Views](guide/07-views.md) · [Templates](guide/08-templates.md) · [Static files](guide/09-static-files.md) | |
+| **Requests** | [Routing](guide/05-routing.md) · [Named routes](guide/06-named-routes.md) · [Views](guide/07-views.md) · [Templates](guide/08-templates.md) · [Static files](guide/09-static-files.md) · [Forms](guide/30-forms.md) · [Uploads](guide/31-uploads.md) · [Pagination](guide/32-pagination.md) | |
 | **Data** | [Models](guide/10-models.md) · [Database](guide/11-database.md) · [Migrations](guide/12-migrations.md) | |
 | **Users** | [Sessions](guide/13-sessions.md) · [Authentication](guide/14-authentication.md) · [Admin portal](guide/15-admin.md) · [Permissions](guide/28-permissions.md) · [Accounts](guide/29-accounts.md) | |
 | **Security** | [Middleware](guide/16-middleware.md) · [Headers and CSP](guide/17-security-headers.md) · [CSRF](guide/18-csrf.md) · [Rate limiting](guide/19-rate-limiting.md) · [CORS](guide/20-cors.md) · [Compression](guide/21-compression.md) · [HTTPS](guide/22-https.md) | |

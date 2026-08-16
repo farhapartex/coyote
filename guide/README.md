@@ -27,7 +27,10 @@ straight to the one you need.
 | --- | --- |
 | [5. Routing](05-routing.md) | Patterns, methods, groups, mounting |
 | [6. Named routes](06-named-routes.md) | Naming a route and building its URL |
-| [7. Views and handlers](07-views.md) | Rendering, redirects, flash messages, form input |
+| [7. Views and handlers](07-views.md) | Rendering, redirects, flash messages, JSON, generic views |
+| [30. Forms and validation](30-forms.md) | Binding a request into a struct or a model |
+| [31. File uploads](31-uploads.md) | Storage, validation, staging, serving |
+| [32. Pagination](32-pagination.md) | Page sizes, controls, custom paginators |
 | [8. Templates](08-templates.md) | Layouts, partials, pages, functions |
 | [9. Static files](09-static-files.md) | Embedded or from disk |
 
