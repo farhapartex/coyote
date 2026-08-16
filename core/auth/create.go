@@ -11,6 +11,7 @@ type NewUser struct {
 	FirstName    string
 	LastName     string
 	Password     string
+	IsStaff      bool
 	IsSuperadmin bool
 }
 
@@ -29,6 +30,7 @@ func (s *Service) CreateUser(in NewUser) (*User, error) {
 		Username:     strings.TrimSpace(in.Username),
 		Password:     hash,
 		IsActive:     true,
+		IsStaff:      in.IsStaff || in.IsSuperadmin,
 		IsSuperadmin: in.IsSuperadmin,
 		CreatedAt:    time.Now(),
 	}

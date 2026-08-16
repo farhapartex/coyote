@@ -151,8 +151,10 @@
   </div>
   <nav>
     <a href="{{.Prefix}}/" class="{{if eq .Nav "dashboard"}}on{{end}}">Dashboard</a>
+    {{if .User.IsSuperadmin}}
     <a href="{{.Prefix}}/users" class="{{if eq .Nav "users"}}on{{end}}">Users</a>
     <a href="{{.Prefix}}/sessions" class="{{if eq .Nav "sessions"}}on{{end}}">Sessions</a>
+    {{end}}
     {{range .Resources}}
     <a href="{{$.Prefix}}/{{.Slug}}" class="{{if eq $.Nav .Slug}}on{{end}}">{{.Title}}</a>
     {{end}}
@@ -164,7 +166,7 @@
     <span class="avatar">{{.User.Initials}}</span>
     <div class="who">
       <strong>{{.User.DisplayName}}</strong>
-      <span>{{if .User.IsSuperadmin}}superadmin{{else}}user{{end}}</span>
+      <span>{{if .User.IsSuperadmin}}superadmin{{else if .User.IsStaff}}staff{{else}}user{{end}}</span>
     </div>
     <form method="post" action="{{.Prefix}}/logout" class="inline">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">

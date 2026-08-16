@@ -54,6 +54,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 		FirstName:    strings.TrimSpace(r.PostForm.Get("first_name")),
 		LastName:     strings.TrimSpace(r.PostForm.Get("last_name")),
 		IsActive:     r.PostForm.Get("is_active") != "",
+		IsStaff:      r.PostForm.Get("is_staff") != "",
 		IsSuperadmin: r.PostForm.Get("is_superadmin") != "",
 	}
 	password := r.PostForm.Get("password")
@@ -64,6 +65,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 		FirstName:    form.FirstName,
 		LastName:     form.LastName,
 		Password:     password,
+		IsStaff:      form.IsStaff,
 		IsSuperadmin: form.IsSuperadmin,
 	})
 	if err != nil {
@@ -106,6 +108,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 	if !isSelf {
 		user.IsActive = r.PostForm.Get("is_active") != ""
 		user.IsSuperadmin = r.PostForm.Get("is_superadmin") != ""
+		user.IsStaff = r.PostForm.Get("is_staff") != "" || user.IsSuperadmin
 	}
 
 	fail := func(err error) {

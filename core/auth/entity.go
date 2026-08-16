@@ -13,6 +13,7 @@ type User struct {
 	Username     string `gorm:"uniqueIndex;size:64;not null"`
 	Password     string `gorm:"not null"`
 	IsActive     bool   `gorm:"index;default:true"`
+	IsStaff      bool   `gorm:"index"`
 	IsSuperadmin bool   `gorm:"index"`
 	LastLoginAt  time.Time
 	CreatedAt    time.Time
@@ -44,6 +45,10 @@ func (u *User) Initials() string {
 		return strings.ToUpper(username[:1])
 	}
 	return "?"
+}
+
+func (u *User) CanReachAdmin() bool {
+	return u != nil && u.IsActive && (u.IsStaff || u.IsSuperadmin)
 }
 
 func (u *User) HasUsablePassword() bool {

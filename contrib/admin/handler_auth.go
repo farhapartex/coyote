@@ -10,7 +10,7 @@ import (
 )
 
 func (a *Admin) loginForm(w http.ResponseWriter, r *http.Request) {
-	if u := a.currentUser(r); u != nil && u.IsSuperadmin {
+	if u := a.currentUser(r); u.CanReachAdmin() {
 		view.Redirect(w, r, a.prefix+"/")
 		return
 	}
@@ -41,7 +41,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if !user.IsSuperadmin {
+	if !user.CanReachAdmin() {
 		a.render(w, r, http.StatusForbidden, "login.html", view.Data{
 			"Error":    "This account does not have access to the admin portal.",
 			"Username": username,

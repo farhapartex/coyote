@@ -20,7 +20,7 @@ func (a *Admin) Register(s Section) {
 	a.sections = append(a.sections, s)
 	sort.Slice(a.sections, func(i, j int) bool { return a.sections[i].Name < a.sections[j].Name })
 	if s.Handler != nil {
-		guarded := a.router.Group("", a.app.Auth.RequireSuperadmin(a.prefix+"/login"))
+		guarded := a.router.Group("", a.app.Auth.RequireStaff(a.prefix+"/login"))
 		guarded.Mount("/s/"+s.Slug, s.Handler)
 	}
 }
