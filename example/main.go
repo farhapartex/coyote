@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/farhapartex/coyote/contrib/accounts"
 	"github.com/farhapartex/coyote/contrib/admin"
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/model"
@@ -20,6 +21,11 @@ func main() {
 
 	portal := admin.Mount(application)
 	portal.MustManage(productResource{}, checkoutResource{})
+
+	accounts.Mount(application, accounts.Options{
+		AllowRegistration: true,
+		AfterLogin:        "/me/",
+	})
 
 	application.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
 		application.Render(w, r, "pages/home.html", view.Data{"Title": "Home", "HideNav": true})
@@ -63,6 +69,30 @@ func main() {
 	private.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		application.Render(w, r, "pages/profile.html", view.Data{"Title": "Your profile"})
 	})
+
+	reports := application.Group("/reports", application.Auth.RequirePermission("products.read"))
+	reports.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
+		records, err := application.Store()
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		schema, err := application.Describe(Product{})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		page, err := records.List(r.Context(), schema, model.Query{Limit: 50})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		application.Render(w, r, "pages/reports.html", view.Data{
+			"Title":   "Product report",
+			"Records": page.Records,
+			"Total":   page.Total,
+		})
+	}).Named("reports")
 
 	if err := application.Run(); err != nil {
 		log.Fatal(err)

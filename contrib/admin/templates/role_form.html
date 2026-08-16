@@ -9,18 +9,16 @@
 {{if .Error}}<div class="alert error">{{.Error}}</div>{{end}}
 
 <div class="card">
-  <div class="form">
-    <form method="post" action="{{if .IsNew}}{{.Prefix}}/roles/new{{else}}{{.Prefix}}/roles/{{.Form.ID}}{{end}}">
+  <div class="card-body">
+    <form method="post" action="{{if .IsNew}}{{.Prefix}}/roles/new{{else}}{{.Prefix}}/roles/{{.Form.ID}}{{end}}" class="stack">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
-      <div class="row">
-        <label>Name
-          <input type="text" name="name" value="{{.Form.Name}}" required maxlength="100" autofocus>
-        </label>
-        <label>Description
-          <input type="text" name="description" value="{{.Form.Description}}" maxlength="255">
-        </label>
-      </div>
+      <label>Name
+        <input type="text" name="name" value="{{.Form.Name}}" required maxlength="100" autofocus>
+      </label>
+      <label>Description
+        <textarea name="description" rows="3" maxlength="255">{{.Form.Description}}</textarea>
+      </label>
 
       <h3 style="margin:24px 0 8px;font-size:15px">Permissions</h3>
       {{if .Groups}}

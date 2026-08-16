@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/settings"
 )
 
@@ -52,6 +53,14 @@ func init() {
 
 		s.Sessions.Lifetime = 8 * time.Hour
 		s.Sessions.Rolling = true
+
+		s.Auth.LoginURL = "/accounts/login"
+		s.Auth.Throttle = auth.ThrottlePolicy{
+			Enabled:     settings.EnvBool("LOGIN_THROTTLE", true),
+			MaxAttempts: 5,
+			Window:      10 * time.Minute,
+			Lockout:     2 * time.Minute,
+		}
 
 		s.Templates.FS = templates
 		s.Templates.Layout = "layouts/base.html"

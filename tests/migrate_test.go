@@ -395,3 +395,75 @@ func TestRegistryOrdersAndRejectsDuplicates(t *testing.T) {
 		t.Error("a migration without an ID should be rejected")
 	}
 }
+
+func TestGeneratedMigrationsTypeCheck(t *testing.T) {
+	handle := newTestDB(t)
+	dir := t.TempDir()
+
+	before := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widget{})})
+	generated, err := migrate.Generate(dir, "create widgets", migrate.Diff(migrate.Snapshot{}, before))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	after := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetV2{})})
+	change := migrate.Diff(before, after)
+	if change.Empty() {
+		t.Fatal("adding a column should produce a change")
+	}
+	second, err := migrate.Generate(dir, "add quantity", change)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range []string{generated.Path, second.Path} {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, literal := range []string{"Column: {", "Columns: {", "Index: {"} {
+			if strings.Contains(string(raw), literal) {
+				t.Errorf("%s emits an untyped composite literal %q; it will not compile:\n%s",
+					filepath.Base(path), literal, raw)
+			}
+		}
+	}
+
+	raw, err := os.ReadFile(second.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "Column: migrate.Column{") {
+		t.Errorf("a standalone column needs its type name:\n%s", raw)
+	}
+}
+
+func TestCompositePrimaryKeysAreDeclaredOnce(t *testing.T) {
+	columns := []dialect.Column{
+		{Name: "role_id", Type: "text", NotNull: true, PrimaryKey: true},
+		{Name: "permission_id", Type: "text", NotNull: true, PrimaryKey: true},
+	}
+
+	for _, d := range []dialect.Dialect{dialect.SQLite{}, dialect.Postgres{}, dialect.MySQL{}} {
+		sql := d.CreateTable("role_permissions", columns)
+		if strings.Count(sql, "PRIMARY KEY") != 1 {
+			t.Errorf("%T: a composite key must be declared once:\n%s", d, sql)
+		}
+		if !strings.Contains(sql, "PRIMARY KEY (") {
+			t.Errorf("%T: expected a table-level key:\n%s", d, sql)
+		}
+	}
+}
+
+func TestSingleColumnKeysStayInlineOnSQLite(t *testing.T) {
+	sql := dialect.SQLite{}.CreateTable("widgets", []dialect.Column{
+		{Name: "id", Type: "integer", NotNull: true, PrimaryKey: true, AutoIncrement: true},
+		{Name: "label", Type: "text", NotNull: true},
+	})
+	if !strings.Contains(sql, `"id" integer PRIMARY KEY`) {
+		t.Errorf("a single key should stay inline so sqlite treats it as the rowid:\n%s", sql)
+	}
+	if strings.Contains(sql, "PRIMARY KEY (") {
+		t.Errorf("a single key should not be repeated at table level:\n%s", sql)
+	}
+}

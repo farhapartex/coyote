@@ -14,8 +14,12 @@ func joinColumns(d Dialect, columns []string) string {
 }
 
 func columnClause(d Dialect, c Column) string {
+	return columnClauseWith(d, c, c.PrimaryKey)
+}
+
+func columnClauseWith(d Dialect, c Column, ownsKey bool) string {
 	clause := d.Quote(c.Name) + " " + c.Type
-	if c.NotNull && !c.PrimaryKey {
+	if c.NotNull && !ownsKey {
 		clause += " NOT NULL"
 	}
 	if c.Default != "" {
@@ -25,12 +29,20 @@ func columnClause(d Dialect, c Column) string {
 }
 
 func createTable(d Dialect, table string, columns []Column, primaryKeyInline bool) string {
+	declared := 0
+	for _, c := range columns {
+		if c.PrimaryKey {
+			declared++
+		}
+	}
+	inline := primaryKeyInline && declared == 1
+
 	lines := make([]string, 0, len(columns)+1)
 	keys := make([]string, 0, 1)
 	for _, c := range columns {
-		clause := columnClause(d, c)
+		clause := columnClauseWith(d, c, c.PrimaryKey && inline)
 		if c.PrimaryKey {
-			if primaryKeyInline {
+			if inline {
 				clause += " PRIMARY KEY"
 			} else {
 				keys = append(keys, c.Name)

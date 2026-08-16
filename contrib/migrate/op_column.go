@@ -20,7 +20,7 @@ func (o AddColumn) Statements(d dialect.Dialect) []string {
 }
 
 func (o AddColumn) Source() string {
-	return fmt.Sprintf("migrate.AddColumn{Table: %q, Column: %s}", o.Table, columnSource(o.Column))
+	return fmt.Sprintf("migrate.AddColumn{Table: %q, Column: %s}", o.Table, columnLiteral(o.Column))
 }
 
 type DropColumn struct {
