@@ -10,8 +10,6 @@ import (
 	"github.com/farhapartex/coyote/core/view"
 )
 
-const pageSize = 25
-
 type listRow struct {
 	ID    string
 	Cells []string
@@ -24,18 +22,40 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 			return
 		}
 
-		page := 1
+		number := 1
 		if n, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && n > 1 {
-			page = n
+			number = n
 		}
+
+		paginator := a.app.Settings.Pagination.Paginator
+		perPage := a.app.Settings.Pagination.PerPage
+
+		offset := 0
+		if perPage > 0 && number > 1 {
+			offset = (number - 1) * perPage
+		}
+
 		result, err := records.List(r.Context(), entry.schema, model.Query{
-			Limit:  pageSize,
-			Offset: (page - 1) * pageSize,
+			Limit:  perPage,
+			Offset: offset,
 			Order:  entry.order,
 		})
 		if err != nil {
 			a.fail(w, r, err)
 			return
+		}
+
+		page := view.Paginate(paginator, result.Total, number, perPage)
+		if page.Offset != offset {
+			result, err = records.List(r.Context(), entry.schema, model.Query{
+				Limit:  page.Limit,
+				Offset: page.Offset,
+				Order:  entry.order,
+			})
+			if err != nil {
+				a.fail(w, r, err)
+				return
+			}
 		}
 
 		columns := entry.schema.ListFields()
@@ -56,10 +76,6 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 			"Total":    result.Total,
 			"ReadOnly": entry.readOnly,
 			"Page":     page,
-			"HasPrev":  page > 1,
-			"HasNext":  int64(page*pageSize) < result.Total,
-			"PrevPage": page - 1,
-			"NextPage": page + 1,
 		})
 	}
 }

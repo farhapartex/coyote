@@ -52,6 +52,7 @@ func (s Settings) validate() error {
 		s.validateSessions,
 		s.validateAuth,
 		s.validateTemplates,
+		s.validatePagination,
 		s.validateStatic,
 		s.validateAdmin,
 		s.validateSecurity,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/core/view"
 )
 
 type SameSite string
@@ -34,6 +35,7 @@ type Settings struct {
 	Sessions   Sessions
 	Auth       Auth
 	Templates  Templates
+	Pagination Pagination
 	Static     Static
 	Admin      Admin
 	Logging    Logging
@@ -70,6 +72,11 @@ type Sessions struct {
 	Domain          string
 	CleanupInterval time.Duration
 	Store           session.Store
+}
+
+type Pagination struct {
+	PerPage   int
+	Paginator view.Paginator
 }
 
 type Auth struct {

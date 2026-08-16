@@ -31,13 +31,18 @@
   {{end}}
 </div>
 
-{{if or .HasPrev .HasNext}}
-<div class="actions">
-  {{if .HasPrev}}<a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}?page={{.PrevPage}}">Previous</a>{{end}}
-  <span class="spacer"></span>
-  <span class="muted">Page {{.Page}}</span>
-  <span class="spacer"></span>
-  {{if .HasNext}}<a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}?page={{.NextPage}}">Next</a>{{end}}
+{{with .Page}}
+{{if and .Enabled (not .Single)}}
+<div class="pager">
+  {{if .HasPrev}}<a class="btn secondary" href="{{$.Prefix}}/{{$.Resource.Slug}}?page={{.Prev}}">Previous</a>{{end}}
+  <span class="pages">
+    {{range .Numbers}}
+    <a href="{{$.Prefix}}/{{$.Resource.Slug}}?page={{.}}"{{if eq . $.Page.Number}} class="on"{{end}}>{{.}}</a>
+    {{end}}
+  </span>
+  {{if .HasNext}}<a class="btn secondary" href="{{$.Prefix}}/{{$.Resource.Slug}}?page={{.Next}}">Next</a>{{end}}
 </div>
+<p class="muted" style="font-size:12px">Page {{.Number}} of {{.Pages}} · {{.Total}} total</p>
+{{end}}
 {{end}}
 {{end}}

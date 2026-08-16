@@ -28,6 +28,12 @@ func (s Settings) validateAuth(add func(string)) {
 	}
 }
 
+func (s Settings) validatePagination(add func(string)) {
+	if s.Pagination.PerPage < 0 {
+		add("Pagination.PerPage cannot be negative; use 0 to turn pagination off")
+	}
+}
+
 func (s Settings) validateTemplates(add func(string)) {
 	if s.Templates.Layout == "" {
 		add("Templates.Layout is empty")

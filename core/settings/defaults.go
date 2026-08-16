@@ -1,6 +1,10 @@
 package settings
 
-import "time"
+import (
+	"time"
+
+	"github.com/farhapartex/coyote/core/view"
+)
 
 func Default() Settings {
 	return Settings{
@@ -41,6 +45,9 @@ func Default() Settings {
 		Templates: Templates{
 			Layout: "layouts/base.html",
 			Shared: []string{"layouts/*.html", "partials/*.html"},
+		},
+		Pagination: Pagination{
+			PerPage: view.DefaultPerPage,
 		},
 		Static: Static{
 			URL: "/static/",
