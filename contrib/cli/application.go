@@ -9,6 +9,15 @@ import (
 	"gorm.io/gorm"
 )
 
+type PermissionSyncer interface {
+	SyncPermissions() (auth.SyncReport, error)
+}
+
+type Report struct {
+	Created []string
+	Stale   []string
+}
+
 type Application interface {
 	Serve() error
 	Config() settings.Settings

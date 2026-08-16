@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"fmt"
+	"github.com/farhapartex/coyote/core/auth"
 )
 
 var (
@@ -47,12 +48,12 @@ func (a *Admin) Manage(resources ...Resource) error {
 
 func (a *Admin) mountResource(entry managed) {
 	base := "/" + entry.Slug()
-	a.guarded.Get(base, a.resourceList(entry))
-	a.guarded.Get(base+"/new", a.resourceForm(entry))
-	a.guarded.Post(base+"/new", a.resourceCreate(entry))
-	a.guarded.Get(base+"/{id}", a.resourceForm(entry))
-	a.guarded.Post(base+"/{id}", a.resourceUpdate(entry))
-	a.guarded.Post(base+"/{id}/delete", a.resourceDelete(entry))
+	a.guarded.Get(base, a.permit(entry, auth.ActionRead, a.resourceList(entry)))
+	a.guarded.Get(base+"/new", a.permit(entry, auth.ActionCreate, a.resourceForm(entry)))
+	a.guarded.Post(base+"/new", a.permit(entry, auth.ActionCreate, a.resourceCreate(entry)))
+	a.guarded.Get(base+"/{id}", a.permit(entry, auth.ActionRead, a.resourceForm(entry)))
+	a.guarded.Post(base+"/{id}", a.permit(entry, auth.ActionUpdate, a.resourceUpdate(entry)))
+	a.guarded.Post(base+"/{id}/delete", a.permit(entry, auth.ActionDelete, a.resourceDelete(entry)))
 }
 
 func (a *Admin) MustManage(resources ...Resource) {

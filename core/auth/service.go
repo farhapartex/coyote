@@ -22,6 +22,7 @@ type Options struct {
 	Throttle          ThrottlePolicy
 	Limiter           LoginLimiter
 	TrustProxy        bool
+	PermissionStore   PermissionStore
 }
 
 type Service struct {
@@ -32,6 +33,7 @@ type Service struct {
 	passwordRules     []PasswordRule
 	limiter           LoginLimiter
 	trustProxy        bool
+	permissions       PermissionStore
 }
 
 func NewService(users Store, sessions *session.Manager, opts Options) *Service {
@@ -56,6 +58,7 @@ func NewService(users Store, sessions *session.Manager, opts Options) *Service {
 		passwordRules:     opts.PasswordRules,
 		limiter:           opts.Limiter,
 		trustProxy:        opts.TrustProxy,
+		permissions:       opts.PermissionStore,
 	}
 }
 

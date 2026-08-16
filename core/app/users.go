@@ -18,6 +18,16 @@ func userStore(s Settings, a *App) auth.Store {
 	return store.LazyUsers(a.DB)
 }
 
+func permissionStore(s Settings, a *App) auth.PermissionStore {
+	if s.Auth.PermissionStore != nil {
+		return s.Auth.PermissionStore
+	}
+	if !s.Auth.Permissions || s.Database().Engine == "" {
+		return nil
+	}
+	return store.LazyPermissions(a.DB)
+}
+
 func sessionStore(s Settings, a *App) session.Store {
 	if s.Sessions.Store != nil {
 		return s.Sessions.Store

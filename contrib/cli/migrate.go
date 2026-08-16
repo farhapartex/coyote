@@ -52,6 +52,7 @@ func (Migrate) Run(ctx Context) error {
 			return nil
 		}
 		fmt.Fprintln(ctx.Out, "database is up to date, nothing to apply")
+		afterMigrate(ctx)
 		return nil
 	}
 
@@ -67,5 +68,19 @@ func (Migrate) Run(ctx Context) error {
 		fmt.Fprintln(ctx.Out, "      applied")
 	}
 	fmt.Fprintf(ctx.Out, "\napplied %d migration(s)\n", len(pending))
+	afterMigrate(ctx)
 	return nil
+}
+
+func afterMigrate(ctx Context) {
+	report, err := syncPermissions(ctx)
+	if err != nil {
+		fmt.Fprintf(ctx.Out, "\npermissions were not synced: %v\n", err)
+		return
+	}
+	if len(report.Created) == 0 && len(report.Stale) == 0 {
+		return
+	}
+	fmt.Fprintln(ctx.Out)
+	reportPermissions(ctx, report)
 }

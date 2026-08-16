@@ -107,7 +107,8 @@ func (s *Service) loadUser(r *http.Request) *User {
 func (s *Service) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if u := s.loadUser(r); u != nil {
-			r = r.WithContext(context.WithValue(r.Context(), userContextKey, u))
+			ctx := context.WithValue(r.Context(), userContextKey, u)
+			r = r.WithContext(withPermissionCache(ctx, u.ID))
 		}
 		next.ServeHTTP(w, r)
 	})

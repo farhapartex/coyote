@@ -97,6 +97,7 @@ func NewFrom(s Settings) *App {
 		MinPasswordLength: s.Auth.PasswordMinLength,
 		PasswordRules:     s.Auth.PasswordRules,
 		Throttle:          s.Auth.Throttle,
+		PermissionStore:   permissionStore(s, a),
 		TrustProxy:        s.Security.RateLimit.TrustProxy,
 	})
 

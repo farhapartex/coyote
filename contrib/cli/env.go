@@ -13,8 +13,9 @@ const (
 )
 
 const (
-	NameStart   = "start"
-	NameMigrate = "migrate"
+	NameStart           = "start"
+	NameMigrate         = "migrate"
+	NameSyncPermissions = "syncpermissions"
 )
 
 func Requested() string {

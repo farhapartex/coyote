@@ -11,6 +11,7 @@ commands:
   makemigrations    write a migration file for changes to your models
   migrate           apply migrations that have not been applied yet
   sqlmigrate        print the SQL a pending migration would run
+  syncpermissions   create the permissions for every registered model
   createsuperadmin  create a superadmin who can sign in to the admin portal
   version           print the coyote version
   help              print this message

@@ -33,6 +33,7 @@ func Default() Settings {
 			CleanupInterval: 5 * time.Minute,
 		},
 		Auth: Auth{
+			Permissions:       true,
 			LoginURL:          "/admin/login",
 			PasswordMinLength: 8,
 			PBKDF2Iterations:  600000,
