@@ -10,7 +10,7 @@ import (
 )
 
 func (a *Admin) loginForm(w http.ResponseWriter, r *http.Request) {
-	if u := a.currentUser(r); u != nil && u.IsSuperadmin {
+	if u := a.currentUser(r); u.CanReachAdmin() {
 		view.Redirect(w, r, a.prefix+"/")
 		return
 	}
@@ -28,20 +28,23 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	password := r.PostForm.Get("password")
 	next := view.SafeNext(r.PostForm.Get("next"), a.prefix+"/")
 
-	user, err := a.app.Auth.Authenticate(username, password)
+	user, err := a.app.Auth.AuthenticateRequest(r, username, password)
 	if err != nil {
-		message := "Invalid username or password."
+		message, status := "Invalid username or password.", http.StatusUnauthorized
 		if errors.Is(err, auth.ErrInactiveAccount) {
 			message = "This account has been disabled."
 		}
-		a.render(w, r, http.StatusUnauthorized, "login.html", view.Data{
+		if errors.Is(err, auth.ErrTooManyAttempts) {
+			message, status = "Too many failed attempts. Try again later.", http.StatusTooManyRequests
+		}
+		a.render(w, r, status, "login.html", view.Data{
 			"Error":    message,
 			"Username": username,
 			"Next":     next,
 		})
 		return
 	}
-	if !user.IsSuperadmin {
+	if !user.CanReachAdmin() {
 		a.render(w, r, http.StatusForbidden, "login.html", view.Data{
 			"Error":    "This account does not have access to the admin portal.",
 			"Username": username,

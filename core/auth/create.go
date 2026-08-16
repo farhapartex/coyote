@@ -11,11 +11,18 @@ type NewUser struct {
 	FirstName    string
 	LastName     string
 	Password     string
+	IsStaff      bool
 	IsSuperadmin bool
 }
 
 func (s *Service) CreateUser(in NewUser) (*User, error) {
-	if err := s.ValidatePassword(in.Password); err != nil {
+	candidate := &User{
+		FirstName: strings.TrimSpace(in.FirstName),
+		LastName:  strings.TrimSpace(in.LastName),
+		Email:     strings.TrimSpace(in.Email),
+		Username:  strings.TrimSpace(in.Username),
+	}
+	if err := s.ValidatePasswordFor(in.Password, candidate); err != nil {
 		return nil, err
 	}
 	hash, err := s.hasher.Hash(in.Password)
@@ -23,12 +30,13 @@ func (s *Service) CreateUser(in NewUser) (*User, error) {
 		return nil, err
 	}
 	u := &User{
-		FirstName:    strings.TrimSpace(in.FirstName),
-		LastName:     strings.TrimSpace(in.LastName),
-		Email:        strings.TrimSpace(in.Email),
-		Username:     strings.TrimSpace(in.Username),
+		FirstName:    candidate.FirstName,
+		LastName:     candidate.LastName,
+		Email:        candidate.Email,
+		Username:     candidate.Username,
 		Password:     hash,
 		IsActive:     true,
+		IsStaff:      in.IsStaff || in.IsSuperadmin,
 		IsSuperadmin: in.IsSuperadmin,
 		CreatedAt:    time.Now(),
 	}
@@ -48,11 +56,11 @@ func (s *Service) CreateSuperadmin(username, email, password string) (*User, err
 }
 
 func (s *Service) SetPassword(id, password string) error {
-	if err := s.ValidatePassword(password); err != nil {
-		return err
-	}
 	u, err := s.users.ByID(id)
 	if err != nil {
+		return err
+	}
+	if err := s.ValidatePasswordFor(password, u); err != nil {
 		return err
 	}
 	hash, err := s.hasher.Hash(password)

@@ -3,24 +3,61 @@ package auth
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/lib/clientip"
 )
 
 func (s *Service) Authenticate(username, password string) (*User, error) {
+	return s.authenticate(loginKey(username, ""), username, password)
+}
+
+func (s *Service) AuthenticateRequest(r *http.Request, username, password string) (*User, error) {
+	return s.authenticate(loginKey(username, s.clientIP(r)), username, password)
+}
+
+func (s *Service) authenticate(key, username, password string) (*User, error) {
+	if s.limiter != nil && !s.limiter.Allow(key) {
+		return nil, ErrTooManyAttempts
+	}
+
 	u, err := s.users.ByUsername(username)
 	if err != nil {
 		_, _ = s.hasher.Hash(password)
+		s.recordFailure(key)
 		return nil, ErrInvalidCredentials
 	}
 	if !VerifyPassword(password, u.Password) {
+		s.recordFailure(key)
 		return nil, ErrInvalidCredentials
 	}
 	if !u.IsActive {
+		s.recordFailure(key)
 		return nil, ErrInactiveAccount
 	}
+	if s.limiter != nil {
+		s.limiter.Reset(key)
+	}
 	return u, nil
+}
+
+func (s *Service) recordFailure(key string) {
+	if s.limiter != nil {
+		s.limiter.Fail(key)
+	}
+}
+
+func (s *Service) clientIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	return clientip.From(r, s.trustProxy)
+}
+
+func loginKey(username, ip string) string {
+	return strings.ToLower(strings.TrimSpace(username)) + "|" + ip
 }
 
 func (s *Service) Login(r *http.Request, u *User) error {
@@ -32,10 +69,17 @@ func (s *Service) Login(r *http.Request, u *User) error {
 		return err
 	}
 	sess.SetUserID(u.ID)
-	u.LastLoginAt = time.Now()
-	if err := s.users.Update(u); err != nil {
+
+	stored, err := s.users.ByID(u.ID)
+	if err != nil {
 		return err
 	}
+	now := time.Now()
+	stored.LastLoginAt = now
+	if err := s.users.Update(stored); err != nil {
+		return err
+	}
+	u.LastLoginAt = now
 	return nil
 }
 
@@ -70,7 +114,8 @@ func (s *Service) loadUser(r *http.Request) *User {
 func (s *Service) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if u := s.loadUser(r); u != nil {
-			r = r.WithContext(context.WithValue(r.Context(), userContextKey, u))
+			ctx := context.WithValue(r.Context(), userContextKey, u)
+			r = r.WithContext(withPermissionCache(ctx, u.ID))
 		}
 		next.ServeHTTP(w, r)
 	})

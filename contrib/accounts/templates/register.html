@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="card">
+  <h1>Create an account</h1>
+  {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+  <form method="post" action="{{.Prefix}}/register">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="row">
+      <label>First name
+        <input type="text" name="first_name" value="{{.Form.FirstName}}" autocomplete="given-name">
+      </label>
+      <label>Last name
+        <input type="text" name="last_name" value="{{.Form.LastName}}" autocomplete="family-name">
+      </label>
+    </div>
+    <label>Username
+      <input type="text" name="username" value="{{.Form.Username}}" autocomplete="username" required>
+    </label>
+    <label>Email
+      <input type="email" name="email" value="{{.Form.Email}}" autocomplete="email">
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="new-password" required>
+    </label>
+    <button type="submit">Create account</button>
+  </form>
+</div>
+<p class="foot muted">Already have one? <a href="{{.Prefix}}/login">Sign in</a>.</p>
+{{end}}

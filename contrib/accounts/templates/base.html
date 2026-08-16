@@ -1,0 +1,42 @@
+{{define "base.html"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}}</title>
+  <style nonce="{{.Nonce}}">
+    :root { --brand:#00ADD8; --ink:#1b1f23; --muted:#6a737d; --line:#e4e8ec; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+           color:var(--ink); background:#f6f8fa; }
+    .wrap { max-width:26rem; margin:6vh auto; padding:0 1rem; }
+    .wide { max-width:38rem; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:1.75rem; }
+    h1 { margin:0 0 1.25rem; font-size:1.35rem; }
+    h2 { margin:2rem 0 .75rem; font-size:1.05rem; }
+    label { display:block; margin-bottom:.85rem; font-weight:600; font-size:.85rem; }
+    input { width:100%; margin-top:.3rem; padding:.6rem .7rem; font:inherit; font-weight:400;
+            border:1px solid var(--line); border-radius:6px; }
+    input:focus { outline:2px solid var(--brand); outline-offset:1px; }
+    button { padding:.6rem 1.1rem; font:inherit; font-weight:600; color:#fff; background:var(--brand);
+             border:0; border-radius:6px; cursor:pointer; }
+    .row { display:flex; gap:.75rem; }
+    .row label { flex:1; }
+    .alert { padding:.7rem .9rem; border-radius:6px; margin-bottom:1rem; font-size:.9rem;
+             background:#fdf3f4; border-left:3px solid #d73a49; }
+    .flash { padding:.7rem .9rem; border-radius:6px; margin-bottom:1rem; font-size:.9rem;
+             background:#f4fbfd; border-left:3px solid var(--brand); }
+    .muted { color:var(--muted); font-size:.875rem; }
+    .foot { margin-top:1.25rem; text-align:center; }
+    a { color:var(--brand); }
+  </style>
+</head>
+<body>
+  <div class="wrap {{if .Wide}}wide{{end}}">
+    {{range .Flashes}}<p class="flash">{{.Message}}</p>{{end}}
+    {{block "content" .}}{{end}}
+  </div>
+</body>
+</html>
+{{end}}

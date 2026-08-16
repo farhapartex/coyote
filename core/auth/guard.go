@@ -23,7 +23,7 @@ func (g *guarded) Update(u *User) error {
 	if err != nil {
 		return err
 	}
-	losing := existing.IsSuperadmin && existing.IsActive && (!u.IsSuperadmin || !u.IsActive)
+	losing := existing.IsSuperadmin && existing.IsActive && (!u.IsSuperadmin || !u.IsActive || !u.IsStaff)
 	if losing {
 		remaining, err := g.activeSuperadmins()
 		if err != nil {

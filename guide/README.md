@@ -46,6 +46,8 @@ straight to the one you need.
 | [13. Sessions](13-sessions.md) | The session API and the three backends |
 | [14. Authentication](14-authentication.md) | The user entity, passwords, sign-in, guards |
 | [15. Admin portal](15-admin.md) | Mounting it, and CRUD for your own models |
+| [28. Permissions and roles](28-permissions.md) | Four permissions per model, bundled into roles |
+| [29. Self-service accounts](29-accounts.md) | Sign-in, registration and profile pages for your users |
 
 ## Middleware and security
 

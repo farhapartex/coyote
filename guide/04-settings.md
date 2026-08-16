@@ -177,7 +177,11 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Sessions.Store` | none | Supply your own `session.Store` |
 | `Auth.LoginURL` | `/admin/login` | Where guards send anonymous visitors |
 | `Auth.PasswordMinLength` | `8` | |
+| `Auth.PasswordRules` | four defaults | Replace to change the policy; see [Authentication](14-authentication.md) |
 | `Auth.PBKDF2Iterations` | `600000` | Lower it in tests to keep them fast |
+| `Auth.Throttle` | off | Login attempt limits; see [Authentication](14-authentication.md) |
+| `Auth.Permissions` | `true` | Register the permission and role tables; see [Permissions](28-permissions.md) |
+| `Auth.PermissionStore` | database-backed | Any `auth.PermissionStore` |
 | `Auth.UserStore` | database-backed | Any `auth.Store`; falls back to memory with no database |
 | `Templates.FS` | none | An `fs.FS`, usually from `go:embed` |
 | `Templates.Dir` | none | A directory path instead of an `fs.FS`; mutually exclusive with `FS` |

@@ -1,0 +1,38 @@
+{{define "title"}}Roles{{end}}
+
+{{define "content"}}
+<div class="page-head">
+  <h2>Roles <span class="muted" style="font-size:15px;font-weight:400">({{len .Roles}})</span></h2>
+  <a class="btn" href="{{.Prefix}}/roles/new">Add role</a>
+</div>
+
+<div class="card">
+  {{if .Roles}}
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Description</th><th>Permissions</th><th></th></tr>
+    </thead>
+    <tbody>
+      {{range .Roles}}
+      <tr>
+        <td><a href="{{$.Prefix}}/roles/{{.ID}}">{{.Name}}</a></td>
+        <td class="muted">{{if .Description}}{{.Description}}{{else}}—{{end}}</td>
+        <td><span class="tag">{{index $.Counts .ID}} granted</span></td>
+        <td class="right">
+          <form method="post" action="{{$.Prefix}}/roles/{{.ID}}/delete" class="inline"
+                onsubmit="return confirm('Delete {{.Name}}? Anyone holding it loses those permissions.')">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <button class="btn danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted" style="padding:20px">
+    No roles yet. A role is a named bundle of permissions that you hand to staff accounts.
+  </p>
+  {{end}}
+</div>
+{{end}}

@@ -1,14 +1,13 @@
 package middleware
 
 import (
-	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/lib/clientip"
 )
 
 type KeyFunc func(*http.Request) string
@@ -42,21 +41,7 @@ func RateLimitBy(policy settings.RateLimit, key KeyFunc) Middleware {
 }
 
 func ClientIP(trustProxy bool) KeyFunc {
-	return func(r *http.Request) string {
-		if trustProxy {
-			if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-				return strings.TrimSpace(strings.Split(forwarded, ",")[0])
-			}
-			if real := r.Header.Get("X-Real-Ip"); real != "" {
-				return strings.TrimSpace(real)
-			}
-		}
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			return r.RemoteAddr
-		}
-		return host
-	}
+	return func(r *http.Request) string { return clientip.From(r, trustProxy) }
 }
 
 type bucket struct {

@@ -40,6 +40,14 @@ func migrate(args []string) error {
 	return invoke(env)
 }
 
+func syncPermissions(args []string) error {
+	fs := flag.NewFlagSet("syncpermissions", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return invoke(append(os.Environ(), cli.EnvCommand+"="+cli.NameSyncPermissions))
+}
+
 func makeMigrations(args []string) error {
 	fs := flag.NewFlagSet("makemigrations", flag.ContinueOnError)
 	name := fs.String("name", "", "name for the generated migration")

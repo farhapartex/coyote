@@ -9,6 +9,10 @@ func (s *Service) RequireLogin(loginURL string) func(http.Handler) http.Handler 
 	return s.guard(loginURL, func(u *User) bool { return u != nil })
 }
 
+func (s *Service) RequireStaff(loginURL string) func(http.Handler) http.Handler {
+	return s.guard(loginURL, func(u *User) bool { return u.CanReachAdmin() })
+}
+
 func (s *Service) RequireSuperadmin(loginURL string) func(http.Handler) http.Handler {
 	return s.guard(loginURL, func(u *User) bool { return u != nil && u.IsSuperadmin })
 }

@@ -75,8 +75,12 @@ type Sessions struct {
 type Auth struct {
 	LoginURL          string
 	PasswordMinLength int
+	PasswordRules     []auth.PasswordRule
 	PBKDF2Iterations  int
+	Throttle          auth.ThrottlePolicy
+	Permissions       bool
 	UserStore         auth.Store
+	PermissionStore   auth.PermissionStore
 }
 
 type Templates struct {

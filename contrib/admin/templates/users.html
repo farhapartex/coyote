@@ -25,7 +25,7 @@
         <td class="muted">{{with .FullName}}{{.}}{{else}}—{{end}}</td>
         <td class="muted">{{if .Email}}{{.Email}}{{else}}—{{end}}</td>
         <td>
-          {{if .IsSuperadmin}}<span class="tag brand">superadmin</span>{{else}}<span class="tag">user</span>{{end}}
+          {{if .IsSuperadmin}}<span class="tag brand">superadmin</span>{{else if .IsStaff}}<span class="tag">staff</span>{{else}}<span class="tag">user</span>{{end}}
         </td>
         <td>{{if .IsActive}}<span class="tag on">active</span>{{else}}<span class="tag off">disabled</span>{{end}}</td>
         <td class="muted">{{if .HasLoggedIn}}{{.LastLoginAt.Format "2 Jan 06 15:04"}}{{else}}never{{end}}</td>

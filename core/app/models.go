@@ -11,6 +11,14 @@ func defaultModels(s Settings) *model.Registry {
 	if s.Sessions.Backend.Persistent() {
 		registry.Add(model.Of(session.Record{}))
 	}
+	if s.Auth.Permissions {
+		registry.Add(
+			model.Of(auth.Permission{}),
+			model.Of(auth.Role{}),
+			model.Of(auth.RolePermission{}),
+			model.Of(auth.UserRole{}),
+		)
+	}
 	return registry
 }
 
