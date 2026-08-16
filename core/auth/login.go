@@ -3,24 +3,61 @@ package auth
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/lib/clientip"
 )
 
 func (s *Service) Authenticate(username, password string) (*User, error) {
+	return s.authenticate(loginKey(username, ""), username, password)
+}
+
+func (s *Service) AuthenticateRequest(r *http.Request, username, password string) (*User, error) {
+	return s.authenticate(loginKey(username, s.clientIP(r)), username, password)
+}
+
+func (s *Service) authenticate(key, username, password string) (*User, error) {
+	if s.limiter != nil && !s.limiter.Allow(key) {
+		return nil, ErrTooManyAttempts
+	}
+
 	u, err := s.users.ByUsername(username)
 	if err != nil {
 		_, _ = s.hasher.Hash(password)
+		s.recordFailure(key)
 		return nil, ErrInvalidCredentials
 	}
 	if !VerifyPassword(password, u.Password) {
+		s.recordFailure(key)
 		return nil, ErrInvalidCredentials
 	}
 	if !u.IsActive {
+		s.recordFailure(key)
 		return nil, ErrInactiveAccount
 	}
+	if s.limiter != nil {
+		s.limiter.Reset(key)
+	}
 	return u, nil
+}
+
+func (s *Service) recordFailure(key string) {
+	if s.limiter != nil {
+		s.limiter.Fail(key)
+	}
+}
+
+func (s *Service) clientIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	return clientip.From(r, s.trustProxy)
+}
+
+func loginKey(username, ip string) string {
+	return strings.ToLower(strings.TrimSpace(username)) + "|" + ip
 }
 
 func (s *Service) Login(r *http.Request, u *User) error {

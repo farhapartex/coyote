@@ -77,6 +77,7 @@ type Auth struct {
 	PasswordMinLength int
 	PasswordRules     []auth.PasswordRule
 	PBKDF2Iterations  int
+	Throttle          auth.ThrottlePolicy
 	UserStore         auth.Store
 }
 

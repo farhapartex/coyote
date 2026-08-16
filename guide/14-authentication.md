@@ -158,6 +158,34 @@ In templates the same user is `.User`.
 Login on an unknown username still runs a hash, so response timing does not reveal which usernames
 exist.
 
+## Login throttling
+
+Off by default. Turn it on and repeated failures lock the pair out:
+
+```go
+s.Auth.Throttle = auth.ThrottlePolicy{
+	Enabled:     true,
+	MaxAttempts: 5,
+	Window:      15 * time.Minute,
+	Lockout:     15 * time.Minute,
+}
+```
+
+- The key is **username plus client IP**, so someone guessing at your name from their own machine
+  cannot lock you out of yours.
+- An unknown username is throttled exactly like a real one. If it were not, the lockout itself would
+  reveal which accounts exist.
+- A successful sign-in clears the counter.
+- `Authenticate` alone keys on the username; `AuthenticateRequest(r, …)` adds the IP. The admin
+  portal uses the second.
+- Over the limit returns `auth.ErrTooManyAttempts`; the admin login renders it as a 429.
+
+`IsActive = false` is a separate, permanent block — throttling only limits the rate of attempts.
+
+Counters live in memory and are swept, so the map does not grow forever. That also means **each
+process has its own counters**: behind several instances the effective allowance multiplies. Supply
+your own `auth.LoginLimiter` (`Allow`, `Fail`, `Reset`) to share them.
+
 ## Guarding routes
 
 ```go

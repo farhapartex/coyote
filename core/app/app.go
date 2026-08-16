@@ -96,6 +96,8 @@ func NewFrom(s Settings) *App {
 		Hasher:            auth.Hasher{Iterations: s.Auth.PBKDF2Iterations},
 		MinPasswordLength: s.Auth.PasswordMinLength,
 		PasswordRules:     s.Auth.PasswordRules,
+		Throttle:          s.Auth.Throttle,
+		TrustProxy:        s.Security.RateLimit.TrustProxy,
 	})
 
 	a.global = []Middleware{

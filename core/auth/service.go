@@ -19,6 +19,9 @@ type Options struct {
 	Hasher            Hasher
 	MinPasswordLength int
 	PasswordRules     []PasswordRule
+	Throttle          ThrottlePolicy
+	Limiter           LoginLimiter
+	TrustProxy        bool
 }
 
 type Service struct {
@@ -27,6 +30,8 @@ type Service struct {
 	hasher            Hasher
 	minPasswordLength int
 	passwordRules     []PasswordRule
+	limiter           LoginLimiter
+	trustProxy        bool
 }
 
 func NewService(users Store, sessions *session.Manager, opts Options) *Service {
@@ -40,12 +45,17 @@ func NewService(users Store, sessions *session.Manager, opts Options) *Service {
 	if opts.PasswordRules == nil {
 		opts.PasswordRules = DefaultPasswordRules(opts.MinPasswordLength)
 	}
+	if opts.Limiter == nil && opts.Throttle.Enabled {
+		opts.Limiter = NewLoginLimiter(opts.Throttle)
+	}
 	return &Service{
 		users:             users,
 		sessions:          sessions,
 		hasher:            opts.Hasher,
 		minPasswordLength: opts.MinPasswordLength,
 		passwordRules:     opts.PasswordRules,
+		limiter:           opts.Limiter,
+		trustProxy:        opts.TrustProxy,
 	}
 }
 

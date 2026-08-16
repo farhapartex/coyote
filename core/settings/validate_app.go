@@ -15,6 +15,17 @@ func (s Settings) validateAuth(add func(string)) {
 	if s.Auth.LoginURL != "" && !strings.HasPrefix(s.Auth.LoginURL, "/") {
 		add("Auth.LoginURL must start with \"/\"")
 	}
+	if s.Auth.Throttle.Enabled {
+		if s.Auth.Throttle.MaxAttempts < 1 {
+			add("Auth.Throttle.MaxAttempts must be at least 1 when throttling is enabled")
+		}
+		if s.Auth.Throttle.Window <= 0 {
+			add("Auth.Throttle.Window must be greater than zero when throttling is enabled")
+		}
+		if s.Auth.Throttle.Lockout < 0 {
+			add("Auth.Throttle.Lockout cannot be negative")
+		}
+	}
 }
 
 func (s Settings) validateTemplates(add func(string)) {
