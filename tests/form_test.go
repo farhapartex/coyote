@@ -201,3 +201,41 @@ func TestBindQueryReadsTheQueryString(t *testing.T) {
 		t.Errorf("filter = %+v", in)
 	}
 }
+
+func TestRecordBinderIsSharedWithTheAdmin(t *testing.T) {
+	a := migratedApp(t, Product{})
+	schema, err := a.Describe(Product{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bound := form.Record(url.Values{
+		"name":  {"Kettle"},
+		"sku":   {"KTL-1"},
+		"price": {"19.50"},
+		"stock": {"4"},
+	}, schema, true)
+	if !bound.Valid() {
+		t.Fatalf("problems: %v", bound.Problems)
+	}
+	if bound.Record.String("name") != "Kettle" {
+		t.Errorf("record = %v", bound.Record)
+	}
+	if got, ok := bound.Record["price"].(float64); !ok || got != 19.5 {
+		t.Errorf("price = %#v", bound.Record["price"])
+	}
+
+	bad := form.Record(url.Values{"name": {"Kettle"}, "price": {"free"}}, schema, true)
+	if bad.Valid() {
+		t.Fatal("expected problems")
+	}
+	if !bad.Problems.Has("price") {
+		t.Errorf("problems = %v", bad.Problems)
+	}
+	if got := bad.Errors()["price"]; got == "" {
+		t.Error("Errors() should flatten problems for the admin templates")
+	}
+	if !bad.Problems.Has("sku") {
+		t.Error("a required column left blank should be reported")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/store"
 	"github.com/farhapartex/coyote/core/view"
@@ -112,9 +113,9 @@ func (a *Admin) resourceCreate(entry managed) http.HandlerFunc {
 			return
 		}
 
-		bound := bindForm(r, entry.schema, true)
-		if !bound.valid() {
-			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", bound.Errors)
+		bound := form.Record(r.PostForm, entry.schema, true)
+		if !bound.Valid() {
+			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", bound.Errors())
 			return
 		}
 		if _, err := records.Insert(r.Context(), entry.schema, bound.Record); err != nil {
@@ -138,9 +139,9 @@ func (a *Admin) resourceUpdate(entry managed) http.HandlerFunc {
 		}
 
 		id := r.PathValue("id")
-		bound := bindForm(r, entry.schema, false)
-		if !bound.valid() {
-			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, bound.Errors)
+		bound := form.Record(r.PostForm, entry.schema, false)
+		if !bound.Valid() {
+			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, bound.Errors())
 			return
 		}
 		if err := records.Update(r.Context(), entry.schema, id, bound.Record); err != nil {

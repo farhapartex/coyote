@@ -4,10 +4,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/model"
 )
-
-const timeLayout = "2006-01-02T15:04"
 
 type formField struct {
 	Column   string
@@ -79,7 +78,7 @@ func formValue(f model.Field, record model.Record) string {
 			if stamp.IsZero() {
 				return ""
 			}
-			return stamp.Format(timeLayout)
+			return stamp.Format(form.RecordTimeLayout)
 		}
 	}
 	if f.Kind == model.KindBool {
