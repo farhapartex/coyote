@@ -24,10 +24,17 @@
       {{else}}
       <label>
         {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}{{if .ReadOnly}} <span class="muted" style="font-weight:400">generated</span>{{end}}
+        {{if .Multi}}
+        <textarea name="{{.Column}}" rows="3"
+                  {{if .Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}
+                  {{if .MaxLen}}maxlength="{{.MaxLen}}"{{end}}
+                  autocomplete="off">{{.Value}}</textarea>
+        {{else}}
         <input type="{{.Type}}" name="{{.Column}}" value="{{.Value}}"
                {{if .Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}
                {{if .Step}}step="{{.Step}}"{{end}} {{if .MaxLen}}maxlength="{{.MaxLen}}"{{end}}
                autocomplete="off">
+        {{end}}
         {{if .Error}}<span class="hint" style="color:#8c2f21;font-weight:400;font-size:12px">{{.Error}}</span>{{end}}
       </label>
       {{end}}
