@@ -1,0 +1,20 @@
+{{define "content"}}
+<h1>{{.Title}}</h1>
+<p class="muted">{{.Total}} product(s). This page needs the <code>products.read</code> permission.</p>
+
+<table>
+  <thead><tr><th>Name</th><th>SKU</th><th>Price</th><th>Stock</th></tr></thead>
+  <tbody>
+    {{range .Records}}
+    <tr>
+      <td>{{.String "name"}}</td>
+      <td>{{.String "sku"}}</td>
+      <td>{{.Get "price"}}</td>
+      <td>{{.Get "stock"}}</td>
+    </tr>
+    {{else}}
+    <tr><td colspan="4" class="muted">No products yet — add one in the admin portal.</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}

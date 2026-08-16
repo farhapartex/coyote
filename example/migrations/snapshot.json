@@ -46,6 +46,49 @@
       ]
     },
     {
+      "name": "permissions",
+      "columns": [
+        {
+          "name": "id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "resource",
+          "kind": "string",
+          "size": 100,
+          "notNull": true
+        },
+        {
+          "name": "action",
+          "kind": "string",
+          "size": 20,
+          "notNull": true
+        },
+        {
+          "name": "label",
+          "kind": "string",
+          "size": 150
+        },
+        {
+          "name": "created_at",
+          "kind": "time"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_permission_codename",
+          "columns": [
+            "resource",
+            "action"
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
       "name": "products",
       "columns": [
         {
@@ -112,6 +155,84 @@
       ]
     },
     {
+      "name": "role_permissions",
+      "columns": [
+        {
+          "name": "role_id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "permission_id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        }
+      ]
+    },
+    {
+      "name": "roles",
+      "columns": [
+        {
+          "name": "id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "name",
+          "kind": "string",
+          "size": 100,
+          "notNull": true
+        },
+        {
+          "name": "description",
+          "kind": "string",
+          "size": 255
+        },
+        {
+          "name": "created_at",
+          "kind": "time"
+        },
+        {
+          "name": "updated_at",
+          "kind": "time"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_roles_name",
+          "columns": [
+            "name"
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "user_roles",
+      "columns": [
+        {
+          "name": "user_id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "role_id",
+          "kind": "string",
+          "size": 64,
+          "notNull": true,
+          "primaryKey": true
+        }
+      ]
+    },
+    {
       "name": "users",
       "columns": [
         {
@@ -151,6 +272,10 @@
           "default": "true"
         },
         {
+          "name": "is_staff",
+          "kind": "bool"
+        },
+        {
           "name": "is_superadmin",
           "kind": "bool"
         },
@@ -178,6 +303,12 @@
           "name": "idx_users_is_active",
           "columns": [
             "is_active"
+          ]
+        },
+        {
+          "name": "idx_users_is_staff",
+          "columns": [
+            "is_staff"
           ]
         },
         {
