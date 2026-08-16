@@ -69,10 +69,17 @@ func (s *Service) Login(r *http.Request, u *User) error {
 		return err
 	}
 	sess.SetUserID(u.ID)
-	u.LastLoginAt = time.Now()
-	if err := s.users.Update(u); err != nil {
+
+	stored, err := s.users.ByID(u.ID)
+	if err != nil {
 		return err
 	}
+	now := time.Now()
+	stored.LastLoginAt = now
+	if err := s.users.Update(stored); err != nil {
+		return err
+	}
+	u.LastLoginAt = now
 	return nil
 }
 
