@@ -74,7 +74,7 @@ Start with the [quick start](guide/02-quickstart.md), or browse the full
 | **Configuration** | [Settings](guide/04-settings.md) | |
 | **Requests** | [Routing](guide/05-routing.md) · [Named routes](guide/06-named-routes.md) · [Views](guide/07-views.md) · [Templates](guide/08-templates.md) · [Static files](guide/09-static-files.md) | |
 | **Data** | [Models](guide/10-models.md) · [Database](guide/11-database.md) · [Migrations](guide/12-migrations.md) | |
-| **Users** | [Sessions](guide/13-sessions.md) · [Authentication](guide/14-authentication.md) · [Admin portal](guide/15-admin.md) · [Permissions](guide/28-permissions.md) | |
+| **Users** | [Sessions](guide/13-sessions.md) · [Authentication](guide/14-authentication.md) · [Admin portal](guide/15-admin.md) · [Permissions](guide/28-permissions.md) · [Accounts](guide/29-accounts.md) | |
 | **Security** | [Middleware](guide/16-middleware.md) · [Headers and CSP](guide/17-security-headers.md) · [CSRF](guide/18-csrf.md) · [Rate limiting](guide/19-rate-limiting.md) · [CORS](guide/20-cors.md) · [Compression](guide/21-compression.md) · [HTTPS](guide/22-https.md) | |
 | **Operations** | [CLI](guide/23-cli.md) · [First run](guide/24-first-run.md) · [Deployment](guide/25-deployment.md) · [Testing](guide/26-testing.md) · [Architecture](guide/27-architecture.md) | |
 

@@ -206,6 +206,11 @@ Guards work on a single route too:
 a.Get("/account", account, a.Auth.RequireLogin(login))
 ```
 
+## Ready-made views
+
+`contrib/accounts` provides sign-in, registration, profile and password-change pages for your users,
+mounted in one line. See [Self-service accounts](29-accounts.md).
+
 ## Replacing or extending the user
 
 Embed the entity when you only need extra fields beside it:
