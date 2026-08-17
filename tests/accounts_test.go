@@ -161,6 +161,7 @@ func TestProfileEditingAndPasswordChange(t *testing.T) {
 		"csrf_token":       {c.token("/accounts/profile")},
 		"current_password": {"wrong"},
 		"new_password":     {"another-good-secret"},
+		"confirm_password": {"another-good-secret"},
 	}); rec.Code != http.StatusBadRequest {
 		t.Errorf("a wrong current password should be refused, got %d", rec.Code)
 	}
@@ -169,6 +170,7 @@ func TestProfileEditingAndPasswordChange(t *testing.T) {
 		"csrf_token":       {c.token("/accounts/profile")},
 		"current_password": {"unrelated-and-long"},
 		"new_password":     {"another-good-secret"},
+		"confirm_password": {"another-good-secret"},
 	}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("changing the password: %d", rec.Code)
 	}

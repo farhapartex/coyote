@@ -17,6 +17,7 @@ func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page 
 	data["Sections"] = a.sections
 	data["Resources"] = a.visibleResources(r)
 	data["Permissions"] = a.app.Auth.Permissions() != nil
+	data.SetDefault("AllowPasswordChange", a.app.Auth.AllowsPasswordChange())
 	if err := a.templates.Render(w, status, "templates/"+page, data); err != nil {
 		a.app.Logger.Error("admin render failed: " + err.Error())
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)
