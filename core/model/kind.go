@@ -15,6 +15,7 @@ const (
 	KindBool   Kind = "bool"
 	KindTime   Kind = "time"
 	KindBytes  Kind = "bytes"
+	KindFile   Kind = "file"
 )
 
 var timeType = reflect.TypeOf(time.Time{})

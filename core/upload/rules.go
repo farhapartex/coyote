@@ -77,10 +77,13 @@ func (r Rules) Check(head []byte, declared string) (string, error) {
 }
 
 func compatible(declared, sniffed string) bool {
-	if sniffed != "application/octet-stream" && sniffed != "text/plain; charset=utf-8" {
-		return false
+	if declared == "" || declared == "application/octet-stream" {
+		return true
 	}
-	return !strings.HasPrefix(declared, "image/")
+	if sniffed == "application/octet-stream" || strings.HasPrefix(sniffed, "text/plain") {
+		return !strings.HasPrefix(declared, "image/")
+	}
+	return false
 }
 
 func (r Rules) checkPixels(head []byte, sniffed string) error {

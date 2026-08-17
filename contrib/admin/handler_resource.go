@@ -8,6 +8,7 @@ import (
 	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/store"
+	"github.com/farhapartex/coyote/core/upload"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -108,14 +109,18 @@ func (a *Admin) resourceCreate(entry managed) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if err := r.ParseForm(); err != nil {
+		if err := form.Parse(r, uploadMemory); err != nil {
 			http.Error(w, "400 bad request", http.StatusBadRequest)
 			return
 		}
 
 		bound := form.Record(r.PostForm, entry.schema, true)
-		if !bound.Valid() {
-			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", bound.Errors())
+		problems := bound.Errors()
+		for column, message := range a.attachFiles(r, entry, bound.Record, nil) {
+			problems[column] = message
+		}
+		if len(problems) > 0 {
+			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", problems)
 			return
 		}
 		if _, err := records.Insert(r.Context(), entry.schema, bound.Record); err != nil {
@@ -133,15 +138,26 @@ func (a *Admin) resourceUpdate(entry managed) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if err := r.ParseForm(); err != nil {
+		if err := form.Parse(r, uploadMemory); err != nil {
 			http.Error(w, "400 bad request", http.StatusBadRequest)
 			return
 		}
 
 		id := r.PathValue("id")
 		bound := form.Record(r.PostForm, entry.schema, false)
-		if !bound.Valid() {
-			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, bound.Errors())
+		problems := bound.Errors()
+
+		var existing model.Record
+		if a.hasFiles(entry.schema) {
+			if found, err := records.Find(r.Context(), entry.schema, id); err == nil {
+				existing = found
+			}
+		}
+		for column, message := range a.attachFiles(r, entry, bound.Record, existing) {
+			problems[column] = message
+		}
+		if len(problems) > 0 {
+			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, problems)
 			return
 		}
 		if err := records.Update(r.Context(), entry.schema, id, bound.Record); err != nil {
@@ -184,14 +200,22 @@ func (a *Admin) renderForm(w http.ResponseWriter, r *http.Request, status int, e
 	if id != "" {
 		action = a.prefix + "/" + entry.Slug() + "/" + id
 	}
+	fields := buildForm(entry.schema, record, errs, entry.readOnly)
+	for i, field := range fields {
+		if field.Type == "file" && field.Value != "" {
+			fields[i].URL = a.app.MediaURL(upload.Ref(field.Value))
+		}
+	}
+
 	a.render(w, r, status, "resource_form.html", view.Data{
 		"Nav":      entry.Slug(),
 		"Resource": entry,
-		"Fields":   buildForm(entry.schema, record, errs, entry.readOnly),
+		"Fields":   fields,
 		"IsNew":    id == "",
 		"RecordID": id,
 		"Action":   action,
 		"Error":    errs[""],
 		"ReadOnly": entry.readOnly,
+		"Uploads":  a.app.Uploads != nil,
 	})
 }

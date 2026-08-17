@@ -469,3 +469,51 @@ func TestRangeRequestsWork(t *testing.T) {
 		t.Errorf("returned %d bytes, want 10", rec.Body.Len())
 	}
 }
+
+func TestAGenericDeclaredTypeIsNotTreatedAsALie(t *testing.T) {
+	service, ctx := uploads(t, upload.Rules{Allowed: []string{"image/png"}}, 0)
+	body := pngBytes(t, 2, 2)
+
+	for _, declared := range []string{"", "application/octet-stream"} {
+		if _, err := service.Store(ctx, bytes.NewReader(body), "a.png", declared, int64(len(body))); err != nil {
+			t.Errorf("declared %q should be accepted, got %v", declared, err)
+		}
+	}
+}
+
+func TestUploadPathsCannotEscapeTheMediaRoot(t *testing.T) {
+	for input, want := range map[string]string{
+		"products/photos":   "products/photos",
+		"/products/photos/": "products/photos",
+		"../../etc":         "etc",
+		"a/../../b":         "a/b",
+		"":                  "",
+		"   ":               "",
+		`windows\path`:      "windows/path",
+	} {
+		if got := upload.CleanPath(input); got != want {
+			t.Errorf("CleanPath(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestStoreToPlacesFilesUnderThePath(t *testing.T) {
+	service, ctx := uploads(t, upload.Rules{Allowed: []string{"image/png"}}, 0)
+	body := pngBytes(t, 2, 2)
+
+	file, err := service.StoreTo(ctx, bytes.NewReader(body), "a.png", "image/png", int64(len(body)), "posters/images")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(file.Ref), "staged/posters/images/") {
+		t.Errorf("ref = %q", file.Ref)
+	}
+
+	ref := file.Ref
+	if err := service.Commit(ctx, &ref); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(ref), "media/posters/images/") {
+		t.Errorf("committed ref = %q, the path should survive the promotion", ref)
+	}
+}

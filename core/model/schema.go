@@ -15,6 +15,8 @@ type Field struct {
 	Generated     bool
 	Sensitive     bool
 	Default       string
+	UploadPath    string
+	Accept        string
 }
 
 type Index struct {

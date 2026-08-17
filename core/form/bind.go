@@ -28,6 +28,8 @@ func BindQuery(r *http.Request, target any) (Problems, error) {
 	return Values(r.URL.Query(), target)
 }
 
+func Parse(r *http.Request, maxBytes int64) error { return parse(r, maxBytes) }
+
 func parse(r *http.Request, maxBytes int64) error {
 	if r.Body != nil && maxBytes > 0 {
 		r.Body = http.MaxBytesReader(nil, r.Body, maxBytes)

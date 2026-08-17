@@ -33,6 +33,7 @@ type File struct {
 type Options struct {
 	Storage  storage.Storage
 	Rules    Rules
+	Path     string
 	TrashTTL time.Duration
 	StageTTL time.Duration
 }
@@ -40,6 +41,7 @@ type Options struct {
 type Service struct {
 	store    storage.Storage
 	rules    Rules
+	path     string
 	trashTTL time.Duration
 	stageTTL time.Duration
 }
@@ -51,6 +53,7 @@ func New(opts Options) *Service {
 	return &Service{
 		store:    opts.Storage,
 		rules:    opts.Rules,
+		path:     CleanPath(opts.Path),
 		trashTTL: opts.TrashTTL,
 		stageTTL: opts.StageTTL,
 	}
@@ -60,7 +63,20 @@ func (s *Service) Storage() storage.Storage { return s.store }
 
 func (s *Service) Rules() Rules { return s.rules }
 
+func (s *Service) Path() string { return s.path }
+
+func (s *Service) PathFor(field string) string {
+	if cleaned := CleanPath(field); cleaned != "" {
+		return cleaned
+	}
+	return s.path
+}
+
 func (s *Service) Accept(r *http.Request, field string) (File, error) {
+	return s.AcceptTo(r, field, "")
+}
+
+func (s *Service) AcceptTo(r *http.Request, field, path string) (File, error) {
 	if s.store == nil {
 		return File{}, ErrNotConfigued
 	}
@@ -84,7 +100,7 @@ func (s *Service) Accept(r *http.Request, field string) (File, error) {
 	}
 	defer file.Close()
 
-	return s.Store(r.Context(), file, header.Filename, header.Header.Get("Content-Type"), header.Size)
+	return s.StoreTo(r.Context(), file, header.Filename, header.Header.Get("Content-Type"), header.Size, path)
 }
 
 const (
@@ -93,6 +109,10 @@ const (
 )
 
 func (s *Service) Store(ctx context.Context, r io.Reader, name, declared string, size int64) (File, error) {
+	return s.StoreTo(ctx, r, name, declared, size, "")
+}
+
+func (s *Service) StoreTo(ctx context.Context, r io.Reader, name, declared string, size int64, path string) (File, error) {
 	if s.store == nil {
 		return File{}, ErrNotConfigued
 	}
@@ -140,7 +160,7 @@ func (s *Service) Store(ctx context.Context, r io.Reader, name, declared string,
 	}
 
 	sum := hex.EncodeToString(digest.Sum(nil))
-	ref := Ref(fmt.Sprintf("%s/%s/%s/%s%s", StagedPrefix, sum[:2], sum[2:4], sum, ExtensionFor(kind)))
+	ref := Ref(join(StagedPrefix, s.PathFor(path), fmt.Sprintf("%s/%s/%s%s", sum[:2], sum[2:4], sum, ExtensionFor(kind))))
 
 	if _, err := s.store.Save(ctx, string(ref), temp); err != nil {
 		return File{}, err

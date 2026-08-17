@@ -20,10 +20,14 @@ type formField struct {
 	Error    string
 	Step     string
 	MaxLen   int
+	Accept   string
+	URL      string
 }
 
 func inputType(f model.Field) string {
 	switch {
+	case f.Kind == model.KindFile:
+		return "file"
 	case f.Sensitive:
 		return "password"
 	case f.Column == "email":
@@ -50,6 +54,7 @@ func buildForm(schema *model.Schema, record model.Record, errs map[string]string
 			Required: f.Required && !f.PrimaryKey,
 			ReadOnly: readOnly || f.PrimaryKey,
 			Multi:    f.Kind == model.KindText,
+			Accept:   f.Accept,
 			Error:    errs[f.Column],
 			MaxLen:   f.Size,
 		}

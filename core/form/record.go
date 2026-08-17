@@ -33,6 +33,9 @@ func Record(values url.Values, schema *model.Schema, creating bool) Bound {
 		if f.PrimaryKey && !creating {
 			continue
 		}
+		if f.Kind == model.KindFile {
+			continue
+		}
 		raw := strings.TrimSpace(values.Get(f.Column))
 
 		if f.Kind == model.KindBool {

@@ -79,6 +79,7 @@ type Sessions struct {
 type Uploads struct {
 	Enabled   bool
 	Dir       string
+	Path      string
 	MaxSize   int64
 	Allowed   []string
 	MaxPixels int

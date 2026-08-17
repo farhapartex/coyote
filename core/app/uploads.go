@@ -30,6 +30,7 @@ func uploadService(s Settings) *upload.Service {
 			Allowed:   s.Uploads.Allowed,
 			MaxPixels: s.Uploads.MaxPixels,
 		},
+		Path:     s.Uploads.Path,
 		StageTTL: s.Uploads.StageTTL,
 		TrashTTL: s.Uploads.TrashTTL,
 	})

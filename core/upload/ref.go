@@ -63,3 +63,5 @@ func (r *Ref) Scan(value any) error {
 }
 
 func (Ref) GormDataType() string { return "string" }
+
+func (Ref) IsFile() bool { return true }

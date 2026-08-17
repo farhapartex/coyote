@@ -2,9 +2,25 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/farhapartex/coyote/core/session"
 )
+
+const multipartMemory = 32 << 20
+
+func formToken(r *http.Request) string {
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		if err := r.ParseMultipartForm(multipartMemory); err != nil {
+			return ""
+		}
+		return r.PostForm.Get("csrf_token")
+	}
+	if err := r.ParseForm(); err != nil {
+		return ""
+	}
+	return r.PostForm.Get("csrf_token")
+}
 
 func CSRF(manager *session.Manager) Middleware {
 	safe := map[string]bool{
@@ -21,9 +37,7 @@ func CSRF(manager *session.Manager) Middleware {
 			}
 			token := r.Header.Get("X-CSRF-Token")
 			if token == "" {
-				if err := r.ParseForm(); err == nil {
-					token = r.PostForm.Get("csrf_token")
-				}
+				token = formToken(r)
 			}
 			if !manager.ValidCSRF(r, token) {
 				http.Error(w, "403 CSRF token invalid or missing", http.StatusForbidden)
