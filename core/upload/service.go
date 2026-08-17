@@ -207,7 +207,7 @@ func (s *Service) Delete(ctx context.Context, ref Ref) error {
 	if !ref.Committed() {
 		return s.store.Delete(ctx, string(ref))
 	}
-	return s.store.Move(ctx, string(ref), string(ref.trashed()))
+	return s.store.Move(ctx, string(ref), string(ref.intoTrash()))
 }
 
 func (s *Service) Open(ctx context.Context, ref Ref) (io.ReadSeekCloser, error) {

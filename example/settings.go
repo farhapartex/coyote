@@ -62,6 +62,12 @@ func init() {
 			Lockout:     2 * time.Minute,
 		}
 
+		s.Uploads.Enabled = true
+		s.Uploads.Serve = true
+		s.Uploads.Path = "uploads"
+		s.Uploads.MaxSize = 5 << 20
+		s.Uploads.Allowed = []string{"image/png", "image/jpeg", "image/gif", "application/pdf"}
+
 		s.Templates.FS = templates
 		s.Templates.Layout = "layouts/base.html"
 

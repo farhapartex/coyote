@@ -314,18 +314,18 @@ func TestAcceptReadsAMultipartRequest(t *testing.T) {
 }
 
 func TestRefRoundTripsThroughTheDatabase(t *testing.T) {
-	ref := upload.Ref("media/ab/cd/abcdef.png")
+	ref := upload.Ref("ab/cd/abcdef.png")
 
 	value, err := ref.Value()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value != "media/ab/cd/abcdef.png" {
+	if value != "ab/cd/abcdef.png" {
 		t.Errorf("Value = %v", value)
 	}
 
 	var scanned upload.Ref
-	if err := scanned.Scan([]byte("media/ab/cd/abcdef.png")); err != nil {
+	if err := scanned.Scan([]byte("ab/cd/abcdef.png")); err != nil {
 		t.Fatal(err)
 	}
 	if scanned != ref {
@@ -513,7 +513,7 @@ func TestStoreToPlacesFilesUnderThePath(t *testing.T) {
 	if err := service.Commit(ctx, &ref); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(string(ref), "media/posters/images/") {
+	if !strings.HasPrefix(string(ref), "posters/images/") {
 		t.Errorf("committed ref = %q, the path should survive the promotion", ref)
 	}
 }

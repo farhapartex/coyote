@@ -150,8 +150,8 @@ func TestUploadingThroughTheAdminStoresUnderTheFieldPath(t *testing.T) {
 	}
 
 	ref := upload.Ref(page.Records[0].String("image"))
-	if !strings.HasPrefix(string(ref), "media/posters/images/") {
-		t.Errorf("ref = %q, want the field's path", ref)
+	if !strings.HasPrefix(string(ref), "posters/images/") {
+		t.Errorf("ref = %q, want the field path at the media root", ref)
 	}
 	if !ref.Committed() {
 		t.Errorf("the file should be committed, got %q", ref)

@@ -47,6 +47,27 @@ type File struct {
 }
 ```
 
+## Where files land
+
+Three levels, checked in order:
+
+1. **The field's own tag** — `coyote:"path=products/photos"`
+2. **`Uploads.Path`** in settings, for a project-wide default
+3. **The framework default** — no prefix, straight under the media directory
+
+```go
+type Product struct {
+	Photo upload.Ref `gorm:"size:200" coyote:"path=products/photos,accept=image/*"`
+}
+```
+
+That stores at `products/photos/ab/cd/<digest>.png` inside `Uploads.Dir`, regardless of what
+`Uploads.Path` says. Paths are cleaned before use, so `../../etc` cannot climb out of the media
+root.
+
+`accept=` is passed through to the file input as its `accept` attribute — a convenience for the
+browser, not a security control; the real check is the sniffed type against `Uploads.Allowed`.
+
 ## Storing the reference on a model
 
 ```go
@@ -59,15 +80,22 @@ type Product struct {
 `upload.Ref` is a string underneath, with `Value`/`Scan` implemented, so it persists like any other
 column and `makemigrations` sees nothing unusual.
 
+Because the type marks itself as a file, the admin **renders a file input for it automatically** —
+with a link to the current file and a remove checkbox when one is already stored. Any string column
+can opt in the same way with `coyote:"file"`.
+
 ## The two-phase commit
 
 This is the part most frameworks leave to you, and it is why Django projects accumulate dead files.
 
 ```
-Accept  →  staged/ab/cd/<digest>.png    nothing references it yet
-Commit  →  media/ab/cd/<digest>.png     promoted once your write succeeded
+Accept  →  staged/<path>/ab/cd/<digest>.png   nothing references it yet
+Commit  →  <path>/ab/cd/<digest>.png          promoted once your write succeeded
 Delete  →  gone, or trash/… if you set a window
 ```
+
+`staged/` and `trash/` are the only reserved areas; committed files sit at the root of your media
+directory, under whatever path the field asks for.
 
 - **A failed insert leaves an orphan in `staged/`**, and `Sweep` deletes anything there older than
   `StageTTL` (24h). Orphans clean themselves up.

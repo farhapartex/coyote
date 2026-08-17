@@ -9,7 +9,6 @@ import (
 
 const (
 	StagedPrefix = "staged"
-	MediaPrefix  = "media"
 	TrashPrefix  = "trash"
 )
 
@@ -21,7 +20,9 @@ func (r Ref) Empty() bool { return strings.TrimSpace(string(r)) == "" }
 
 func (r Ref) Staged() bool { return strings.HasPrefix(string(r), StagedPrefix+"/") }
 
-func (r Ref) Committed() bool { return strings.HasPrefix(string(r), MediaPrefix+"/") }
+func (r Ref) Trashed() bool { return strings.HasPrefix(string(r), TrashPrefix+"/") }
+
+func (r Ref) Committed() bool { return !r.Empty() && !r.Staged() && !r.Trashed() }
 
 func (r Ref) Extension() string { return path.Ext(string(r)) }
 
@@ -34,11 +35,11 @@ func (r Ref) Digest() string {
 }
 
 func (r Ref) promoted() Ref {
-	return Ref(MediaPrefix + "/" + strings.TrimPrefix(string(r), StagedPrefix+"/"))
+	return Ref(strings.TrimPrefix(string(r), StagedPrefix+"/"))
 }
 
-func (r Ref) trashed() Ref {
-	return Ref(TrashPrefix + "/" + strings.TrimPrefix(string(r), MediaPrefix+"/"))
+func (r Ref) intoTrash() Ref {
+	return Ref(TrashPrefix + "/" + string(r))
 }
 
 func (r Ref) Value() (driver.Value, error) {
