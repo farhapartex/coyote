@@ -73,6 +73,8 @@ func (Migrate) Run(ctx Context) error {
 }
 
 func afterMigrate(ctx Context) {
+	reportRouting(ctx)
+
 	report, err := syncPermissions(ctx)
 	if err != nil {
 		fmt.Fprintf(ctx.Out, "\npermissions were not synced: %v\n", err)

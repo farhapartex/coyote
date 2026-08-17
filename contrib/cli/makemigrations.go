@@ -65,6 +65,7 @@ func (m MakeMigrations) Run(ctx Context) error {
 			fmt.Fprintf(ctx.Out, "  ! %s\n", warning)
 		}
 	}
+	reportRouting(ctx)
 	fmt.Fprintln(ctx.Out, "\ncommit the migration and the snapshot, then run: coyote migrate")
 	fmt.Fprintln(ctx.Out, "if this is your first migration, blank import the package once from your main package:")
 	fmt.Fprintln(ctx.Out, "  _ \"your/module/migrations\"")
