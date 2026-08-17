@@ -10,11 +10,25 @@
 
 <div class="card">
   <div class="card-body">
-    <form method="post" action="{{.Action}}" class="stack">
+    <form method="post" action="{{.Action}}" class="stack" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
       {{range .Fields}}
-      {{if eq .Type "checkbox"}}
+      {{if eq .Type "file"}}
+      <label>
+        {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}
+        {{if .URL}}
+        <span class="filenow">
+          <a href="{{.URL}}" target="_blank" rel="noopener">Current file</a>
+          <label class="inline muted" style="font-weight:400;font-size:12px">
+            <input type="checkbox" name="{{.Column}}__clear" value="1"> remove
+          </label>
+        </span>
+        {{end}}
+        <input type="file" name="{{.Column}}" {{if .Accept}}accept="{{.Accept}}"{{end}} {{if .ReadOnly}}disabled{{end}}>
+        {{if .Error}}<span class="hint" style="color:#8c2f21;font-weight:400;font-size:12px">{{.Error}}</span>{{end}}
+      </label>
+      {{else if eq .Type "checkbox"}}
       <div class="checks">
         <label>
           <input type="checkbox" name="{{.Column}}" value="1" {{if .Checked}}checked{{end}} {{if .ReadOnly}}disabled{{end}}>

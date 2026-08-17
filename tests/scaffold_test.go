@@ -170,3 +170,14 @@ func TestScaffoldRejectsBadNamesAndModules(t *testing.T) {
 		}
 	}
 }
+
+func TestScaffoldIgnoresGeneratedDirectories(t *testing.T) {
+	project := scaffolded(t, scaffold.Options{Name: "myshop"})
+	ignored := read(t, project, ".gitignore")
+
+	for _, want := range []string{"/media", "/staticfiles", ".env", "*.db"} {
+		if !strings.Contains(ignored, want) {
+			t.Errorf(".gitignore should exclude %q, so uploads and build output never reach git:\n%s", want, ignored)
+		}
+	}
+}

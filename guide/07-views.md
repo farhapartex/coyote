@@ -101,6 +101,67 @@ target := view.SafeNext(r.URL.Query().Get("next"), "/dashboard")
 view.Redirect(w, r, target)
 ```
 
+## JSON
+
+```go
+view.JSON(w, http.StatusOK, payload)
+view.JSONError(w, http.StatusBadRequest, "that will not do")
+view.JSONProblems(w, http.StatusUnprocessableEntity, problems)
+```
+
+Responses carry `application/json` and `nosniff`. Reading is deliberately strict:
+
+```go
+var in Payload
+if err := view.Decode(r, &in); err != nil {
+	view.JSONError(w, http.StatusBadRequest, err.Error())
+	return
+}
+```
+
+`Decode` caps the body at 1 MB (`DecodeLimit` for another size), refuses a non-JSON content type,
+**rejects unknown fields** so a client typo is an error rather than a silently ignored value, and
+refuses two JSON values in one body.
+
+`view.WantsJSON(r)` tells you whether a handler should answer with JSON or HTML.
+
+## Generic views
+
+For the ordinary list/detail/create/update/delete shapes, the framework can supply the handler.
+Django does this with class-based views; Go has no classes, so it is an options struct plus hooks:
+
+```go
+schema, _ := a.Describe(Product{})
+store, _ := a.Store()
+
+opts := view.Options{
+	Store: store, Schema: schema, Renderer: a,
+	Template: "pages/products.html",
+	PerPage:  20,
+	Order:    "name asc",
+	Redirect: "/products",
+}
+
+a.Get("/products", view.List(opts))
+a.Get("/products/{id}", view.Detail(opts))
+a.Any("/products/new", view.Create(opts))
+a.Any("/products/{id}/edit", view.Update(opts))
+a.Post("/products/{id}/delete", view.Delete(opts))
+```
+
+Each returns an ordinary `http.HandlerFunc`, so middleware and guards compose as usual.
+
+| Hook | Purpose |
+| --- | --- |
+| `Allow func(*http.Request) bool` | refuse with 403 before anything runs |
+| `Filter func(*http.Request, model.Query) model.Query` | scope the query — tenant, owner, status |
+| `Data func(*http.Request, view.Data) view.Data` | add your own template data |
+| `IDParam` | the path wildcard holding the id, if not `id` |
+
+Templates receive `.Records` and `.Page` for a list, `.Record` for a detail, and `.Record`,
+`.IsNew` and `.Problems` for a form. Binding and validation run through
+[`core/form`](30-forms.md), and paging through [`Pagination`](32-pagination.md).
+
 ## Reading form input
 
 Standard library, all the way down:
@@ -113,8 +174,8 @@ if err := r.ParseForm(); err != nil {
 note := r.PostForm.Get("note")
 ```
 
-There is no form/validation layer yet — validate in the handler, and return
-`RenderStatus(..., 422, ...)` with the messages in your data.
+For anything beyond a field or two, bind and validate with [`core/form`](30-forms.md) instead of
+reading values by hand.
 
 ## Next
 

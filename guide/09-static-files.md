@@ -41,6 +41,27 @@ Any other `fs.FS` can be mounted directly on a second prefix:
 a.Static("/downloads/", os.DirFS("/var/lib/myapp/files"))
 ```
 
+## Fingerprinting
+
+```
+coyote collectstatic
+```
+
+Copies every file from `Static.FS` into `staticfiles/`, renaming each by a hash of its contents —
+`site.css` becomes `site.a1b2c3d4e5f6.css` — and writes a `manifest.json` beside them.
+
+Reference files through the template function rather than by literal path:
+
+```html
+<link rel="stylesheet" href="{{static "site.css"}}">
+```
+
+With a manifest present it resolves to the fingerprinted name; without one it returns the plain
+path, so development needs no build step. Because the name changes whenever the bytes do, the
+fingerprinted files are safe to serve with a one-year cache header.
+
+Deploy by embedding `staticfiles/` instead of `static/`, or by pointing your web server at it.
+
 ## In production
 
 Embedding keeps deployment to a single binary and is the usual choice. If you put a CDN or nginx in

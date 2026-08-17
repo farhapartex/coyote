@@ -16,6 +16,7 @@ const (
 	NameStart           = "start"
 	NameMigrate         = "migrate"
 	NameSyncPermissions = "syncpermissions"
+	NameCollectStatic   = "collectstatic"
 )
 
 func Requested() string {

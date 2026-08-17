@@ -35,6 +35,16 @@ only where behaviour is needed.
 | `column:name` | override the derived column name |
 | `-` | ignore the field entirely |
 
+A separate `coyote` tag carries upload settings for a file column:
+
+```go
+Photo upload.Ref `gorm:"size:200" coyote:"path=products/photos,accept=image/*"`
+Manual string    `gorm:"size:200" coyote:"file,path=manuals"`
+```
+
+`file` marks a plain string column as a file, `path=` chooses where it is stored, and `accept=`
+reaches the browser's file picker. See [File uploads](31-uploads.md).
+
 `CreatedAt` and `UpdatedAt` are managed for you when present. A pointer field (`*time.Time`) is
 nullable; a value field is not.
 
@@ -48,6 +58,7 @@ nullable; a value field is not.
 | `bool` | `bool` | `checkbox` |
 | `time.Time` | `time` | `datetime-local` |
 | `[]byte` | `bytes` | — |
+| `upload.Ref` | `file` | `file`, with a link to the current file |
 
 ## Registering it
 

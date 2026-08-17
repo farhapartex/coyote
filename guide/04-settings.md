@@ -188,6 +188,19 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Templates.Layout` | `layouts/base.html` | |
 | `Templates.Shared` | `layouts/*.html`, `partials/*.html` | Parsed into every page |
 | `Templates.Funcs` | none | Extra template functions |
+| `Pagination.PerPage` | `10` | 0 turns paging off; see [Pagination](32-pagination.md) |
+| `Pagination.Paginator` | built-in | Any `view.Paginator` |
+| `Uploads.Enabled` | `false` | Turns the upload service on |
+| `Uploads.Dir` | `media` | Where files live, under `BaseDir` |
+| `Uploads.MaxSize` | `10 MiB` | Enforced before the body is read |
+| `Uploads.Allowed` | images and PDF | Content types, matched against the sniffed type |
+| `Uploads.MaxPixels` | `50,000,000` | Decompression-bomb guard for images |
+| `Uploads.Serve` | `false` | Serve uploads over HTTP at `Uploads.URL` |
+| `Uploads.URL` | `/media/` | |
+| `Uploads.Private` | `false` | Require a signed URL; needs `SecretKey` |
+| `Uploads.StageTTL` | `24h` | How long an uncommitted upload survives |
+| `Uploads.TrashTTL` | `0` | 0 deletes immediately; above zero keeps a recovery window |
+| `Uploads.Storage` | filesystem | Any `storage.Storage` |
 | `Static.URL` | `/static/` | |
 | `Static.FS` / `Static.Dir` | none | Static files are served only when one is set |
 | `Migrations.Dir` | `migrations` | Where generated migrations are written |

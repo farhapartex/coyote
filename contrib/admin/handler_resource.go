@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/store"
+	"github.com/farhapartex/coyote/core/upload"
 	"github.com/farhapartex/coyote/core/view"
 )
-
-const pageSize = 25
 
 type listRow struct {
 	ID    string
@@ -24,18 +24,40 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 			return
 		}
 
-		page := 1
+		number := 1
 		if n, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && n > 1 {
-			page = n
+			number = n
 		}
+
+		paginator := a.app.Settings.Pagination.Paginator
+		perPage := a.app.Settings.Pagination.PerPage
+
+		offset := 0
+		if perPage > 0 && number > 1 {
+			offset = (number - 1) * perPage
+		}
+
 		result, err := records.List(r.Context(), entry.schema, model.Query{
-			Limit:  pageSize,
-			Offset: (page - 1) * pageSize,
+			Limit:  perPage,
+			Offset: offset,
 			Order:  entry.order,
 		})
 		if err != nil {
 			a.fail(w, r, err)
 			return
+		}
+
+		page := view.Paginate(paginator, result.Total, number, perPage)
+		if page.Offset != offset {
+			result, err = records.List(r.Context(), entry.schema, model.Query{
+				Limit:  page.Limit,
+				Offset: page.Offset,
+				Order:  entry.order,
+			})
+			if err != nil {
+				a.fail(w, r, err)
+				return
+			}
 		}
 
 		columns := entry.schema.ListFields()
@@ -56,10 +78,6 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 			"Total":    result.Total,
 			"ReadOnly": entry.readOnly,
 			"Page":     page,
-			"HasPrev":  page > 1,
-			"HasNext":  int64(page*pageSize) < result.Total,
-			"PrevPage": page - 1,
-			"NextPage": page + 1,
 		})
 	}
 }
@@ -91,14 +109,18 @@ func (a *Admin) resourceCreate(entry managed) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if err := r.ParseForm(); err != nil {
+		if err := form.Parse(r, uploadMemory); err != nil {
 			http.Error(w, "400 bad request", http.StatusBadRequest)
 			return
 		}
 
-		bound := bindForm(r, entry.schema, true)
-		if !bound.valid() {
-			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", bound.Errors)
+		bound := form.Record(r.PostForm, entry.schema, true)
+		problems := bound.Errors()
+		for column, message := range a.attachFiles(r, entry, bound.Record, nil) {
+			problems[column] = message
+		}
+		if len(problems) > 0 {
+			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", problems)
 			return
 		}
 		if _, err := records.Insert(r.Context(), entry.schema, bound.Record); err != nil {
@@ -116,15 +138,26 @@ func (a *Admin) resourceUpdate(entry managed) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if err := r.ParseForm(); err != nil {
+		if err := form.Parse(r, uploadMemory); err != nil {
 			http.Error(w, "400 bad request", http.StatusBadRequest)
 			return
 		}
 
 		id := r.PathValue("id")
-		bound := bindForm(r, entry.schema, false)
-		if !bound.valid() {
-			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, bound.Errors)
+		bound := form.Record(r.PostForm, entry.schema, false)
+		problems := bound.Errors()
+
+		var existing model.Record
+		if a.hasFiles(entry.schema) {
+			if found, err := records.Find(r.Context(), entry.schema, id); err == nil {
+				existing = found
+			}
+		}
+		for column, message := range a.attachFiles(r, entry, bound.Record, existing) {
+			problems[column] = message
+		}
+		if len(problems) > 0 {
+			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, problems)
 			return
 		}
 		if err := records.Update(r.Context(), entry.schema, id, bound.Record); err != nil {
@@ -167,14 +200,22 @@ func (a *Admin) renderForm(w http.ResponseWriter, r *http.Request, status int, e
 	if id != "" {
 		action = a.prefix + "/" + entry.Slug() + "/" + id
 	}
+	fields := buildForm(entry.schema, record, errs, entry.readOnly)
+	for i, field := range fields {
+		if field.Type == "file" && field.Value != "" {
+			fields[i].URL = a.app.MediaURL(upload.Ref(field.Value))
+		}
+	}
+
 	a.render(w, r, status, "resource_form.html", view.Data{
 		"Nav":      entry.Slug(),
 		"Resource": entry,
-		"Fields":   buildForm(entry.schema, record, errs, entry.readOnly),
+		"Fields":   fields,
 		"IsNew":    id == "",
 		"RecordID": id,
 		"Action":   action,
 		"Error":    errs[""],
 		"ReadOnly": entry.readOnly,
+		"Uploads":  a.app.Uploads != nil,
 	})
 }

@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/farhapartex/coyote/core/upload"
+)
 
 type Product struct {
 	ID          string `gorm:"primaryKey;size:64"`
@@ -8,8 +12,9 @@ type Product struct {
 	SKU         string `gorm:"uniqueIndex;size:64;not null"`
 	Price       float64
 	Stock       int
-	Description string `gorm:"size:2000"`
-	IsPublished bool   `gorm:"index"`
+	Description string     `gorm:"size:2000"`
+	Photo       upload.Ref `gorm:"size:200" coyote:"path=products/photos,accept=image/*"`
+	IsPublished bool       `gorm:"index"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

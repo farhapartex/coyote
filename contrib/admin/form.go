@@ -4,10 +4,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/model"
 )
-
-const timeLayout = "2006-01-02T15:04"
 
 type formField struct {
 	Column   string
@@ -21,10 +20,14 @@ type formField struct {
 	Error    string
 	Step     string
 	MaxLen   int
+	Accept   string
+	URL      string
 }
 
 func inputType(f model.Field) string {
 	switch {
+	case f.Kind == model.KindFile:
+		return "file"
 	case f.Sensitive:
 		return "password"
 	case f.Column == "email":
@@ -51,6 +54,7 @@ func buildForm(schema *model.Schema, record model.Record, errs map[string]string
 			Required: f.Required && !f.PrimaryKey,
 			ReadOnly: readOnly || f.PrimaryKey,
 			Multi:    f.Kind == model.KindText,
+			Accept:   f.Accept,
 			Error:    errs[f.Column],
 			MaxLen:   f.Size,
 		}
@@ -79,7 +83,7 @@ func formValue(f model.Field, record model.Record) string {
 			if stamp.IsZero() {
 				return ""
 			}
-			return stamp.Format(timeLayout)
+			return stamp.Format(form.RecordTimeLayout)
 		}
 	}
 	if f.Kind == model.KindBool {

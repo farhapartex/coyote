@@ -126,6 +126,11 @@
           "size": 2000
         },
         {
+          "name": "photo",
+          "kind": "file",
+          "size": 200
+        },
+        {
           "name": "is_published",
           "kind": "bool"
         },
