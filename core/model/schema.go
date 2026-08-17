@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 const listColumnLimit = 4
 
 type Field struct {
@@ -116,4 +118,44 @@ func (s *Schema) Hide(columns []string) {
 	for _, c := range columns {
 		s.hidden[c] = true
 	}
+}
+
+func (s *Schema) SortColumn(candidate string) (string, string, bool) {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return "", "", false
+	}
+
+	direction := "asc"
+	if strings.HasPrefix(candidate, "-") {
+		candidate, direction = strings.TrimPrefix(candidate, "-"), "desc"
+	}
+	if name, suffix, found := strings.Cut(candidate, " "); found {
+		candidate = name
+		switch strings.ToLower(strings.TrimSpace(suffix)) {
+		case "desc":
+			direction = "desc"
+		case "asc":
+			direction = "asc"
+		default:
+			return "", "", false
+		}
+	}
+
+	candidate = strings.ToLower(strings.TrimSpace(candidate))
+	for _, field := range s.Fields {
+		if field.Column == candidate {
+			return field.Column, direction, true
+		}
+	}
+	return "", "", false
+}
+
+func (s *Schema) HasColumn(name string) bool {
+	for _, field := range s.Fields {
+		if field.Column == name {
+			return true
+		}
+	}
+	return false
 }
