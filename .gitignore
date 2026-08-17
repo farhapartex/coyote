@@ -7,3 +7,5 @@ phases
 .env
 
 /coyote
+/example/media
+/example/staticfiles
