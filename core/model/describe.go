@@ -7,6 +7,7 @@ import (
 
 	"github.com/farhapartex/coyote/lib/text"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 func Describe(handle *gorm.DB, entity any) (*Schema, error) {
@@ -82,7 +83,54 @@ func Describe(handle *gorm.DB, entity any) (*Schema, error) {
 	if out.Key.Column == "" {
 		return nil, fmt.Errorf("coyote/model: %s has no primary key", out.Table)
 	}
+	out.Relations = relationsOf(parsed)
 	return out, nil
+}
+
+func relationsOf(parsed *schema.Schema) []Relation {
+	if parsed.Relationships.Relations == nil {
+		return nil
+	}
+
+	out := []Relation{}
+	for _, relation := range parsed.Relationships.Relations {
+		if relation.Type != schema.BelongsTo || len(relation.References) != 1 {
+			continue
+		}
+		reference := relation.References[0]
+		if reference.ForeignKey == nil || reference.PrimaryKey == nil {
+			continue
+		}
+		out = append(out, Relation{
+			Column:      reference.ForeignKey.DBName,
+			Target:      relation.FieldSchema.Table,
+			TargetKey:   reference.PrimaryKey.DBName,
+			LabelColumn: labelColumnOf(relation.FieldSchema),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Column < out[j].Column })
+	return out
+}
+
+func labelColumnOf(target *schema.Schema) string {
+	for _, name := range []string{"name", "title", "label", "username", "email"} {
+		if field := target.LookUpField(name); field != nil {
+			return field.DBName
+		}
+	}
+	for _, column := range target.DBNames {
+		field := target.LookUpField(column)
+		if field == nil || field.PrimaryKey {
+			continue
+		}
+		if kind, _ := KindOf(field.FieldType); kind == KindString {
+			return field.DBName
+		}
+	}
+	if target.PrioritizedPrimaryField != nil {
+		return target.PrioritizedPrimaryField.DBName
+	}
+	return ""
 }
 
 func labelFor(column string, kind Kind) string {

@@ -29,16 +29,24 @@ type Index struct {
 
 func (f Field) Editable() bool { return !f.Generated && !f.PrimaryKey }
 
+type Relation struct {
+	Column      string
+	Target      string
+	TargetKey   string
+	LabelColumn string
+}
+
 type Schema struct {
-	Table    string
-	Slug     string
-	Label    string
-	Plural   string
-	Fields   []Field
-	Indexes  []Index
-	Key      Field
-	listOnly []string
-	hidden   map[string]bool
+	Table     string
+	Slug      string
+	Label     string
+	Plural    string
+	Fields    []Field
+	Indexes   []Index
+	Relations []Relation
+	Key       Field
+	listOnly  []string
+	hidden    map[string]bool
 }
 
 func (s *Schema) Field(column string) (Field, bool) {
@@ -149,6 +157,15 @@ func (s *Schema) SortColumn(candidate string) (string, string, bool) {
 		}
 	}
 	return "", "", false
+}
+
+func (s *Schema) Relation(column string) (Relation, bool) {
+	for _, relation := range s.Relations {
+		if relation.Column == column {
+			return relation, true
+		}
+	}
+	return Relation{}, false
 }
 
 func (s *Schema) HasColumn(name string) bool {
