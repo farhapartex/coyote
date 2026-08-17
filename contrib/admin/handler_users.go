@@ -71,6 +71,7 @@ func (a *Admin) userForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data["Roles"] = choices
+	data["AllowPasswordChange"] = a.app.Auth.AllowsPasswordChange()
 	if id != "" {
 		user, err := a.app.Auth.Users().ByID(id)
 		if err != nil {
@@ -161,7 +162,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if password := r.PostForm.Get("password"); password != "" {
+	if password := r.PostForm.Get("password"); password != "" && a.app.Auth.AllowsPasswordChange() {
 		if err := a.app.Auth.ValidatePasswordFor(password, user); err != nil {
 			fail(err)
 			return

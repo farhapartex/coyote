@@ -28,6 +28,13 @@ func permissionStore(s Settings, a *App) auth.PermissionStore {
 	return store.LazyPermissions(a.DB)
 }
 
+func tokenStore(s Settings, a *App) auth.TokenStore {
+	if !s.Auth.ResetTokens || s.Database().Engine == "" {
+		return nil
+	}
+	return store.LazyTokens(a.DB)
+}
+
 func sessionStore(s Settings, a *App) session.Store {
 	if s.Sessions.Store != nil {
 		return s.Sessions.Store

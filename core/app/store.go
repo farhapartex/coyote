@@ -15,7 +15,7 @@ func (a *App) Store() (model.Store, error) {
 }
 
 func (a *App) Describe(entity any) (*model.Schema, error) {
-	handle, err := a.DB()
+	handle, err := a.DBFor(entity)
 	if err != nil {
 		return nil, err
 	}

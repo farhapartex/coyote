@@ -186,6 +186,79 @@ Counters live in memory and are swept, so the map does not grow forever. That al
 process has its own counters**: behind several instances the effective allowance multiplies. Supply
 your own `auth.LoginLimiter` (`Allow`, `Fail`, `Reset`) to share them.
 
+## Changing a password
+
+The signed-in user supplies their current password, the new one, and a confirmation:
+
+```go
+err := a.Auth.ChangePassword(r, auth.PasswordChange{
+	Current: r.PostForm.Get("current_password"),
+	New:     r.PostForm.Get("new_password"),
+	Confirm: r.PostForm.Get("confirm_password"),
+})
+```
+
+| Error | Meaning |
+| --- | --- |
+| `ErrWrongPassword` | the current password did not verify |
+| `ErrPasswordMismatch` | new and confirm disagree |
+| `ErrTooManyAttempts` | the login throttle refused the attempt |
+| `ErrChangeDisabled` | changes are turned off in settings |
+
+On success the user stays signed in and **their other sessions are revoked**, so a stolen session
+elsewhere dies with the old password. Wrong-current-password attempts feed the same limiter as login,
+so the form is not a free guessing oracle. The new password runs the strength rules above.
+
+`contrib/accounts` exposes this at `/accounts/password`, and the admin portal offers it on the user
+form.
+
+### Turning it off
+
+```go
+s.Auth.AllowPasswordChange = false
+```
+
+The default is **true** — a project that never mentions the setting keeps password changes.
+
+When it is off, the change is not merely hidden:
+
+| Surface | Behaviour |
+| --- | --- |
+| `/accounts/password` | the route is never registered, so it returns **404** |
+| `/accounts/profile` | the form is not rendered |
+| The admin user form | the field is not rendered, **and** a hand-crafted `password` value in the POST is ignored |
+
+Creating a user still asks for a password; this setting governs changing an existing one.
+
+## Reset tokens
+
+For a "forgot password" flow the framework gives you the token mechanism and stays out of the
+delivery, because how you reach a user is your decision:
+
+```go
+s.Auth.ResetTokens = true
+s.Auth.ResetTokenLifetime = time.Hour
+```
+
+```go
+token, err := a.Auth.CreateResetToken(user.ID)
+// send it however you like: email, SMS, a support desk
+
+user, err := a.Auth.CheckResetToken(token)          // still valid?
+
+user, err := a.Auth.UseResetToken(token, auth.PasswordChange{
+	New: "…", Confirm: "…",
+})
+```
+
+- Tokens are **hashed before storage**, so a leaked database does not hand over working reset links.
+- Single use: `UseResetToken` marks it used, and a second attempt fails.
+- Expiring, with `Tokens().Sweep(before)` to clear old rows.
+- The table only exists when `ResetTokens` is on, so projects that do not want it get no schema.
+
+No mail is sent by the framework. Nothing here needs an SMTP server, and nothing here decides your
+message.
+
 ## Guarding routes
 
 ```go

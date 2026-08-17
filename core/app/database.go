@@ -26,5 +26,6 @@ func (a *App) Pool() (*sql.DB, error) {
 }
 
 func (a *App) CloseDB() error {
+	a.closeExtras()
 	return db.Close(a.dbHandle)
 }

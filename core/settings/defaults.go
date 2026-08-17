@@ -37,10 +37,12 @@ func Default() Settings {
 			CleanupInterval: 5 * time.Minute,
 		},
 		Auth: Auth{
-			Permissions:       true,
-			LoginURL:          "/admin/login",
-			PasswordMinLength: 8,
-			PBKDF2Iterations:  600000,
+			Permissions:         true,
+			AllowPasswordChange: true,
+			ResetTokenLifetime:  time.Hour,
+			LoginURL:            "/admin/login",
+			PasswordMinLength:   8,
+			PBKDF2Iterations:    600000,
 		},
 		Templates: Templates{
 			Layout: "layouts/base.html",

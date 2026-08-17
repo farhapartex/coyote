@@ -27,10 +27,12 @@
       <label>Email
         <input type="email" name="email" value="{{.Form.Email}}" autocomplete="off">
       </label>
+      {{if or .IsNew .AllowPasswordChange}}
       <label>{{if .IsNew}}Password{{else}}New password{{end}}
         <input type="password" name="password" autocomplete="new-password" {{if .IsNew}}required{{end}}>
         {{if not .IsNew}}<span class="hint muted" style="font-weight:400;font-size:12px">Leave blank to keep the current password. Changing it signs the user out everywhere.</span>{{end}}
       </label>
+      {{end}}
 
       <div class="checks">
         {{if eq .User.ID .Form.ID}}

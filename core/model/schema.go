@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 const listColumnLimit = 4
 
 type Field struct {
@@ -27,16 +29,24 @@ type Index struct {
 
 func (f Field) Editable() bool { return !f.Generated && !f.PrimaryKey }
 
+type Relation struct {
+	Column      string
+	Target      string
+	TargetKey   string
+	LabelColumn string
+}
+
 type Schema struct {
-	Table    string
-	Slug     string
-	Label    string
-	Plural   string
-	Fields   []Field
-	Indexes  []Index
-	Key      Field
-	listOnly []string
-	hidden   map[string]bool
+	Table     string
+	Slug      string
+	Label     string
+	Plural    string
+	Fields    []Field
+	Indexes   []Index
+	Relations []Relation
+	Key       Field
+	listOnly  []string
+	hidden    map[string]bool
 }
 
 func (s *Schema) Field(column string) (Field, bool) {
@@ -116,4 +126,53 @@ func (s *Schema) Hide(columns []string) {
 	for _, c := range columns {
 		s.hidden[c] = true
 	}
+}
+
+func (s *Schema) SortColumn(candidate string) (string, string, bool) {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return "", "", false
+	}
+
+	direction := "asc"
+	if strings.HasPrefix(candidate, "-") {
+		candidate, direction = strings.TrimPrefix(candidate, "-"), "desc"
+	}
+	if name, suffix, found := strings.Cut(candidate, " "); found {
+		candidate = name
+		switch strings.ToLower(strings.TrimSpace(suffix)) {
+		case "desc":
+			direction = "desc"
+		case "asc":
+			direction = "asc"
+		default:
+			return "", "", false
+		}
+	}
+
+	candidate = strings.ToLower(strings.TrimSpace(candidate))
+	for _, field := range s.Fields {
+		if field.Column == candidate {
+			return field.Column, direction, true
+		}
+	}
+	return "", "", false
+}
+
+func (s *Schema) Relation(column string) (Relation, bool) {
+	for _, relation := range s.Relations {
+		if relation.Column == column {
+			return relation, true
+		}
+	}
+	return Relation{}, false
+}
+
+func (s *Schema) HasColumn(name string) bool {
+	for _, field := range s.Fields {
+		if field.Column == name {
+			return true
+		}
+	}
+	return false
 }

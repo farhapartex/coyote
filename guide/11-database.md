@@ -97,6 +97,102 @@ pool, err := a.Pool()   // *sql.DB, for stats or raw database/sql work
 a.CloseDB()             // closes it; Run() already does this on shutdown
 ```
 
+## Transactions
+
+```go
+err := a.Transaction(r.Context(), func(tx *app.Tx) error {
+	if _, err := tx.Store().Insert(ctx, schema, record); err != nil {
+		return err
+	}
+	tx.Keep(&product.Photo)
+	return tx.DB().Create(&line).Error
+})
+```
+
+Return an error and everything rolls back; return nil and it commits. A panic rolls back and then
+carries on panicking. `tx.Store()` is the generic store scoped to the transaction, so it sees the
+transaction's own uncommitted writes.
+
+`tx.Keep(&ref)` is the piece worth knowing about: [uploaded files](31-uploads.md) named this way are
+promoted out of staging **only after the commit succeeds**. If the transaction rolls back, the bytes
+stay in staging and the sweeper reclaims them — so a failed write can never leave a file that nothing
+references, and a successful one can never lose its file.
+
+## Filtering, sorting and counting
+
+The generic store takes a `model.Query`:
+
+```go
+page, err := store.List(ctx, schema, model.Query{
+	Filters: []model.Filter{
+		{Column: "is_published", Op: model.Eq, Value: true},
+		{Column: "price", Op: model.Lte, Value: 50},
+		{Column: "status", Op: model.In, Value: []any{"live", "draft"}},
+	},
+	Sort:   "-created_at",
+	Select: []string{"id", "name", "price"},
+	Limit:  20,
+})
+```
+
+| Operator | Meaning |
+| --- | --- |
+| `Eq`, `Ne` | equal, not equal |
+| `Lt`, `Lte`, `Gt`, `Gte` | comparisons |
+| `In` | one of a `[]any`; an empty list matches nothing |
+| `Like` | pattern match, your `%` placement |
+| `Null`, `NotNull` | is or is not null |
+
+Three safety properties, since these usually come from a URL:
+
+- **Columns are checked against the schema.** An unknown column is `store.ErrBadFilter`, never SQL.
+- **Values are always bind parameters**, and operators come from a closed set, so neither can be
+  injected.
+- **`Sort` is validated**, accepting `name`, `-name` or `name desc` and rejecting everything else. It
+  is safe to pass `?sort=` straight in. `Order` remains a raw escape hatch for strings *you* write —
+  never for user input.
+
+`Select` narrows the columns fetched, which is worth doing on tables with a large text column; the
+primary key is always included so rows stay addressable.
+
+Alongside `List` there are `Count`, `Exists` and `First`, all sharing the same conditions — so a
+filtered list's `Total` always agrees with its rows.
+
+## Relations
+
+A belongs-to is described automatically:
+
+```go
+type Item struct {
+	ID         string  `gorm:"primaryKey;size:64"`
+	Title      string  `gorm:"size:100;not null"`
+	CategoryID *string `gorm:"size:64;index"`
+	Category   Category
+}
+```
+
+```go
+schema.Relations   // [{Column: "category_id", Target: "categories", TargetKey: "id", LabelColumn: "name"}]
+```
+
+Ask for a relation and each record gains a readable label beside the key:
+
+```go
+page, _ := store.List(ctx, schema, model.Query{With: []string{"category_id"}})
+
+page.Records[0].Get("category_id")            // "c1"
+page.Records[0].Get("category_id__label")     // "Kitchen"
+```
+
+**The cost is one extra query per relation, not per row.** The distinct keys on the page are
+collected and resolved with a single `IN (…)`, so a page of 20 rows costs two queries and a page of
+200 still costs two. Nothing is resolved unless `With` asks, so a plain list stays a single query.
+
+The label column is the target's `name`, `title`, `label`, `username` or `email`, whichever exists
+first, falling back to its first string column.
+
+Has-many and many-to-many are not described yet.
+
 ## Querying without GORM
 
 The admin portal never touches GORM directly. It goes through `model.Store`, a five-method port
@@ -109,6 +205,10 @@ type Store interface {
 	Insert(ctx context.Context, schema *Schema, record Record) (string, error)
 	Update(ctx context.Context, schema *Schema, id string, record Record) error
 	Delete(ctx context.Context, schema *Schema, id string) error
+	Count(ctx context.Context, schema *Schema, query Query) (int64, error)
+	Exists(ctx context.Context, schema *Schema, query Query) (bool, error)
+	First(ctx context.Context, schema *Schema, query Query) (Record, error)
+	WithTx(tx *gorm.DB) Store
 }
 ```
 
@@ -130,12 +230,42 @@ same database.
 
 ## Multiple connections
 
-`a.DB()` is the default connection. For a second one, open it yourself from the settings entry:
+`a.DB()` is the default connection. Reach another by alias, and it is opened once and reused:
 
 ```go
-cfg, ok := a.Settings.DatabaseByAlias("cache")
-handle, err := db.Open(cfg, db.Options{})
+handle, err := a.DBByAlias("reports")
+store, err := a.StoreForAlias("reports")
 ```
+
+### Routing a model to a database
+
+Declare where a model lives and the framework follows it:
+
+```go
+a.RegisterModel(
+	model.Of(Product{}),                 // default connection
+	model.On("reports", DailyTotal{}),   // the "reports" connection
+)
+```
+
+```go
+handle, err := a.DBFor(DailyTotal{})     // the reports connection
+store, err := a.StoreFor(DailyTotal{})   // a store bound to it
+schema, err := a.Describe(DailyTotal{})  // described against it
+```
+
+Every alias is closed on shutdown along with the default.
+
+**One limit to know:** `makemigrations` and `migrate` run against the default connection only. A
+routed model is reported rather than silently skipped —
+
+```
+not migrated: 1 model(s) are routed to another database ([reports]).
+migrations run against the default connection only; create those tables yourself for now.
+```
+
+— so until per-alias migrations land, create those tables with your own migration or
+`AutoMigrate` against that handle.
 
 ## Next
 

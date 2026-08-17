@@ -82,7 +82,10 @@ func Mount(application *app.App, opts Options) *Accounts {
 	guarded := group.Group("", application.Auth.RequireLogin(prefix+"/login"))
 	guarded.Get("/profile", a.profileForm)
 	guarded.Post("/profile", a.profileSave)
-	guarded.Post("/password", a.passwordSave)
+	if application.Auth.AllowsPasswordChange() {
+		guarded.Get("/password", a.passwordForm)
+		guarded.Post("/password", a.passwordSave)
+	}
 
 	return a
 }
@@ -97,6 +100,7 @@ func (a *Accounts) render(w http.ResponseWriter, r *http.Request, status int, pa
 	}
 	data["Prefix"] = a.prefix
 	data["AllowRegistration"] = a.allowNew
+	data["AllowPasswordChange"] = a.app.Auth.AllowsPasswordChange()
 
 	if override != "" {
 		a.app.RenderStatus(w, r, status, override, data)

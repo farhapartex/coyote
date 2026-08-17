@@ -101,7 +101,8 @@ go test -race ./tests/
 ## Status
 
 Coyote is in active development on phase 1. Working today: settings, routing, sessions,
-authentication, templates, migrations, the admin portal, and the security middleware above.
+authentication and permissions, templates, forms, file uploads, pagination, migrations, the admin
+portal, project scaffolding, and the security middleware above.
 
-Not here yet: a form and validation layer, down migrations, a swappable user model, project
-scaffolding, caching, internationalisation, and email.
+Not here yet: caching, internationalisation, email, down migrations, full-text search, a swappable
+user model, and soft delete.

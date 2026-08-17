@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"time"
 
 	"github.com/farhapartex/coyote/core/session"
 )
@@ -23,6 +24,9 @@ type Options struct {
 	Limiter           LoginLimiter
 	TrustProxy        bool
 	PermissionStore   PermissionStore
+	AllowChange       bool
+	Tokens            TokenStore
+	TokenLifetime     time.Duration
 }
 
 type Service struct {
@@ -34,6 +38,9 @@ type Service struct {
 	limiter           LoginLimiter
 	trustProxy        bool
 	permissions       PermissionStore
+	allowChange       bool
+	tokens            TokenStore
+	tokenLifetime     time.Duration
 }
 
 func NewService(users Store, sessions *session.Manager, opts Options) *Service {
@@ -59,6 +66,9 @@ func NewService(users Store, sessions *session.Manager, opts Options) *Service {
 		limiter:           opts.Limiter,
 		trustProxy:        opts.TrustProxy,
 		permissions:       opts.PermissionStore,
+		allowChange:       opts.AllowChange,
+		tokens:            opts.Tokens,
+		tokenLifetime:     opts.TokenLifetime,
 	}
 }
 

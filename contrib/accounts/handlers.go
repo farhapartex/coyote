@@ -139,6 +139,14 @@ func (a *Accounts) profileSave(w http.ResponseWriter, r *http.Request) {
 	view.Redirect(w, r, a.prefix+"/profile")
 }
 
+func (a *Accounts) passwordForm(w http.ResponseWriter, r *http.Request) {
+	a.render(w, r, http.StatusOK, "profile.html", a.pages.Profile, view.Data{
+		"Title": "Your profile",
+		"Wide":  true,
+		"Form":  a.app.Auth.CurrentUser(r),
+	})
+}
+
 func (a *Accounts) passwordSave(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "400 bad request", http.StatusBadRequest)
@@ -156,19 +164,27 @@ func (a *Accounts) passwordSave(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if _, err := a.app.Auth.Authenticate(user.Username, r.PostForm.Get("current_password")); err != nil {
+	err := a.app.Auth.ChangePassword(r, auth.PasswordChange{
+		Current: r.PostForm.Get("current_password"),
+		New:     r.PostForm.Get("new_password"),
+		Confirm: r.PostForm.Get("confirm_password"),
+	})
+	switch {
+	case errors.Is(err, auth.ErrWrongPassword):
 		fail("Your current password is not right.")
 		return
-	}
-	if err := a.app.Auth.SetPassword(user.ID, r.PostForm.Get("new_password")); err != nil {
+	case errors.Is(err, auth.ErrPasswordMismatch):
+		fail("The new passwords do not match.")
+		return
+	case errors.Is(err, auth.ErrTooManyAttempts):
+		fail("Too many attempts. Try again later.")
+		return
+	case err != nil:
 		fail(humanize(err))
 		return
 	}
 
-	if err := a.app.Auth.Login(r, user); err != nil {
-		http.Error(w, "500 internal server error", http.StatusInternalServerError)
-		return
-	}
+	a.app.Auth.RevokeOtherSessions(r)
 	view.Success(r, "Password changed.")
 	view.Redirect(w, r, a.prefix+"/profile")
 }

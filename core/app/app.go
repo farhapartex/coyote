@@ -45,6 +45,7 @@ type App struct {
 	store     model.Store
 	storeOnce sync.Once
 	manifest  staticManifest
+	extras    sync.Map
 	dbOnce    sync.Once
 	dbHandle  *gorm.DB
 	dbErr     error
@@ -103,6 +104,9 @@ func NewFrom(s Settings) *App {
 		PasswordRules:     s.Auth.PasswordRules,
 		Throttle:          s.Auth.Throttle,
 		PermissionStore:   permissionStore(s, a),
+		AllowChange:       s.Auth.AllowPasswordChange,
+		Tokens:            tokenStore(s, a),
+		TokenLifetime:     s.Auth.ResetTokenLifetime,
 		TrustProxy:        s.Security.RateLimit.TrustProxy,
 	})
 

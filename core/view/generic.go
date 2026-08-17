@@ -80,7 +80,7 @@ func List(opts Options) http.HandlerFunc {
 			Limit:  opts.PerPage,
 			Offset: offset,
 			Order:  opts.Order,
-			Search: r.URL.Query().Get("q"),
+			Sort:   r.URL.Query().Get("sort"),
 		}))
 		if err != nil {
 			fail(w)
@@ -93,7 +93,7 @@ func List(opts Options) http.HandlerFunc {
 				Limit:  page.Limit,
 				Offset: page.Offset,
 				Order:  opts.Order,
-				Search: r.URL.Query().Get("q"),
+				Sort:   r.URL.Query().Get("sort"),
 			}))
 			if err != nil {
 				fail(w)
@@ -105,7 +105,7 @@ func List(opts Options) http.HandlerFunc {
 			"Records": result.Records,
 			"Total":   result.Total,
 			"Page":    page,
-			"Query":   r.URL.Query().Get("q"),
+			"Sort":    r.URL.Query().Get("sort"),
 		})
 	}
 }
