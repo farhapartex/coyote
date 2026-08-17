@@ -37,6 +37,13 @@ What you can replace, and the contract you implement:
 | --- | --- | --- |
 | Session storage | `session.Store` (+ `ManageableStore`) | `Sessions.Store` |
 | User storage | `auth.Store` | `Auth.UserStore` |
+| Permission storage | `auth.PermissionStore` | `Auth.PermissionStore` |
+| Reset tokens | `auth.TokenStore` | registered when `Auth.ResetTokens` is on |
+| File storage | `storage.Storage` | `Uploads.Storage` |
+| Password rules | `auth.PasswordRule` | `Auth.PasswordRules` |
+| Login limits | `auth.LoginLimiter` | supplied to the service |
+| Pagination | `view.Paginator` | `Pagination.Paginator` |
+| Validation rules | `form.Rule` | `form.Register` |
 | Generic records | `model.Store` | supply to the admin |
 | Admin resources | `admin.Resource` and its optional siblings | `portal.Manage` |
 | Migration steps | `migrate.Op` | in a migration's `Up` |
@@ -69,8 +76,11 @@ know transfer instead of being re-taught.
 Being explicit about what is not extensible yet:
 
 - The user model is not swappable — the framework's own code still works in terms of `*auth.User`.
-- There is no form/validation layer.
-- Migrations are forward-only; there is no `down`.
-- Rate limit buckets are per process, not shared.
+- Migrations are forward-only; there is no `down`, and they run against the default connection only,
+  so a model routed to another alias is reported but not migrated.
+- Rate limit and login-throttle buckets are per process, not shared.
+- Full-text search is not built in; `model.Query` filters, but does not search.
+- Relations cover belongs-to only — no has-many, no many-to-many.
+- Soft delete is deliberately absent; it depends too much on the system to belong in the framework.
 
 ## Back to [contents](README.md)

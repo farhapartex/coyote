@@ -62,13 +62,17 @@ lib/            depends on nothing local
   text/         casing, slugs, folding, truncation
   dotenv/       the .env parser
   id/           UUID generation
+  clientip/     the client address, with or without proxy headers
 core/           what the framework needs to exist
   app/          the application object: wiring, lifecycle, render entry point
   router/       URL dispatch, groups, static, route table
   view/         template data, redirects, flash messages
   template/     html/template with layouts and partials
-  model/        entity metadata, registry, the Store port
-  store/        the GORM adapters behind model.Store and auth.Store
+  model/        entity metadata, relations, registry, the Store port
+  store/        the GORM adapters behind model.Store, auth.Store and the rest
+  form/         request binding and validation, for structs and schemas
+  storage/      the Storage port and its filesystem backend
+  upload/       accepting, sealing and serving uploaded files
   auth/         the User entity, passwords, login guards
   db/           connections, pool tuning, pragmas
   session/      Session, stores, cookie manager, sealing
@@ -79,6 +83,8 @@ contrib/        what you opt into
   cli/          management commands
   migrate/      migration operations, diffing, the ledger
   scaffold/     the project template behind `coyote new`
+  collect/      static fingerprinting behind `coyote collectstatic`
+  accounts/     sign-in, registration and profile pages
 cmd/coyote/     the `coyote` command
 ```
 

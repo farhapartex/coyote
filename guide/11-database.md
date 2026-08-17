@@ -205,6 +205,10 @@ type Store interface {
 	Insert(ctx context.Context, schema *Schema, record Record) (string, error)
 	Update(ctx context.Context, schema *Schema, id string, record Record) error
 	Delete(ctx context.Context, schema *Schema, id string) error
+	Count(ctx context.Context, schema *Schema, query Query) (int64, error)
+	Exists(ctx context.Context, schema *Schema, query Query) (bool, error)
+	First(ctx context.Context, schema *Schema, query Query) (Record, error)
+	WithTx(tx *gorm.DB) Store
 }
 ```
 

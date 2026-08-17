@@ -158,8 +158,11 @@ Each returns an ordinary `http.HandlerFunc`, so middleware and guards compose as
 | `Data func(*http.Request, view.Data) view.Data` | add your own template data |
 | `IDParam` | the path wildcard holding the id, if not `id` |
 
-Templates receive `.Records` and `.Page` for a list, `.Record` for a detail, and `.Record`,
-`.IsNew` and `.Problems` for a form. Binding and validation run through
+`List` reads `?page=` and `?sort=` from the URL. `sort` is [validated against the
+schema](11-database.md), so passing it straight through is safe.
+
+Templates receive `.Records`, `.Total`, `.Page` and `.Sort` for a list, `.Record` for a detail, and
+`.Record`, `.IsNew` and `.Problems` for a form. Binding and validation run through
 [`core/form`](30-forms.md), and paging through [`Pagination`](32-pagination.md).
 
 ## Reading form input

@@ -195,6 +195,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Pagination.Paginator` | built-in | Any `view.Paginator` |
 | `Uploads.Enabled` | `false` | Turns the upload service on |
 | `Uploads.Dir` | `media` | Where files live, under `BaseDir` |
+| `Uploads.Path` | none | Default path inside the media directory; a field tag overrides it |
 | `Uploads.MaxSize` | `10 MiB` | Enforced before the body is read |
 | `Uploads.Allowed` | images and PDF | Content types, matched against the sniffed type |
 | `Uploads.MaxPixels` | `50,000,000` | Decompression-bomb guard for images |
