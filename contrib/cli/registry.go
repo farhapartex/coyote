@@ -20,7 +20,7 @@ func NewRegistry(commands ...Command) *Registry {
 }
 
 func Default() *Registry {
-	return NewRegistry(Start{}, Migrate{}, MakeMigrations{Label: os.Getenv(EnvName)}, SQLMigrate{}, CreateSuperadmin{}, SyncPermissions{}, CollectStatic{})
+	return NewRegistry(Start{}, MigrateFromEnv(), MakeMigrations{Label: os.Getenv(EnvName)}, SQLMigrate{}, CreateSuperadmin{}, SyncPermissions{}, CollectStatic{})
 }
 
 func (r *Registry) Add(commands ...Command) {

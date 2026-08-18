@@ -8,19 +8,26 @@ import (
 	"github.com/farhapartex/coyote/contrib/migrate"
 )
 
-type Migrate struct{}
+type Migrate struct {
+	Fake        bool
+	FakeInitial bool
+	Target      string
+}
 
 func (Migrate) Name() string { return NameMigrate }
 
 func (Migrate) Summary() string { return "apply migrations that have not been applied yet" }
 
-func (Migrate) Run(ctx Context) error {
-	cfg := ctx.App.Config()
-
-	if err := RequireServer(cfg.Addr()); err != nil {
-		return err
+func MigrateFromEnv() Migrate {
+	return Migrate{
+		Fake:        flagSet(EnvFake) == "1",
+		FakeInitial: flagSet(EnvFake) == "initial",
+		Target:      flagSet(EnvTarget),
 	}
-	fmt.Fprintf(ctx.Out, "server    running on %s\n", cfg.Addr())
+}
+
+func (m Migrate) Run(ctx Context) error {
+	cfg := ctx.App.Config()
 
 	database := cfg.Database()
 	if database.Engine == "" {
@@ -32,6 +39,9 @@ func (Migrate) Run(ctx Context) error {
 	if err != nil {
 		return err
 	}
+	if handle == nil {
+		return fmt.Errorf("coyote/cli: no connection to %s %s", database.Engine, database.Name)
+	}
 
 	pool := migrate.Registered()
 	runner := migrate.NewRunner(handle, database.Engine, pool)
@@ -42,6 +52,9 @@ func (Migrate) Run(ctx Context) error {
 	}
 	pending, err := runner.Pending(background)
 	if err != nil {
+		return err
+	}
+	if pending, err = runner.Upto(pending, m.Target); err != nil {
 		return err
 	}
 	fmt.Fprintf(ctx.Out, "migrations %d found, %d pending\n\n", len(pool), len(pending))
@@ -56,12 +69,16 @@ func (Migrate) Run(ctx Context) error {
 		return nil
 	}
 
-	for _, m := range pending {
-		fmt.Fprintf(ctx.Out, "  %s\n", m.Title())
-		for _, step := range m.Describe() {
+	if m.Fake || m.FakeInitial {
+		return m.fake(ctx, runner, pending)
+	}
+
+	for _, entry := range pending {
+		fmt.Fprintf(ctx.Out, "  %s\n", entry.Title())
+		for _, step := range entry.Describe() {
 			fmt.Fprintf(ctx.Out, "      %s\n", step)
 		}
-		if err := runner.Apply(background, m); err != nil {
+		if err := runner.Apply(background, entry); err != nil {
 			fmt.Fprintln(ctx.Out, "      failed")
 			return err
 		}
@@ -69,6 +86,31 @@ func (Migrate) Run(ctx Context) error {
 	}
 	fmt.Fprintf(ctx.Out, "\napplied %d migration(s)\n", len(pending))
 	afterMigrate(ctx)
+	return nil
+}
+
+func (m Migrate) fake(ctx Context, runner *migrate.Runner, pending []migrate.Migration) error {
+	background := context.Background()
+
+	if m.FakeInitial {
+		if len(pending) == 0 {
+			return nil
+		}
+		first := pending[0]
+		if !runner.TablesExist(background, first) {
+			return fmt.Errorf("coyote/cli: --fake-initial needs the tables from %s to exist already", first.ID)
+		}
+		pending = pending[:1]
+	}
+
+	fmt.Fprintln(ctx.Out, "recording as applied WITHOUT running anything:")
+	for _, entry := range pending {
+		if err := runner.Fake(background, entry); err != nil {
+			return err
+		}
+		fmt.Fprintf(ctx.Out, "  faked %s\n", entry.ID)
+	}
+	fmt.Fprintf(ctx.Out, "\nfaked %d migration(s); the database was not changed\n", len(pending))
 	return nil
 }
 

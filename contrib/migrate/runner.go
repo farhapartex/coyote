@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/farhapartex/coyote/contrib/migrate/dialect"
@@ -138,4 +139,35 @@ func (r *Runner) applyOp(ctx context.Context, tx *gorm.DB, op Op) error {
 		}
 	}
 	return nil
+}
+
+func (r *Runner) Fake(ctx context.Context, m Migration) error {
+	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return r.ledger.Record(ctx, tx, m, 0)
+	})
+}
+
+func (r *Runner) TablesExist(ctx context.Context, m Migration) bool {
+	for _, op := range m.Up {
+		created, ok := op.(CreateTable)
+		if !ok {
+			continue
+		}
+		if !r.handle.WithContext(ctx).Migrator().HasTable(created.Table.Name) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Runner) Upto(pending []Migration, target string) ([]Migration, error) {
+	if target == "" {
+		return pending, nil
+	}
+	for i, m := range pending {
+		if m.ID == target || strings.HasPrefix(m.ID, target+"_") || strings.HasPrefix(m.ID, target) {
+			return pending[:i+1], nil
+		}
+	}
+	return nil, fmt.Errorf("coyote/migrate: no pending migration matches %q", target)
 }

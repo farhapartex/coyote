@@ -26,6 +26,11 @@ flags for start:
   --port=N          listen on port N instead of the one in settings.go
   --host=H          bind to host H instead of the one in settings.go
 
+flags for migrate:
+  --fake            record pending migrations as applied without running them
+  --fake-initial    record only the first migration, if its tables already exist
+  --to=ID           stop after migration ID
+
 flags for makemigrations:
   --name=NAME       name the generated migration instead of guessing one
 

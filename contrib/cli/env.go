@@ -10,6 +10,11 @@ const (
 	EnvUsername = "COYOTE_SUPERADMIN_USERNAME"
 	EnvEmail    = "COYOTE_SUPERADMIN_EMAIL"
 	EnvPassword = "COYOTE_SUPERADMIN_PASSWORD"
+	EnvFake     = "COYOTE_MIGRATE_FAKE"
+	EnvTarget   = "COYOTE_MIGRATE_TARGET"
+	EnvSteps    = "COYOTE_MIGRATE_STEPS"
+	EnvNoInput  = "COYOTE_NO_INPUT"
+	EnvForce    = "COYOTE_FORCE"
 )
 
 const (

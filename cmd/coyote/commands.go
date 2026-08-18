@@ -33,10 +33,23 @@ func start(args []string) error {
 
 func migrate(args []string) error {
 	fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
+	fake := fs.Bool("fake", false, "record migrations as applied without running them")
+	fakeInitial := fs.Bool("fake-initial", false, "record only the first migration, and only if its tables exist")
+	target := fs.String("to", "", "stop after this migration")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+
 	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameMigrate)
+	switch {
+	case *fakeInitial:
+		env = append(env, cli.EnvFake+"=initial")
+	case *fake:
+		env = append(env, cli.EnvFake+"=1")
+	}
+	if *target != "" {
+		env = append(env, cli.EnvTarget+"="+*target)
+	}
 	return invoke(env)
 }
 

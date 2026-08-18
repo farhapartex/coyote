@@ -28,6 +28,15 @@ func Registered() []Migration { return defaultRegistry.All() }
 
 func Default() *Registry { return defaultRegistry }
 
+func Reset() { defaultRegistry.Clear() }
+
+func (r *Registry) Clear() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.migrations = nil
+	r.seen = make(map[string]bool)
+}
+
 func (r *Registry) Add(migrations ...Migration) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
