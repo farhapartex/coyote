@@ -34,6 +34,7 @@ type Query struct {
 	Sort    string
 	Select  []string
 	Filters []Filter
+	AnyOf   []Filter
 	With    []string
 }
 

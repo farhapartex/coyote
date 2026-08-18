@@ -31,3 +31,11 @@ type Sorted interface {
 type Guarded interface {
 	ReadOnly() bool
 }
+
+type Searchable interface {
+	SearchColumns() []string
+}
+
+type Filterable interface {
+	FilterColumns() []string
+}
