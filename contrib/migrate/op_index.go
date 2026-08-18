@@ -33,8 +33,10 @@ func (o CreateIndex) Source() string {
 }
 
 type DropIndex struct {
-	Table string
-	Name  string
+	Table   string
+	Name    string
+	Columns []string
+	Unique  bool
 }
 
 func (o DropIndex) Describe() string {

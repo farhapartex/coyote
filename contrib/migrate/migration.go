@@ -7,9 +7,18 @@ import (
 )
 
 type Migration struct {
-	ID   string
-	Note string
-	Up   []Op
+	ID       string
+	Note     string
+	Up       []Op
+	Down     []Op
+	Replaces []string
+}
+
+func (m Migration) Reverse() ([]Op, []string) {
+	if len(m.Down) > 0 {
+		return m.Down, nil
+	}
+	return Invert(m.Up)
 }
 
 func (m Migration) Checksum() string {

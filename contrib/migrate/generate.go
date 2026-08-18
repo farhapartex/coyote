@@ -99,12 +99,32 @@ func render(id string, change Change) string {
 		fmt.Fprintf(&b, "\t\t\t// %s\n", op.Describe())
 		fmt.Fprintf(&b, "\t\t\t%s,\n", source.Source())
 	}
-	b.WriteString("\t\t},\n\t})\n}\n")
+	b.WriteString("\t\t},\n")
+
+	down, blocked := Invert(change.Ops)
+	if len(down) > 0 {
+		b.WriteString("\t\tDown: []migrate.Op{\n")
+		for _, op := range down {
+			source, ok := op.(Sourcer)
+			if !ok {
+				continue
+			}
+			fmt.Fprintf(&b, "\t\t\t// %s\n", op.Describe())
+			fmt.Fprintf(&b, "\t\t\t%s,\n", source.Source())
+		}
+		b.WriteString("\t\t},\n")
+	}
+	for _, entry := range blocked {
+		fmt.Fprintf(&b, "\t\t// no automatic reverse for: %s\n", entry)
+	}
+
+	b.WriteString("\t})\n}\n")
 	return b.String()
 }
 
 func usesModelPackage(ops []Op) bool {
-	for _, op := range ops {
+	down, _ := Invert(ops)
+	for _, op := range append(append([]Op{}, ops...), down...) {
 		switch op.(type) {
 		case CreateTable, AddColumn:
 			return true

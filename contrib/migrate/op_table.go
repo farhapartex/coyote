@@ -45,7 +45,8 @@ func (o CreateTable) Source() string {
 }
 
 type DropTable struct {
-	Name string
+	Name    string
+	Restore Table `json:"-"`
 }
 
 func (o DropTable) Describe() string { return "drop table " + o.Name }

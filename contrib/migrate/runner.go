@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -221,4 +222,61 @@ func (r *Runner) Upto(pending []Migration, target string) ([]Migration, error) {
 		}
 	}
 	return nil, fmt.Errorf("coyote/migrate: no pending migration matches %q", target)
+}
+
+type Rollback struct {
+	Migration Migration
+	Ops       []Op
+	Blocked   []string
+	Losses    []string
+}
+
+func (r *Runner) PlanRollback(ctx context.Context, steps int) ([]Rollback, error) {
+	applied, err := r.ledger.Applied(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if steps < 1 {
+		steps = 1
+	}
+
+	declared := make(map[string]Migration, len(r.pool))
+	for _, m := range r.pool {
+		declared[m.ID] = m
+	}
+
+	sort.Slice(applied, func(i, j int) bool { return applied[i].ID > applied[j].ID })
+
+	out := []Rollback{}
+	for _, record := range applied {
+		if len(out) == steps {
+			break
+		}
+		m, known := declared[record.ID]
+		if !known {
+			return nil, fmt.Errorf("coyote/migrate: %s is applied but not declared; it cannot be rolled back", record.ID)
+		}
+		if len(m.Replaces) > 0 {
+			return nil, fmt.Errorf("coyote/migrate: %s replaces %d migration(s); rollback stops at a squash boundary",
+				m.ID, len(m.Replaces))
+		}
+		ops, blocked := m.Reverse()
+		out = append(out, Rollback{Migration: m, Ops: ops, Blocked: blocked, Losses: Destructive(ops)})
+	}
+	return out, nil
+}
+
+func (r *Runner) Undo(ctx context.Context, plan Rollback) error {
+	if len(plan.Blocked) > 0 {
+		return fmt.Errorf("coyote/migrate: %s cannot be reversed: %s",
+			plan.Migration.ID, strings.Join(plan.Blocked, ", "))
+	}
+	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, op := range plan.Ops {
+			if err := r.applyOp(ctx, tx, op); err != nil {
+				return fmt.Errorf("%s: %s: %w", plan.Migration.ID, op.Describe(), err)
+			}
+		}
+		return r.ledger.Forget(ctx, tx, plan.Migration.ID)
+	})
 }

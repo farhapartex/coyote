@@ -53,6 +53,26 @@ func migrate(args []string) error {
 	return invoke(env)
 }
 
+func rollback(args []string) error {
+	fs := flag.NewFlagSet("rollback", flag.ContinueOnError)
+	steps := fs.Int("steps", 1, "how many migrations to undo")
+	force := fs.Bool("force", false, "roll back even when some operations cannot be reversed")
+	noInput := fs.Bool("no-input", false, "do not ask for confirmation")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameRollback)
+	env = append(env, cli.EnvSteps+"="+strconv.Itoa(*steps))
+	if *force {
+		env = append(env, cli.EnvForce+"=1")
+	}
+	if *noInput {
+		env = append(env, cli.EnvNoInput+"=1")
+	}
+	return invoke(env)
+}
+
 func syncPermissions(args []string) error {
 	fs := flag.NewFlagSet("syncpermissions", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {

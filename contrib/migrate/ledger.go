@@ -82,3 +82,11 @@ func (l *Ledger) Record(ctx context.Context, tx *gorm.DB, m Migration, took time
 	}
 	return nil
 }
+
+func (l *Ledger) Forget(ctx context.Context, tx *gorm.DB, id string) error {
+	err := tx.WithContext(ctx).Table(LedgerTable).Where("id = ?", id).Delete(nil).Error
+	if err != nil {
+		return fmt.Errorf("coyote/migrate: forgetting %s: %w", id, err)
+	}
+	return nil
+}
