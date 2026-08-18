@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/farhapartex/coyote/contrib/migrate/dialect"
@@ -113,6 +115,10 @@ func (r *Runner) Statements(m Migration) []string {
 }
 
 func (r *Runner) Apply(ctx context.Context, m Migration) error {
+	if r.needsRebuild(m.Up) {
+		return r.applyOutsideTransaction(ctx, m)
+	}
+
 	started := time.Now()
 	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, op := range m.Up {
@@ -124,7 +130,54 @@ func (r *Runner) Apply(ctx context.Context, m Migration) error {
 	})
 }
 
+func (r *Runner) needsRebuild(ops []Op) bool {
+	for _, op := range ops {
+		if alter, ok := op.(AlterColumn); ok && alter.Rebuilds(r.dialect) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runner) applyOutsideTransaction(ctx context.Context, m Migration) error {
+	started := time.Now()
+	handle := r.handle.WithContext(ctx)
+
+	if err := handle.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
+		return err
+	}
+	defer handle.Exec("PRAGMA foreign_keys = ON")
+
+	for _, op := range m.Up {
+		if err := r.applyOp(ctx, handle, op); err != nil {
+			return fmt.Errorf("%s: %s: %w", m.ID, op.Describe(), err)
+		}
+	}
+
+	violations := []map[string]any{}
+	if err := handle.Raw("PRAGMA foreign_key_check").Scan(&violations).Error; err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("%s: the rebuild left %d foreign key violation(s); the database was not recorded as migrated",
+			m.ID, len(violations))
+	}
+	return r.ledger.Record(ctx, handle, m, time.Since(started))
+}
+
 func (r *Runner) applyOp(ctx context.Context, tx *gorm.DB, op Op) error {
+	if alter, ok := op.(AlterColumn); ok && alter.Rebuilds(r.dialect) {
+		statements, err := alter.rebuildStatements(r.dialect)
+		if err != nil {
+			return err
+		}
+		for _, statement := range statements {
+			if err := tx.WithContext(ctx).Exec(statement).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if runnable, ok := op.(Executor); ok {
 		return runnable.Exec(ctx, tx)
 	}
@@ -138,4 +191,92 @@ func (r *Runner) applyOp(ctx context.Context, tx *gorm.DB, op Op) error {
 		}
 	}
 	return nil
+}
+
+func (r *Runner) Fake(ctx context.Context, m Migration) error {
+	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return r.ledger.Record(ctx, tx, m, 0)
+	})
+}
+
+func (r *Runner) TablesExist(ctx context.Context, m Migration) bool {
+	for _, op := range m.Up {
+		created, ok := op.(CreateTable)
+		if !ok {
+			continue
+		}
+		if !r.handle.WithContext(ctx).Migrator().HasTable(created.Table.Name) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Runner) Upto(pending []Migration, target string) ([]Migration, error) {
+	if target == "" {
+		return pending, nil
+	}
+	for i, m := range pending {
+		if m.ID == target || strings.HasPrefix(m.ID, target+"_") || strings.HasPrefix(m.ID, target) {
+			return pending[:i+1], nil
+		}
+	}
+	return nil, fmt.Errorf("coyote/migrate: no pending migration matches %q", target)
+}
+
+type Rollback struct {
+	Migration Migration
+	Ops       []Op
+	Blocked   []string
+	Losses    []string
+}
+
+func (r *Runner) PlanRollback(ctx context.Context, steps int) ([]Rollback, error) {
+	applied, err := r.ledger.Applied(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if steps < 1 {
+		steps = 1
+	}
+
+	declared := make(map[string]Migration, len(r.pool))
+	for _, m := range r.pool {
+		declared[m.ID] = m
+	}
+
+	sort.Slice(applied, func(i, j int) bool { return applied[i].ID > applied[j].ID })
+
+	out := []Rollback{}
+	for _, record := range applied {
+		if len(out) == steps {
+			break
+		}
+		m, known := declared[record.ID]
+		if !known {
+			return nil, fmt.Errorf("coyote/migrate: %s is applied but not declared; it cannot be rolled back", record.ID)
+		}
+		if len(m.Replaces) > 0 {
+			return nil, fmt.Errorf("coyote/migrate: %s replaces %d migration(s); rollback stops at a squash boundary",
+				m.ID, len(m.Replaces))
+		}
+		ops, blocked := m.Reverse()
+		out = append(out, Rollback{Migration: m, Ops: ops, Blocked: blocked, Losses: Destructive(ops)})
+	}
+	return out, nil
+}
+
+func (r *Runner) Undo(ctx context.Context, plan Rollback) error {
+	if len(plan.Blocked) > 0 {
+		return fmt.Errorf("coyote/migrate: %s cannot be reversed: %s",
+			plan.Migration.ID, strings.Join(plan.Blocked, ", "))
+	}
+	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, op := range plan.Ops {
+			if err := r.applyOp(ctx, tx, op); err != nil {
+				return fmt.Errorf("%s: %s: %w", plan.Migration.ID, op.Describe(), err)
+			}
+		}
+		return r.ledger.Forget(ctx, tx, plan.Migration.ID)
+	})
 }

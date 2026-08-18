@@ -1,6 +1,11 @@
 package migrate
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+
+	"github.com/farhapartex/coyote/core/model"
+)
 
 type Change struct {
 	Ops      []Op
@@ -67,7 +72,59 @@ func diffColumns(before, after Table) Change {
 			"if "+after.Name+"."+removed[0].Name+" became "+added[0].Name+
 				", replace the drop and add with migrate.RenameColumn to keep the data")
 	}
+
+	change.merge(diffChangedColumns(before, after))
 	return change
+}
+
+func diffChangedColumns(before, after Table) Change {
+	var change Change
+
+	for _, column := range after.Columns {
+		previous, ok := before.Column(column.Name)
+		if !ok || previous == column {
+			continue
+		}
+		change.Ops = append(change.Ops, AlterColumn{
+			Table:   after.Name,
+			From:    previous,
+			To:      column,
+			Columns: after.Columns,
+			Indexes: after.Indexes,
+		})
+		change.Warnings = append(change.Warnings, alterWarnings(after.Name, previous, column)...)
+	}
+	return change
+}
+
+func alterWarnings(table string, from, to Column) []string {
+	out := []string{}
+	name := table + "." + to.Name
+
+	if from.Size > 0 && to.Size > 0 && to.Size < from.Size {
+		out = append(out, fmt.Sprintf("%s narrows from %d to %d characters; longer values will be truncated or rejected",
+			name, from.Size, to.Size))
+	}
+	if from.Kind != to.Kind && !wideningKind(from.Kind, to.Kind) {
+		out = append(out, fmt.Sprintf("%s changes type from %s to %s; existing values may not convert",
+			name, from.Kind, to.Kind))
+	}
+	if to.NotNull && !from.NotNull && to.Default == "" {
+		out = append(out, name+" becomes NOT NULL without a default; rows holding null will fail")
+	}
+	return out
+}
+
+func wideningKind(from, to model.Kind) bool {
+	switch {
+	case from == to:
+		return true
+	case from == model.KindInt && to == model.KindFloat:
+		return true
+	case from == model.KindString && to == model.KindText:
+		return true
+	}
+	return false
 }
 
 func diffIndexes(before, after Table) Change {

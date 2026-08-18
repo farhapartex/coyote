@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/farhapartex/coyote/contrib/migrate"
@@ -22,6 +23,9 @@ func (SQLMigrate) Run(ctx Context) error {
 	handle, err := ctx.App.DB()
 	if err != nil {
 		return err
+	}
+	if handle == nil {
+		return errors.New("coyote/cli: no database connection")
 	}
 
 	runner := migrate.NewRunner(handle, database.Engine, migrate.Registered())

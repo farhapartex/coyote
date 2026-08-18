@@ -115,7 +115,7 @@ func TestUnknownCommandIsRejected(t *testing.T) {
 	}
 }
 
-func TestMigrateRefusesWhenServerIsDown(t *testing.T) {
+func TestMigrateRunsWithoutAListeningServer(t *testing.T) {
 	addr, stop := listenOnFreePort(t)
 	cfg := settingsForAddr(t, addr)
 	stop()
@@ -123,14 +123,15 @@ func TestMigrateRefusesWhenServerIsDown(t *testing.T) {
 	app := &fakeApp{cfg: cfg, models: []model.Model{model.Of(auth.User{})}}
 	out := &bytes.Buffer{}
 	err := cli.Default().Run(cli.Context{App: app, Out: out}, cli.NameMigrate)
-	if !errors.Is(err, cli.ErrServerNotRunning) {
-		t.Fatalf("got %v, want ErrServerNotRunning", err)
+
+	if errors.Is(err, cli.ErrServerNotRunning) {
+		t.Fatal("migrate must no longer require a listening server")
 	}
-	if !strings.Contains(err.Error(), "coyote start") {
-		t.Errorf("the error should tell the user how to start, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no connection") {
+		t.Errorf("without a usable handle migrate should say so plainly, got %v", err)
 	}
-	if out.Len() != 0 {
-		t.Errorf("nothing should be migrated, got output %q", out.String())
+	if !strings.Contains(out.String(), "database") {
+		t.Errorf("migrate should still report which database it targeted, got %q", out.String())
 	}
 }
 
@@ -147,7 +148,7 @@ func TestMigrateWithNoDeclaredMigrations(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := out.String()
-	for _, want := range []string{"server", "running on " + addr, "no migrations declared"} {
+	for _, want := range []string{"database", "no migrations declared"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("output missing %q:\n%s", want, body)
 		}

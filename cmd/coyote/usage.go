@@ -11,6 +11,7 @@ commands:
   makemigrations    write a migration file for changes to your models
   migrate           apply migrations that have not been applied yet
   sqlmigrate        print the SQL a pending migration would run
+  rollback          undo the most recently applied migration
   syncpermissions   create the permissions for every registered model
   collectstatic     fingerprint static files and write a manifest
   createsuperadmin  create a superadmin who can sign in to the admin portal
@@ -25,6 +26,16 @@ flags for new:
 flags for start:
   --port=N          listen on port N instead of the one in settings.go
   --host=H          bind to host H instead of the one in settings.go
+
+flags for migrate:
+  --fake            record pending migrations as applied without running them
+  --fake-initial    record only the first migration, if its tables already exist
+  --to=ID           stop after migration ID
+
+flags for rollback:
+  --steps=N         undo N migrations instead of one
+  --force           proceed even when some operations cannot be reversed
+  --no-input        do not ask before destroying data
 
 flags for makemigrations:
   --name=NAME       name the generated migration instead of guessing one

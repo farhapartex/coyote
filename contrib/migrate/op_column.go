@@ -24,8 +24,9 @@ func (o AddColumn) Source() string {
 }
 
 type DropColumn struct {
-	Table  string
-	Column string
+	Table   string
+	Column  string
+	Restore Column `json:"-"`
 }
 
 func (o DropColumn) Describe() string {

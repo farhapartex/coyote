@@ -53,3 +53,27 @@ func SQLiteType(kind model.Kind, autoIncrement bool) string {
 		return "TEXT"
 	}
 }
+
+func (d SQLite) AlterColumn(table string, from, to Column) []string {
+	return nil
+}
+
+func (d SQLite) Rebuild(table string, columns []Column, indexes []Index, copied []string) []string {
+	shadow := table + "__rebuilt"
+
+	statements := []string{
+		createTable(d, shadow, columns, true),
+		fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM %s",
+			d.Quote(shadow), joinColumns(d, copied), joinColumns(d, copied), d.Quote(table)),
+		"DROP TABLE " + d.Quote(table),
+		fmt.Sprintf("ALTER TABLE %s RENAME TO %s", d.Quote(shadow), d.Quote(table)),
+	}
+	for _, index := range indexes {
+		statements = append(statements, createIndex(d, Index{
+			Name: index.Name, Table: table, Columns: index.Columns, Unique: index.Unique,
+		}))
+	}
+	return statements
+}
+
+func (SQLite) NeedsRebuild() bool { return true }

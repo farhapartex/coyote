@@ -28,6 +28,7 @@ type Dialect interface {
 	RenameColumn(table, from, to string) string
 	CreateIndex(index Index) string
 	DropIndex(table, name string) string
+	AlterColumn(table string, from, to Column) []string
 }
 
 func For(engine settings.Engine) Dialect {
@@ -39,4 +40,8 @@ func For(engine settings.Engine) Dialect {
 	default:
 		return SQLite{}
 	}
+}
+
+type Rebuilder interface {
+	NeedsRebuild() bool
 }
