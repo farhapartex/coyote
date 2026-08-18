@@ -208,6 +208,10 @@ func (a *Admin) renderForm(w http.ResponseWriter, r *http.Request, status int, e
 		if field.Type == "file" && field.Value != "" {
 			fields[i].URL = a.app.MediaURL(upload.Ref(field.Value))
 		}
+		if _, isRelation := entry.schema.Relation(field.Column); isRelation {
+			fields[i].Relation = true
+			fields[i].Options = a.relationOptions(r, entry, field.Column, field.Value)
+		}
 	}
 
 	a.render(w, r, status, "resource_form.html", view.Data{

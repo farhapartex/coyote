@@ -43,6 +43,10 @@ type Page struct {
 	Total   int64
 }
 
+type Optioner interface {
+	Options(ctx context.Context, relation Relation, limit int) ([]Record, error)
+}
+
 type Store interface {
 	List(ctx context.Context, schema *Schema, query Query) (Page, error)
 	Find(ctx context.Context, schema *Schema, id string) (Record, error)
