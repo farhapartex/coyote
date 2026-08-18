@@ -81,6 +81,7 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 			"SortLinks":  a.sortLinks(r, entry),
 			"Sort":       r.URL.Query().Get("sort"),
 			"CanDelete":  a.may(r, entry, auth.ActionDelete),
+			"Actions":    entry.actions,
 		})
 	}
 }

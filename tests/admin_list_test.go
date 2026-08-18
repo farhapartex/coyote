@@ -67,18 +67,25 @@ func bookPortal(t *testing.T) (*app.App, *client) {
 	return a, c
 }
 
-var cellPattern = regexp.MustCompile(`(?s)<tbody>(.*?)</tbody>`)
-var firstCell = regexp.MustCompile(`(?s)<tr>.*?<td>(.*?)</td>`)
+var bodyPattern = regexp.MustCompile(`(?s)<tbody>(.*?)</tbody>`)
+var rowPattern = regexp.MustCompile(`(?s)<tr>(.*?)</tr>`)
+var cellPattern = regexp.MustCompile(`(?s)<td[^>]*>(.*?)</td>`)
 
 func rowTitles(body string) []string {
-	section := cellPattern.FindStringSubmatch(body)
+	section := bodyPattern.FindStringSubmatch(body)
 	if section == nil {
 		return nil
 	}
+
 	out := []string{}
-	for _, match := range firstCell.FindAllStringSubmatch(section[1], -1) {
-		if value := strings.TrimSpace(match[1]); value != "" && value != "—" {
+	for _, row := range rowPattern.FindAllStringSubmatch(section[1], -1) {
+		for _, cell := range cellPattern.FindAllStringSubmatch(row[1], -1) {
+			value := strings.TrimSpace(cell[1])
+			if value == "" || value == "—" || strings.Contains(value, "<") {
+				continue
+			}
 			out = append(out, value)
+			break
 		}
 	}
 	return out

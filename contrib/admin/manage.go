@@ -55,6 +55,7 @@ func (a *Admin) mountResource(entry managed) {
 	a.guarded.Get(base+"/{id}", a.permit(entry, auth.ActionRead, a.resourceForm(entry)))
 	a.guarded.Post(base+"/{id}", a.permit(entry, auth.ActionUpdate, a.resourceUpdate(entry)))
 	a.guarded.Post(base+"/{id}/delete", a.permit(entry, auth.ActionDelete, a.resourceDelete(entry)))
+	a.guarded.Post(base+"/bulk", a.resourceBulk(entry))
 }
 
 func (a *Admin) MustManage(resources ...Resource) {

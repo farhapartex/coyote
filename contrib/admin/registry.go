@@ -18,6 +18,7 @@ type managed struct {
 	searchOn  []string
 	filterOn  []string
 	relations []model.Relation
+	actions   []Action
 }
 
 func (m managed) Searchable() bool { return len(m.searchOn) > 0 }
@@ -90,6 +91,9 @@ func describeResource(schema *model.Schema, resource Resource) managed {
 		entry.filterOn = keepColumns(schema, filtered.FilterColumns())
 	}
 	entry.relations = schema.Relations
+	if acted, ok := resource.(Actionable); ok {
+		entry.actions = acted.Actions()
+	}
 	if guarded, ok := resource.(Guarded); ok {
 		entry.readOnly = guarded.ReadOnly()
 	}

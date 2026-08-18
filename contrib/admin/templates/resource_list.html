@@ -24,11 +24,16 @@
   </div>
 </div>
 
+{{$bulk := and (not .ReadOnly) (or .CanDelete .Actions)}}
 <div class="card">
   {{if .Rows}}
+  <form method="post" action="{{.Prefix}}/{{.Resource.Slug}}/bulk" id="bulk"
+        onsubmit="return this.action.value != '' && confirm('Apply to the selected rows?')">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <table>
     <thead>
       <tr>
+        {{if $bulk}}<th style="width:1%"><input type="checkbox" onclick="for (const box of document.querySelectorAll('#bulk input[name=ids]')) box.checked = this.checked"></th>{{end}}
         {{range .Columns}}
         <th>
           <a class="sort" href="{{$.Prefix}}/{{$.Resource.Slug}}?sort={{index $.SortLinks .Column}}{{with $.Query}}&q={{.}}{{end}}">
@@ -42,6 +47,7 @@
     <tbody>
       {{range .Rows}}
       <tr>
+        {{if $bulk}}<td><input type="checkbox" name="ids" value="{{.ID}}"></td>{{end}}
         {{range $i, $cell := .Cells}}
         <td>{{if $cell}}{{$cell}}{{else}}—{{end}}</td>
         {{end}}
@@ -50,6 +56,17 @@
       {{end}}
     </tbody>
   </table>
+  {{if $bulk}}
+  <div class="bulk">
+    <select name="action">
+      <option value="">With selected…</option>
+      {{if .CanDelete}}<option value="delete">Delete</option>{{end}}
+      {{range .Actions}}<option value="{{.Name}}">{{.Label}}</option>{{end}}
+    </select>
+    <button class="btn secondary" type="submit">Apply</button>
+  </div>
+  {{end}}
+  </form>
   {{else}}
   <div class="empty">
     {{if or .Query .Sort}}Nothing matches that search.{{else}}No {{.Resource.Title}} yet.{{end}}
