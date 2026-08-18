@@ -34,6 +34,30 @@ func (d Postgres) CreateIndex(index Index) string { return createIndex(d, index)
 
 func (d Postgres) DropIndex(table, name string) string { return "DROP INDEX " + d.Quote(name) }
 
+func (d Postgres) AlterColumn(table string, from, to Column) []string {
+	out := []string{}
+	prefix := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s", d.Quote(table), d.Quote(to.Name))
+
+	if from.Type != to.Type {
+		out = append(out, fmt.Sprintf("%s TYPE %s USING %s::%s", prefix, to.Type, d.Quote(to.Name), to.Type))
+	}
+	if from.NotNull != to.NotNull {
+		if to.NotNull {
+			out = append(out, prefix+" SET NOT NULL")
+		} else {
+			out = append(out, prefix+" DROP NOT NULL")
+		}
+	}
+	if from.Default != to.Default {
+		if to.Default == "" {
+			out = append(out, prefix+" DROP DEFAULT")
+		} else {
+			out = append(out, prefix+" SET DEFAULT "+to.Default)
+		}
+	}
+	return out
+}
+
 func PostgresType(kind model.Kind, size int, autoIncrement bool) string {
 	if autoIncrement {
 		return "BIGSERIAL"

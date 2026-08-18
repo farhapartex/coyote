@@ -114,6 +114,10 @@ func (r *Runner) Statements(m Migration) []string {
 }
 
 func (r *Runner) Apply(ctx context.Context, m Migration) error {
+	if r.needsRebuild(m.Up) {
+		return r.applyOutsideTransaction(ctx, m)
+	}
+
 	started := time.Now()
 	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, op := range m.Up {
@@ -125,7 +129,54 @@ func (r *Runner) Apply(ctx context.Context, m Migration) error {
 	})
 }
 
+func (r *Runner) needsRebuild(ops []Op) bool {
+	for _, op := range ops {
+		if alter, ok := op.(AlterColumn); ok && alter.Rebuilds(r.dialect) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runner) applyOutsideTransaction(ctx context.Context, m Migration) error {
+	started := time.Now()
+	handle := r.handle.WithContext(ctx)
+
+	if err := handle.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
+		return err
+	}
+	defer handle.Exec("PRAGMA foreign_keys = ON")
+
+	for _, op := range m.Up {
+		if err := r.applyOp(ctx, handle, op); err != nil {
+			return fmt.Errorf("%s: %s: %w", m.ID, op.Describe(), err)
+		}
+	}
+
+	violations := []map[string]any{}
+	if err := handle.Raw("PRAGMA foreign_key_check").Scan(&violations).Error; err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("%s: the rebuild left %d foreign key violation(s); the database was not recorded as migrated",
+			m.ID, len(violations))
+	}
+	return r.ledger.Record(ctx, handle, m, time.Since(started))
+}
+
 func (r *Runner) applyOp(ctx context.Context, tx *gorm.DB, op Op) error {
+	if alter, ok := op.(AlterColumn); ok && alter.Rebuilds(r.dialect) {
+		statements, err := alter.rebuildStatements(r.dialect)
+		if err != nil {
+			return err
+		}
+		for _, statement := range statements {
+			if err := tx.WithContext(ctx).Exec(statement).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if runnable, ok := op.(Executor); ok {
 		return runnable.Exec(ctx, tx)
 	}

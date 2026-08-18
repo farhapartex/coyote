@@ -36,6 +36,11 @@ func (d MySQL) DropIndex(table, name string) string {
 	return fmt.Sprintf("DROP INDEX %s ON %s", d.Quote(name), d.Quote(table))
 }
 
+func (d MySQL) AlterColumn(table string, from, to Column) []string {
+	return []string{fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s",
+		d.Quote(table), columnClause(d, to))}
+}
+
 func MySQLType(kind model.Kind, size int, autoIncrement bool) string {
 	if autoIncrement {
 		return "BIGINT AUTO_INCREMENT"

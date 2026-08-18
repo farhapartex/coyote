@@ -55,3 +55,29 @@ func kindConstant(kind Kind) string {
 		return "KindString"
 	}
 }
+
+func columnsSource(columns []Column) string {
+	if len(columns) == 0 {
+		return "nil"
+	}
+	parts := make([]string, 0, len(columns))
+	for _, column := range columns {
+		parts = append(parts, columnSource(column))
+	}
+	return "[]migrate.Column{" + strings.Join(parts, ", ") + "}"
+}
+
+func indexesSource(indexes []Index) string {
+	if len(indexes) == 0 {
+		return "nil"
+	}
+	parts := make([]string, 0, len(indexes))
+	for _, index := range indexes {
+		unique := ""
+		if index.Unique {
+			unique = ", Unique: true"
+		}
+		parts = append(parts, fmt.Sprintf("{Name: %q, Columns: %s%s}", index.Name, stringsSource(index.Columns), unique))
+	}
+	return "[]migrate.Index{" + strings.Join(parts, ", ") + "}"
+}
