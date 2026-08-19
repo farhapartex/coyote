@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"context"
 	"io"
 	"os"
+	"strings"
 )
 
 type Context struct {
@@ -23,3 +25,13 @@ type Command interface {
 	Summary() string
 	Run(Context) error
 }
+
+func Args() []string {
+	raw := strings.TrimSpace(os.Getenv(EnvArgs))
+	if raw == "" {
+		return nil
+	}
+	return strings.Fields(raw)
+}
+
+func (c Context) Context() context.Context { return context.Background() }

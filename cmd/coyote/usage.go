@@ -14,6 +14,8 @@ commands:
   rollback          undo the most recently applied migration
   syncpermissions   create the permissions for every registered model
   collectstatic     fingerprint static files and write a manifest
+  shell             inspect and query your models interactively
+  dbshell           open the database's own command line client
   createsuperadmin  create a superadmin who can sign in to the admin portal
   version           print the coyote version
   help              print this message
@@ -47,6 +49,8 @@ flags for createsuperadmin:
 
 createsuperadmin also reads COYOTE_SUPERADMIN_USERNAME, _EMAIL and _PASSWORD,
 which is the safer route in scripts.
+
+any command your application registers with cli.Register is available here too.
 
 every command except "new" runs from the directory holding your main package
 and settings.go. installed per project, the same commands are available as
