@@ -1,0 +1,19 @@
+package [[.Package]]
+
+import (
+	"github.com/farhapartex/coyote/contrib/admin"
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/model"
+)
+
+func Models() []model.Model {
+	return []model.Model{model.Of([[.Type]]{})}
+}
+
+func Routes(a *app.App) {
+	a.Get("/[[.Package]]", list(a)).Named("[[.Package]].list")
+}
+
+func Manage(portal *admin.Admin) {
+	portal.MustManage([[.Lower]]Resource{})
+}

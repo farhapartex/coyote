@@ -1,0 +1,12 @@
+{{define "content"}}
+<h1>{{.Title}}</h1>
+<p class="muted">{{.Total}} record(s).</p>
+
+<ul>
+  {{range .Records}}
+  <li>{{.String "name"}}</li>
+  {{else}}
+  <li>Nothing here yet — add one in the admin portal.</li>
+  {{end}}
+</ul>
+{{end}}

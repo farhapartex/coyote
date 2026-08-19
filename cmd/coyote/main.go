@@ -31,6 +31,8 @@ func run(args []string) error {
 		return nil
 	case "new":
 		return newProject(rest)
+	case "startapp":
+		return startApp(rest)
 	case cli.NameStart:
 		return start(rest)
 	case cli.NameMigrate:

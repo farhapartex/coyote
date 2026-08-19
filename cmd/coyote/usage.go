@@ -7,6 +7,7 @@ usage:
 
 commands:
   new <name>        create a new project in a directory of that name
+  startapp <name>   scaffold a feature package under internal/
   start             build and run the project in the current directory
   makemigrations    write a migration file for changes to your models
   migrate           apply migrations that have not been applied yet

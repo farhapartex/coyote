@@ -1,0 +1,10 @@
+package [[.Package]]
+
+import "time"
+
+type [[.Type]] struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	Name      string `gorm:"size:200;not null"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}

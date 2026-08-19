@@ -13,7 +13,7 @@ import (
 	"text/template"
 )
 
-//go:embed files
+//go:embed files app
 var files embed.FS
 
 var (
@@ -111,22 +111,24 @@ func plan(opts Options) (Project, error) {
 }
 
 func write(project Project, item source) error {
-	raw, err := files.ReadFile("files/" + item.template)
+	return writeFile(files, "files/"+item.template, filepath.Join(project.Dir, item.path), project)
+}
+
+func writeFile(source embed.FS, name, target string, data any) error {
+	raw, err := source.ReadFile(name)
 	if err != nil {
 		return err
 	}
 
-	parsed, err := template.New(item.template).Delims("[[", "]]").Parse(string(raw))
+	parsed, err := template.New(name).Delims("[[", "]]").Parse(string(raw))
 	if err != nil {
 		return err
 	}
 
 	rendered := &bytes.Buffer{}
-	if err := parsed.Execute(rendered, project); err != nil {
+	if err := parsed.Execute(rendered, data); err != nil {
 		return err
 	}
-
-	target := filepath.Join(project.Dir, item.path)
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
 	}

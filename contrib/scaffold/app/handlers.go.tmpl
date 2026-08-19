@@ -1,0 +1,35 @@
+package [[.Package]]
+
+import (
+	"net/http"
+
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/model"
+	"github.com/farhapartex/coyote/core/view"
+)
+
+func list(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		records, err := a.Store()
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		schema, err := a.Describe([[.Type]]{})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		page, err := records.List(r.Context(), schema, model.Query{Limit: 20})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		a.Render(w, r, "pages/[[.Package]].html", view.Data{
+			"Title":   "[[.Title]]",
+			"Records": page.Records,
+			"Total":   page.Total,
+		})
+	}
+}
