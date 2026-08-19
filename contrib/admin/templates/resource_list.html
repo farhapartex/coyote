@@ -3,21 +3,51 @@
 {{define "content"}}
 <div class="page-head">
   <h2>{{.Resource.Title}} <span class="muted" style="font-size:15px;font-weight:400">({{.Total}})</span></h2>
-  {{if not .ReadOnly}}<a class="btn" href="{{.Prefix}}/{{.Resource.Slug}}/new">Add {{.Resource.Label}}</a>{{end}}
+  <div style="display:flex;gap:10px;align-items:center">
+    {{if or .Searchable .Filters}}
+    <form method="get" action="{{.Prefix}}/{{.Resource.Slug}}" class="search">
+      {{if .Searchable}}
+      <input type="text" name="q" value="{{.Query}}" placeholder="Search {{.Resource.Title}}">
+      {{end}}
+      {{range .Filters}}
+      <select name="filter.{{.Column}}">
+        <option value="" {{if .Any}}selected{{end}}>{{.Label}}: any</option>
+        <option value="yes" {{if .Yes}}selected{{end}}>{{.Label}}: yes</option>
+        <option value="no" {{if .No}}selected{{end}}>{{.Label}}: no</option>
+      </select>
+      {{end}}
+      {{with .Sort}}<input type="hidden" name="sort" value="{{.}}">{{end}}
+      <button class="btn secondary" type="submit">Apply</button>
+    </form>
+    {{end}}
+    {{if not .ReadOnly}}<a class="btn" href="{{.Prefix}}/{{.Resource.Slug}}/new">Add {{.Resource.Label}}</a>{{end}}
+  </div>
 </div>
 
+{{$bulk := and (not .ReadOnly) (or .CanDelete .Actions)}}
 <div class="card">
   {{if .Rows}}
+  <form method="post" action="{{.Prefix}}/{{.Resource.Slug}}/bulk" id="bulk"
+        onsubmit="return this.action.value != '' && confirm('Apply to the selected rows?')">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <table>
     <thead>
       <tr>
-        {{range .Columns}}<th>{{.Label}}</th>{{end}}
+        {{if $bulk}}<th style="width:1%"><input type="checkbox" onclick="for (const box of document.querySelectorAll('#bulk input[name=ids]')) box.checked = this.checked"></th>{{end}}
+        {{range .Columns}}
+        <th>
+          <a class="sort" href="{{$.Prefix}}/{{$.Resource.Slug}}?sort={{index $.SortLinks .Column}}{{with $.Query}}&q={{.}}{{end}}">
+            {{.Label}}{{if eq $.Sort .Column}} ↑{{else if eq $.Sort (printf "-%s" .Column)}} ↓{{end}}
+          </a>
+        </th>
+        {{end}}
         <th style="width:1%"></th>
       </tr>
     </thead>
     <tbody>
       {{range .Rows}}
       <tr>
+        {{if $bulk}}<td><input type="checkbox" name="ids" value="{{.ID}}"></td>{{end}}
         {{range $i, $cell := .Cells}}
         <td>{{if $cell}}{{$cell}}{{else}}—{{end}}</td>
         {{end}}
@@ -26,8 +56,21 @@
       {{end}}
     </tbody>
   </table>
+  {{if $bulk}}
+  <div class="bulk">
+    <select name="action">
+      <option value="">With selected…</option>
+      {{if .CanDelete}}<option value="delete">Delete</option>{{end}}
+      {{range .Actions}}<option value="{{.Name}}">{{.Label}}</option>{{end}}
+    </select>
+    <button class="btn secondary" type="submit">Apply</button>
+  </div>
+  {{end}}
+  </form>
   {{else}}
-  <div class="empty">No {{.Resource.Title}} yet.</div>
+  <div class="empty">
+    {{if or .Query .Sort}}Nothing matches that search.{{else}}No {{.Resource.Title}} yet.{{end}}
+  </div>
   {{end}}
 </div>
 

@@ -34,12 +34,17 @@ type Query struct {
 	Sort    string
 	Select  []string
 	Filters []Filter
+	AnyOf   []Filter
 	With    []string
 }
 
 type Page struct {
 	Records []Record
 	Total   int64
+}
+
+type Optioner interface {
+	Options(ctx context.Context, relation Relation, limit int) ([]Record, error)
 }
 
 type Store interface {

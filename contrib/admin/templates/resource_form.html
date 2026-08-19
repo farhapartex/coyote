@@ -14,7 +14,18 @@
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
       {{range .Fields}}
-      {{if eq .Type "file"}}
+      {{if .Relation}}
+      <label>
+        {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}
+        <select name="{{.Column}}" {{if .ReadOnly}}disabled{{end}}>
+          <option value="">—</option>
+          {{range .Options}}
+          <option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
+          {{end}}
+        </select>
+        {{if .Error}}<span class="hint" style="color:#8c2f21;font-weight:400;font-size:12px">{{.Error}}</span>{{end}}
+      </label>
+      {{else if eq .Type "file"}}
       <label>
         {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}
         {{if .URL}}

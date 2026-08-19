@@ -22,6 +22,8 @@ type formField struct {
 	MaxLen   int
 	Accept   string
 	URL      string
+	Options  []option
+	Relation bool
 }
 
 func inputType(f model.Field) string {

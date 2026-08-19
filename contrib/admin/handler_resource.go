@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/store"
@@ -37,11 +38,10 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 			offset = (number - 1) * perPage
 		}
 
-		result, err := records.List(r.Context(), entry.schema, model.Query{
-			Limit:  perPage,
-			Offset: offset,
-			Order:  entry.order,
-		})
+		query, term, filters := a.listQuery(r, entry)
+		query.Limit, query.Offset = perPage, offset
+
+		result, err := records.List(r.Context(), entry.schema, query)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -49,11 +49,8 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 
 		page := view.Paginate(paginator, result.Total, number, perPage)
 		if page.Offset != offset {
-			result, err = records.List(r.Context(), entry.schema, model.Query{
-				Limit:  page.Limit,
-				Offset: page.Offset,
-				Order:  entry.order,
-			})
+			query.Limit, query.Offset = page.Limit, page.Offset
+			result, err = records.List(r.Context(), entry.schema, query)
 			if err != nil {
 				a.fail(w, r, err)
 				return
@@ -65,19 +62,26 @@ func (a *Admin) resourceList(entry managed) http.HandlerFunc {
 		for _, record := range result.Records {
 			cells := make([]string, 0, len(columns))
 			for _, column := range columns {
-				cells = append(cells, record.String(column.Column))
+				cells = append(cells, displayCell(record, column.Column))
 			}
 			rows = append(rows, listRow{ID: record.String(entry.schema.Key.Column), Cells: cells})
 		}
 
 		a.render(w, r, http.StatusOK, "resource_list.html", view.Data{
-			"Nav":      entry.Slug(),
-			"Resource": entry,
-			"Columns":  columns,
-			"Rows":     rows,
-			"Total":    result.Total,
-			"ReadOnly": entry.readOnly,
-			"Page":     page,
+			"Nav":        entry.Slug(),
+			"Resource":   entry,
+			"Columns":    columns,
+			"Rows":       rows,
+			"Total":      result.Total,
+			"ReadOnly":   entry.readOnly,
+			"Page":       page,
+			"Query":      term,
+			"Searchable": entry.Searchable(),
+			"Filters":    filters,
+			"SortLinks":  a.sortLinks(r, entry),
+			"Sort":       r.URL.Query().Get("sort"),
+			"CanDelete":  a.may(r, entry, auth.ActionDelete),
+			"Actions":    entry.actions,
 		})
 	}
 }
@@ -204,6 +208,10 @@ func (a *Admin) renderForm(w http.ResponseWriter, r *http.Request, status int, e
 	for i, field := range fields {
 		if field.Type == "file" && field.Value != "" {
 			fields[i].URL = a.app.MediaURL(upload.Ref(field.Value))
+		}
+		if _, isRelation := entry.schema.Relation(field.Column); isRelation {
+			fields[i].Relation = true
+			fields[i].Options = a.relationOptions(r, entry, field.Column, field.Value)
 		}
 	}
 

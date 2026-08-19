@@ -12,13 +12,17 @@
     Implement <span class="mono">session.ManageableStore</span> to enable this page.
   </div>
   {{else if .Sessions}}
+  <form method="post" action="{{.Prefix}}/sessions/bulk" id="bulk"
+        onsubmit="return this.action.value != '' && confirm('Apply to the selected rows?')">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <table>
     <thead>
-      <tr><th>Session</th><th>User</th><th>Started</th><th>Expires</th><th></th></tr>
+      <tr><th style="width:1%"><input type="checkbox" onclick="for (const box of document.querySelectorAll('#bulk input[name=ids]')) box.checked = this.checked"></th><th>Session</th><th>User</th><th>Started</th><th>Expires</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Sessions}}
       <tr>
+        <td>{{if not .IsSelf}}<input type="checkbox" name="ids" value="{{.ID}}">{{end}}</td>
         <td class="mono">{{.Short}}{{if .IsSelf}} <span class="tag brand">this device</span>{{end}}</td>
         <td>{{if eq .Username "anonymous"}}<span class="muted">anonymous</span>{{else}}{{.Username}}{{end}}</td>
         <td class="muted">{{.Created.Format "2 Jan 06 15:04:05"}}</td>
@@ -35,6 +39,14 @@
       {{end}}
     </tbody>
   </table>
+  <div class="bulk">
+    <select name="action">
+      <option value="">With selected…</option>
+      <option value="revoke">Revoke</option>
+    </select>
+    <button class="btn secondary" type="submit">Apply</button>
+  </div>
+  </form>
   {{else}}
   <div class="empty">No active sessions.</div>
   {{end}}

@@ -79,6 +79,63 @@ A `NOT NULL` column with no default is **mandatory**; nullable columns are optio
 UUID for string keys, left to the database for autoincrement keys) and rendered read-only on the
 detail page. `created_at` and `updated_at` are framework-managed and never editable.
 
+## Search, filters and sorting
+
+**Column headers are sortable already** — clicking one sorts ascending, clicking again descending.
+The value goes through the schema, so a hand-edited `?sort=` that names anything other than a real
+column is ignored rather than executed.
+
+Search and filters are **opt-in per resource**, because a search box that scans every column of a
+wide table is a performance trap you did not ask for:
+
+```go
+func (productResource) SearchColumns() []string { return []string{"name", "sku"} }
+func (productResource) FilterColumns() []string { return []string{"is_published"} }
+```
+
+- `SearchColumns` renders a search box and matches the term against those columns with `LIKE`, joined
+  by OR. `%` and `_` in the term are escaped, so searching for `100%` looks for a literal `100%`.
+- `FilterColumns` renders an any/yes/no dropdown per column — useful for the boolean flags most
+  models have.
+- Declare neither and the list stays exactly as it was: no box, no dropdowns, one query.
+
+Search, filters, sort and page all compose, and the row count in the heading reflects the filtered
+total rather than the whole table.
+
+## Bulk actions
+
+Select rows with the checkboxes and apply an action. **Delete** is built in and appears only for
+someone who holds the resource's delete permission.
+
+Your own actions come from an interface:
+
+```go
+func (productResource) Actions() []admin.Action {
+	return []admin.Action{{
+		Name:  "publish",
+		Label: "Publish",
+		Run: func(r *http.Request, ids []string) (int, error) {
+			return publish(r.Context(), ids)
+		},
+	}}
+}
+```
+
+`Run` receives the selected ids and returns how many it changed. An error is shown to the operator
+verbatim, so write it for them. Nothing is deleted or changed unless an action was chosen and rows
+were ticked.
+
+## Relation fields
+
+A belongs-to column renders as a `<select>` of the target rows, labelled by the target's `name`,
+`title`, `label`, `username` or `email` — whichever it has. Nullable keys get an empty choice.
+
+Lists show the **label** rather than the raw key, resolved in one extra query per relation rather
+than one per row. See [Relations](11-database.md).
+
+Options are capped at 200 rows; beyond that a select is the wrong control and you want a search
+field, which is not built yet.
+
 ## Customising through interfaces
 
 `Resource` is the only interface you must satisfy. Everything else is opt-in — implement the ones

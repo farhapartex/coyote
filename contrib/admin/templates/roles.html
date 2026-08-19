@@ -8,13 +8,17 @@
 
 <div class="card">
   {{if .Roles}}
+  <form method="post" action="{{.Prefix}}/roles/bulk" id="bulk"
+        onsubmit="return this.action.value != '' && confirm('Apply to the selected rows?')">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <table>
     <thead>
-      <tr><th>Name</th><th>Description</th><th>Permissions</th><th></th></tr>
+      <tr><th style="width:1%"><input type="checkbox" onclick="for (const box of document.querySelectorAll('#bulk input[name=ids]')) box.checked = this.checked"></th><th>Name</th><th>Description</th><th>Permissions</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Roles}}
       <tr>
+        <td><input type="checkbox" name="ids" value="{{.ID}}"></td>
         <td><a href="{{$.Prefix}}/roles/{{.ID}}">{{.Name}}</a></td>
         <td class="muted">{{if .Description}}{{.Description}}{{else}}—{{end}}</td>
         <td><span class="tag">{{index $.Counts .ID}} granted</span></td>
@@ -29,6 +33,14 @@
       {{end}}
     </tbody>
   </table>
+  <div class="bulk">
+    <select name="action">
+      <option value="">With selected…</option>
+      <option value="delete">Delete</option>
+    </select>
+    <button class="btn secondary" type="submit">Apply</button>
+  </div>
+  </form>
   {{else}}
   <p class="muted" style="padding:20px">
     No roles yet. A role is a named bundle of permissions that you hand to staff accounts.

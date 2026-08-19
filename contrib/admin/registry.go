@@ -11,11 +11,17 @@ import (
 var ErrUnknownResource = errors.New("coyote/admin: no resource registered for that path")
 
 type managed struct {
-	resource Resource
-	schema   *model.Schema
-	readOnly bool
-	order    string
+	resource  Resource
+	schema    *model.Schema
+	readOnly  bool
+	order     string
+	searchOn  []string
+	filterOn  []string
+	relations []model.Relation
+	actions   []Action
 }
+
+func (m managed) Searchable() bool { return len(m.searchOn) > 0 }
 
 func (m managed) Slug() string  { return m.schema.Slug }
 func (m managed) Title() string { return m.schema.Plural }
@@ -78,8 +84,28 @@ func describeResource(schema *model.Schema, resource Resource) managed {
 	if sorted, ok := resource.(Sorted); ok {
 		entry.order = sorted.DefaultOrder()
 	}
+	if searched, ok := resource.(Searchable); ok {
+		entry.searchOn = keepColumns(schema, searched.SearchColumns())
+	}
+	if filtered, ok := resource.(Filterable); ok {
+		entry.filterOn = keepColumns(schema, filtered.FilterColumns())
+	}
+	entry.relations = schema.Relations
+	if acted, ok := resource.(Actionable); ok {
+		entry.actions = acted.Actions()
+	}
 	if guarded, ok := resource.(Guarded); ok {
 		entry.readOnly = guarded.ReadOnly()
 	}
 	return entry
+}
+
+func keepColumns(schema *model.Schema, columns []string) []string {
+	out := make([]string, 0, len(columns))
+	for _, column := range columns {
+		if schema.HasColumn(column) {
+			out = append(out, column)
+		}
+	}
+	return out
 }

@@ -1,5 +1,7 @@
 package admin
 
+import "net/http"
+
 type Resource interface {
 	Entity() any
 }
@@ -30,4 +32,23 @@ type Sorted interface {
 
 type Guarded interface {
 	ReadOnly() bool
+}
+
+type Searchable interface {
+	SearchColumns() []string
+}
+
+type Filterable interface {
+	FilterColumns() []string
+}
+
+type Action struct {
+	Name    string
+	Label   string
+	Confirm string
+	Run     func(r *http.Request, ids []string) (int, error)
+}
+
+type Actionable interface {
+	Actions() []Action
 }

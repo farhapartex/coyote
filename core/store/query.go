@@ -20,6 +20,18 @@ func (s *store) session(schema *model.Schema, query model.Query) (*gorm.DB, erro
 		}
 		session = session.Where(expression)
 	}
+
+	if len(query.AnyOf) > 0 {
+		group := make([]clause.Expression, 0, len(query.AnyOf))
+		for _, filter := range query.AnyOf {
+			expression, err := condition(schema, filter)
+			if err != nil {
+				return nil, err
+			}
+			group = append(group, expression)
+		}
+		session = session.Where(clause.Or(group...))
+	}
 	return session, nil
 }
 
