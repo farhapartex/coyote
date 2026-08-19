@@ -14,13 +14,17 @@
 
 <div class="card">
   {{if .Users}}
+  <form method="post" action="{{.Prefix}}/users/bulk" id="bulk"
+        onsubmit="return this.action.value != '' && confirm('Apply to the selected rows?')">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <table>
     <thead>
-      <tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr>
+      <tr><th style="width:1%"><input type="checkbox" onclick="for (const box of document.querySelectorAll('#bulk input[name=ids]')) box.checked = this.checked"></th><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Users}}
       <tr>
+        <td>{{if ne $.User.ID .ID}}<input type="checkbox" name="ids" value="{{.ID}}">{{end}}</td>
         <td><a href="{{$.Prefix}}/users/{{.ID}}">{{.Username}}</a></td>
         <td class="muted">{{with .FullName}}{{.}}{{else}}—{{end}}</td>
         <td class="muted">{{if .Email}}{{.Email}}{{else}}—{{end}}</td>
@@ -42,6 +46,14 @@
       {{end}}
     </tbody>
   </table>
+  <div class="bulk">
+    <select name="action">
+      <option value="">With selected…</option>
+      <option value="delete">Delete</option>
+    </select>
+    <button class="btn secondary" type="submit">Apply</button>
+  </div>
+  </form>
   {{else}}
   <div class="empty">
     {{if .Query}}No users match “{{.Query}}”.{{else}}No users yet.{{end}}
