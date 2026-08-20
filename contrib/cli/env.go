@@ -15,6 +15,7 @@ const (
 	EnvSteps    = "COYOTE_MIGRATE_STEPS"
 	EnvNoInput  = "COYOTE_NO_INPUT"
 	EnvForce    = "COYOTE_FORCE"
+	EnvArgs     = "COYOTE_ARGS"
 )
 
 const (

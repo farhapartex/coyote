@@ -31,6 +31,8 @@ func run(args []string) error {
 		return nil
 	case "new":
 		return newProject(rest)
+	case "startapp":
+		return startApp(rest)
 	case cli.NameStart:
 		return start(rest)
 	case cli.NameMigrate:
@@ -39,6 +41,10 @@ func run(args []string) error {
 		return rollback(rest)
 	case cli.NameSyncPermissions:
 		return syncPermissions(rest)
+	case cli.NameShell:
+		return simple(cli.NameShell, rest)
+	case cli.NameDBShell:
+		return simple(cli.NameDBShell, rest)
 	case cli.NameCollectStatic:
 		return collectStatic(rest)
 	case cli.NameMakeMigrations:
@@ -48,7 +54,6 @@ func run(args []string) error {
 	case cli.NameCreateSuperadmin:
 		return createSuperadmin(rest)
 	default:
-		fmt.Print(usage)
-		return fmt.Errorf("unknown command %q", command)
+		return passThrough(command, rest)
 	}
 }

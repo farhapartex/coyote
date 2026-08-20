@@ -19,8 +19,17 @@ func NewRegistry(commands ...Command) *Registry {
 	return r
 }
 
+var extra []Command
+
+func Register(commands ...Command) { extra = append(extra, commands...) }
+
+func Registered() []Command { return extra }
+
 func Default() *Registry {
-	return NewRegistry(Start{}, MigrateFromEnv(), MakeMigrations{Label: os.Getenv(EnvName)}, SQLMigrate{}, CreateSuperadmin{}, SyncPermissions{}, CollectStatic{}, RollbackFromEnv())
+	registry := NewRegistry(Start{}, MigrateFromEnv(), MakeMigrations{Label: os.Getenv(EnvName)},
+		SQLMigrate{}, CreateSuperadmin{}, SyncPermissions{}, CollectStatic{}, RollbackFromEnv(), Shell{}, DBShell{})
+	registry.Add(extra...)
+	return registry
 }
 
 func (r *Registry) Add(commands ...Command) {

@@ -40,7 +40,7 @@ func (c CreateSuperadmin) Run(ctx Context) error {
 	if err != nil {
 		return err
 	}
-	password, err := c.resolve(ctx, reader, "Password", c.Password, EnvPassword, true)
+	password, err := c.resolveSecret(ctx, reader, "Password", c.Password, EnvPassword)
 	if err != nil {
 		return err
 	}
@@ -63,6 +63,25 @@ func (c CreateSuperadmin) requireSchema(ctx Context) error {
 		return fmt.Errorf("%w; run: coyote makemigrations && coyote migrate", ErrSchemaMissing)
 	}
 	return nil
+}
+
+func (c CreateSuperadmin) resolveSecret(ctx Context, reader *bufio.Reader, label, given, env string) (string, error) {
+	if value := strings.TrimSpace(given); value != "" {
+		return value, nil
+	}
+	if value := strings.TrimSpace(os.Getenv(env)); value != "" {
+		return value, nil
+	}
+	if value, handled, err := ctx.ReadSecret(label); handled {
+		if err != nil {
+			return "", err
+		}
+		if value == "" {
+			return "", fmt.Errorf("coyote/cli: %s is required", strings.ToLower(label))
+		}
+		return value, nil
+	}
+	return c.resolve(ctx, reader, label, given, env, true)
 }
 
 func (c CreateSuperadmin) resolve(ctx Context, reader *bufio.Reader, label, given, env string, required bool) (string, error) {

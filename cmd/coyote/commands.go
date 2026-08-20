@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/farhapartex/coyote/contrib/cli"
 )
@@ -129,4 +130,25 @@ func sqlMigrate(args []string) error {
 		return err
 	}
 	return invoke(append(os.Environ(), cli.EnvCommand+"="+cli.NameSQLMigrate))
+}
+
+func simple(name string, args []string) error {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return invoke(append(os.Environ(), cli.EnvCommand+"="+name))
+}
+
+func passThrough(command string, args []string) error {
+	if strings.HasPrefix(command, "-") {
+		fmt.Print(usage)
+		return fmt.Errorf("unknown flag %q", command)
+	}
+
+	env := append(os.Environ(), cli.EnvCommand+"="+command)
+	if len(args) > 0 {
+		env = append(env, cli.EnvArgs+"="+strings.Join(args, " "))
+	}
+	return invoke(env)
 }
