@@ -29,6 +29,7 @@ type Settings struct {
 	BaseDir      string
 
 	Databases []Database
+	Caches    []Cache
 
 	Server     Server
 	Security   Security

@@ -46,6 +46,7 @@ type App struct {
 	storeOnce sync.Once
 	manifest  staticManifest
 	extras    sync.Map
+	caches    sync.Map
 	dbOnce    sync.Once
 	dbHandle  *gorm.DB
 	dbErr     error
