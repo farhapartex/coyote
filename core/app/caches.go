@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/farhapartex/coyote/core/cache"
+	"github.com/farhapartex/coyote/core/cache/redis"
 	"github.com/farhapartex/coyote/core/settings"
 )
 
@@ -66,6 +67,18 @@ func buildCacheStore(cfg settings.Cache) (cache.Cache, error) {
 			MaxEntries:      cfg.MaxEntries,
 			MaxBytes:        cfg.MaxBytes,
 			CleanupInterval: cfg.CleanupInterval,
+		}), nil
+	case settings.CacheInRedis:
+		return redis.New(redis.Options{
+			Address:      cfg.Address,
+			Username:     cfg.Username,
+			Password:     cfg.Password,
+			Database:     cfg.Database,
+			TLS:          cfg.TLS,
+			PoolSize:     cfg.PoolSize,
+			DialTimeout:  cfg.DialTimeout,
+			ReadTimeout:  cfg.ReadTimeout,
+			WriteTimeout: cfg.WriteTimeout,
 		}), nil
 	default:
 		return nil, fmt.Errorf("coyote/app: the %q cache backend is not available in this build", cfg.Backend)
