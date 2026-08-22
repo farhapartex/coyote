@@ -68,6 +68,11 @@ func buildCacheStore(cfg settings.Cache) (cache.Cache, error) {
 			MaxBytes:        cfg.MaxBytes,
 			CleanupInterval: cfg.CleanupInterval,
 		}), nil
+	case settings.CacheInFile:
+		return cache.NewFileStore(cache.FileOptions{
+			Dir:             cfg.Dir,
+			CleanupInterval: cfg.CleanupInterval,
+		}), nil
 	case settings.CacheInRedis:
 		return redis.New(redis.Options{
 			Address:      cfg.Address,
