@@ -6,8 +6,8 @@ Translations come from gettext PO files, so your translators can use the tools t
 project that never mentions locales pays nothing: one locale, no catalogs loaded, and every
 `{{.Locale.T "…"}}` returns its own English.
 
-> This page describes what has landed. `makemessages`, `checkmessages` and the translated admin portal
-> are still in progress — see [Not here yet](#not-here-yet).
+> This page describes what has landed. The translated admin portal is still in progress — see
+> [Not here yet](#not-here-yet).
 
 ## Configuring it
 
@@ -312,6 +312,76 @@ silent fall back to UTC**, because a mistyped zone quietly shifting every timest
 that is found a year later. On a `scratch` image there is no system zoneinfo, so add
 `import _ "time/tzdata"` to your main package.
 
+## Extracting the messages
+
+```
+coyote makemessages
+coyote makemessages --locale=fr
+```
+
+It walks your project, reads **Go source with `go/ast`** and **templates with the standard template
+parser** — not regular expressions, so `{{.Locale.T "x" | printf "%s"}}` and calls nested inside
+`{{range}}` or `{{if}}` are all found. Then it writes `locales/coyote.pot` and merges into every
+catalog:
+
+```
+$ coyote makemessages
+scanned    2 file(s)
+extracted  4 message(s)
+catalogs   /srv/app/locales
+
+wrote coyote.pot
+merged fr.po        4 new, 0 kept, 0 fuzzy, 0 obsolete
+```
+
+**The merge never loses a translator's work.** Existing translations are kept, fuzzy flags survive, new
+keys arrive empty, and a message that has disappeared from the source is **commented out as `#~` with
+its translation intact** rather than deleted. If it comes back next week, the translation is still
+there.
+
+`_test.go` files are skipped, as are `vendor`, `node_modules`, `migrations` and the catalog directory
+itself. Plural entries get as many `msgstr[n]` slots as the catalog's own `Plural-Forms` header
+declares, so an Arabic file gets six.
+
+A message the extractor cannot read is **reported, not silently dropped**:
+
+```
+1 message(s) could not be extracted:
+  ! handlers.go:12: T was called with a value that is not a literal, so it cannot be extracted
+```
+
+That is the trade for using the source string as the key: `l.T(heading)` works at runtime but no tool
+can find it, so the extractor tells you rather than letting a string quietly go untranslated.
+
+### Month names
+
+`LongDate` looks up `January` … `December` through the catalog, and those lookups are computed rather
+than literal, so the extractor cannot see them. Add the twelve names to your catalog by hand once, or
+copy them from the framework's own `.pot`.
+
+## Checking the catalogs in CI
+
+```
+coyote checkmessages
+coyote checkmessages --locale=fr --strict
+```
+
+```
+$ coyote checkmessages
+extracted  4 message(s) from 2 file(s)
+catalogs   /srv/app/locales
+
+fr       25% translated (1 of 4)
+  3 untranslated
+    - %d note
+    - Item
+    - Profile saved.
+```
+
+It **exits non-zero** when anything is untranslated or a catalog is missing, so it drops straight into a
+pipeline. `--strict` also fails on fuzzy entries, obsolete entries, and messages that could not be
+extracted — which is what you want on a release branch rather than on every commit.
+
 ## Right to left
 
 ```html
@@ -363,9 +433,6 @@ return an empty string instead.
 
 Landing in the remaining stages of this work:
 
-- `coyote makemessages` to extract message ids from Go and template sources into a `.pot`, merging into
-  existing catalogs without losing a translator's work.
-- `coyote checkmessages` to report missing, fuzzy and obsolete entries, and exit non-zero for CI.
 - The admin portal translated, and RTL-correct.
 
 Deliberately **not** planned: `core/form` validation messages are not translated. `form.Problems` is

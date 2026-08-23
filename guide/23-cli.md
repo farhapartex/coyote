@@ -23,6 +23,8 @@ the same commands; `coyote` is shorter, `go tool coyote` is pinned.
 | `coyote makemigrations` | Diff your models against the snapshot and write a migration file |
 | `coyote migrate` | Apply migrations that have not been applied yet |
 | `coyote sqlmigrate` | Print the SQL a pending migration would run, without applying it |
+| `coyote makemessages` | Extract translatable text into your catalogs |
+| `coyote checkmessages` | Report missing, fuzzy or obsolete translations |
 | `coyote syncpermissions` | Create the four permissions for every registered model |
 | `coyote collectstatic` | Fingerprint static files and write a manifest |
 | `coyote rollback` | Undo the most recently applied migration |
@@ -43,6 +45,8 @@ the same commands; `coyote` is shorter, `go tool coyote` is pinned.
 | `--port=N` | `start` | Listen on N instead of the port in `settings.go` |
 | `--host=H` | `start` | Bind to H instead of the host in `settings.go` |
 | `--name=NAME` | `makemigrations` | Name the migration instead of guessing one |
+| `--locale=TAG` | `makemessages`, `checkmessages` | One locale instead of every supported one |
+| `--strict` | `checkmessages` | Also fail on fuzzy and obsolete entries |
 | `--username=U` | `createsuperadmin` | Skip the username prompt |
 | `--email=E` | `createsuperadmin` | Skip the email prompt |
 | `--password=P` | `createsuperadmin` | Skip the password prompt |

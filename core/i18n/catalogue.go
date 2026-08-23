@@ -5,6 +5,8 @@ import "strings"
 type catalogue struct {
 	tag      string
 	messages map[string]message
+	order    []string
+	header   message
 	headers  map[string]string
 	rule     PluralRule
 }
@@ -56,10 +58,33 @@ func (c *catalogue) Keys() []string {
 
 func (c *catalogue) add(entry message) {
 	if entry.singular == "" && entry.context == "" {
+		c.header = entry
 		c.readHeader(entry)
 		return
 	}
-	c.messages[messageKey(entry.context, entry.singular)] = entry
+	key := messageKey(entry.context, entry.singular)
+	if _, seen := c.messages[key]; !seen {
+		c.order = append(c.order, key)
+	}
+	c.messages[key] = entry
+}
+
+func (c *catalogue) Entries() []Entry {
+	out := make([]Entry, 0, len(c.order)+1)
+	if len(c.header.forms) > 0 {
+		out = append(out, Entry{Forms: c.header.forms, Header: true})
+	}
+	for _, key := range c.order {
+		entry := c.messages[key]
+		out = append(out, Entry{
+			Context:  entry.context,
+			Singular: entry.singular,
+			Plural:   entry.plural,
+			Forms:    entry.forms,
+			Fuzzy:    entry.fuzzy,
+		})
+	}
+	return out
 }
 
 func (c *catalogue) readHeader(entry message) {

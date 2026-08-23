@@ -16,6 +16,8 @@ const (
 	EnvNoInput  = "COYOTE_NO_INPUT"
 	EnvForce    = "COYOTE_FORCE"
 	EnvArgs     = "COYOTE_ARGS"
+	EnvLocale   = "COYOTE_LOCALE"
+	EnvStrict   = "COYOTE_STRICT"
 )
 
 const (
