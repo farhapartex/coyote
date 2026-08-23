@@ -39,6 +39,7 @@ What you can replace, and the contract you implement:
 | User storage | `auth.Store` | `Auth.UserStore` |
 | Permission storage | `auth.PermissionStore` | `Auth.PermissionStore` |
 | Reset tokens | `auth.TokenStore` | registered when `Auth.ResetTokens` is on |
+| Cache storage | `cache.Cache` (+ `Namespacer`, `Counter`, `Multi`, `Pinger`) | `Caches[].Store` |
 | File storage | `storage.Storage` | `Uploads.Storage` |
 | Password rules | `auth.PasswordRule` | `Auth.PasswordRules` |
 | Login limits | `auth.LoginLimiter` | supplied to the service |
@@ -78,7 +79,8 @@ Being explicit about what is not extensible yet:
 - The user model is not swappable — the framework's own code still works in terms of `*auth.User`.
 - Migrations are forward-only; there is no `down`, and they run against the default connection only,
   so a model routed to another alias is reported but not migrated.
-- Rate limit and login-throttle buckets are per process, not shared.
+- Rate limit, login-throttle and cache-statistics counters are per process, not shared.
+- The cache cannot be shared with the session store yet; `Sessions.Backend` has no `cache` option.
 - Full-text search is not built in; `model.Query` filters, but does not search.
 - Relations cover belongs-to only — no has-many, no many-to-many.
 - Soft delete is deliberately absent; it depends too much on the system to belong in the framework.

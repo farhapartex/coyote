@@ -46,6 +46,7 @@ type App struct {
 	storeOnce sync.Once
 	manifest  staticManifest
 	extras    sync.Map
+	caches    sync.Map
 	dbOnce    sync.Once
 	dbHandle  *gorm.DB
 	dbErr     error
@@ -91,11 +92,13 @@ func NewFrom(s Settings) *App {
 	a.Uploads = uploadService(s)
 
 	a.Templates = template.New(template.Options{
-		FS:     templateFS(s),
-		Layout: s.Templates.Layout,
-		Shared: s.Templates.Shared,
-		Funcs:  templateFuncs(s, a),
-		Reload: s.AutoReloadTemplates(),
+		FS:       templateFS(s),
+		Layout:   s.Templates.Layout,
+		Shared:   s.Templates.Shared,
+		Funcs:    templateFuncs(s, a),
+		Reload:   s.AutoReloadTemplates(),
+		Fragment: fragmentCache(s, a),
+		OnError:  func(err error) { logger.Warn(err.Error()) },
 	})
 
 	a.Auth = auth.NewService(userStore(s, a), sessions, auth.Options{
@@ -118,6 +121,9 @@ func NewFrom(s Settings) *App {
 		middleware.SecureHeaders,
 	}
 	a.global = append(a.global, securityPolicies(s)...)
+	if pages := a.pageCache(s); pages != nil {
+		a.global = append(a.global, pages)
+	}
 	a.global = append(a.global, sessions.Middleware, a.Auth.Middleware)
 
 	if fsys := staticFS(s); fsys != nil {

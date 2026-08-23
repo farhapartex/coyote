@@ -40,11 +40,13 @@ func (s *Settings) normalize() {
 		s.Migrations.Dir = filepath.Join(s.BaseDir, s.Migrations.Dir)
 	}
 
+	s.normalizeCaches()
+
 	for i := range s.Databases {
 		db := &s.Databases[i]
 		if db.Alias == "" {
 			if i == 0 {
-				db.Alias = "default"
+				db.Alias = defaultAlias
 			} else {
 				db.Alias = "db" + strconv.Itoa(i)
 			}

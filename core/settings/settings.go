@@ -29,6 +29,7 @@ type Settings struct {
 	BaseDir      string
 
 	Databases []Database
+	Caches    []Cache
 
 	Server     Server
 	Security   Security
@@ -36,6 +37,7 @@ type Settings struct {
 	Sessions   Sessions
 	Auth       Auth
 	Templates  Templates
+	PageCache  PageCache
 	Pagination Pagination
 	Uploads    Uploads
 	Static     Static

@@ -9,5 +9,6 @@ phases
 /coyote
 /example/media
 /example/staticfiles
+/example/cache
 
 /CLAUDE.md

@@ -71,28 +71,10 @@ func main() {
 	})
 
 	reports := application.Group("/reports", application.Auth.RequirePermission("products.read"))
-	reports.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
-		records, err := application.Store()
-		if err != nil {
-			http.Error(w, "500 internal server error", http.StatusInternalServerError)
-			return
-		}
-		schema, err := application.Describe(Product{})
-		if err != nil {
-			http.Error(w, "500 internal server error", http.StatusInternalServerError)
-			return
-		}
-		page, err := records.List(r.Context(), schema, model.Query{Limit: 50})
-		if err != nil {
-			http.Error(w, "500 internal server error", http.StatusInternalServerError)
-			return
-		}
-		application.Render(w, r, "pages/reports.html", view.Data{
-			"Title":   "Product report",
-			"Records": page.Records,
-			"Total":   page.Total,
-		})
-	}).Named("reports")
+	reports.Get("/{$}", reportHandler(application)).Named("reports")
+
+	application.Get("/cached", cachedPage(application), application.CSRF).Named("cached")
+	application.Post("/cached", cachedSave(application), application.CSRF)
 
 	if err := application.Run(); err != nil {
 		log.Fatal(err)

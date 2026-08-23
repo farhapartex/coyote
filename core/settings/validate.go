@@ -48,6 +48,8 @@ func (s Settings) validate() error {
 	for _, check := range []func(func(string)){
 		s.validateCore,
 		s.validateDatabases,
+		s.validateCaches,
+		s.validatePageCache,
 		s.validateServer,
 		s.validateSessions,
 		s.validateAuth,

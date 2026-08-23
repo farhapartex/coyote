@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	htmltemplate "html/template"
 	"io/fs"
 	"log"
 	"time"
@@ -51,6 +52,20 @@ func init() {
 			},
 		}
 
+		s.Caches = []settings.Cache{cacheBackend(), {
+			Alias:   "pages",
+			Backend: settings.CacheInFile,
+			Dir:     "cache/pages",
+			TTL:     time.Hour,
+		}}
+
+		s.PageCache = settings.PageCache{
+			Enabled: true,
+			Alias:   "pages",
+			TTL:     30 * time.Second,
+			Paths:   []string{"/about"},
+		}
+
 		s.Sessions.Lifetime = 8 * time.Hour
 		s.Sessions.Rolling = true
 
@@ -70,6 +85,7 @@ func init() {
 
 		s.Templates.FS = templates
 		s.Templates.Layout = "layouts/base.html"
+		s.Templates.Funcs = htmltemplate.FuncMap{"navkey": navKey}
 
 		s.Static.FS = static
 		s.Static.URL = "/static/"

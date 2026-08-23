@@ -255,6 +255,7 @@ func TestNewReadsConfiguredSettings(t *testing.T) {
 	}
 
 	a.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		session.FromRequest(r).Set("who", "gate")
 		a.Render(w, r, "pages/hello.html", app.Data{"Name": "gate"})
 	})
 	rec := httptest.NewRecorder()
@@ -264,6 +265,41 @@ func TestNewReadsConfiguredSettings(t *testing.T) {
 	}
 	if cookies := rec.Result().Cookies(); len(cookies) == 0 || cookies[0].Name != "gate_session" {
 		t.Errorf("settings cookie name not applied: %+v", rec.Result().Cookies())
+	}
+}
+
+func TestRenderingAPageWithoutAFormStartsNoSession(t *testing.T) {
+	a := newTestApp(t)
+	a.Get("/plain", func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/hello.html", app.Data{"Name": "anon"})
+	})
+
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/plain", nil))
+
+	if cookies := rec.Result().Cookies(); len(cookies) != 0 {
+		t.Errorf("an anonymous render should cost no cookie, got %+v", cookies)
+	}
+}
+
+func TestRenderingAFormMintsTheCSRFToken(t *testing.T) {
+	a := newTestApp(t)
+	a.Get("/form", func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/form.html", app.Data{})
+	})
+
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/form", nil))
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `name="csrf_token"`) {
+		t.Fatalf("body = %q", body)
+	}
+	if match := csrfPattern.FindStringSubmatch(body); match == nil || match[1] == "" {
+		t.Errorf("a rendered form must carry a token: %q", body)
+	}
+	if cookies := rec.Result().Cookies(); len(cookies) == 0 {
+		t.Error("minting a token must persist the session")
 	}
 }
 

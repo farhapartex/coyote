@@ -1,9 +1,12 @@
-{{define "nav.html"}}
+{{define "nav.html"}}{{fragment "navbar.html" 60 (navkey .) .}}{{end}}
+
+{{define "navbar.html"}}
 <header class="topbar">
   <a class="logo" href="/">coyote</a>
   <nav>
     <a href="{{url "home"}}" class="{{if eq .Path "/"}}active{{end}}">Home</a>
     <a href="{{url "notes"}}" class="{{if eq .Path "/notes"}}active{{end}}">Notes</a>
+    <a href="{{url "cached"}}" class="{{if eq .Path "/cached"}}active{{end}}">Cache</a>
     <a href="{{url "about"}}" class="{{if eq .Path "/about"}}active{{end}}">About</a>
     {{if .User}}
       <a href="/me/">{{.User.Username}}</a>

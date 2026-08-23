@@ -18,6 +18,10 @@ func (a *App) Run() error {
 }
 
 func (a *App) Serve() error {
+	if err := a.CheckCaches(context.Background()); err != nil {
+		return err
+	}
+
 	s := a.Settings
 	a.server = &http.Server{
 		Addr:              s.Addr(),
@@ -68,6 +72,7 @@ func (a *App) Serve() error {
 	if closer, ok := a.sessions.(interface{ Close() }); ok {
 		closer.Close()
 	}
+	a.closeCaches()
 	if err := a.CloseDB(); err != nil {
 		a.Logger.Error("closing database", slog.Any("error", err))
 	}

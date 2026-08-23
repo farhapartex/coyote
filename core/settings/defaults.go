@@ -3,8 +3,11 @@ package settings
 import (
 	"time"
 
+	"github.com/farhapartex/coyote/core/cache"
 	"github.com/farhapartex/coyote/core/view"
 )
+
+const defaultAlias = "default"
 
 func Default() Settings {
 	return Settings{
@@ -13,7 +16,17 @@ func Default() Settings {
 		AllowedHosts: nil,
 		BaseDir:      workingDir(),
 		Databases: []Database{
-			{Alias: "default", Engine: SQLite, Name: DefaultSQLiteName},
+			{Alias: defaultAlias, Engine: SQLite, Name: DefaultSQLiteName},
+		},
+		Caches: []Cache{
+			{
+				Alias:           defaultAlias,
+				Backend:         CacheInMemory,
+				TTL:             cache.DefaultTTL,
+				Prefix:          cache.DefaultPrefix,
+				MaxEntries:      cache.DefaultMaxEntries,
+				CleanupInterval: cache.DefaultCleanup,
+			},
 		},
 		Server: Server{
 			Host:              "127.0.0.1",

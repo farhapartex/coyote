@@ -36,7 +36,7 @@ func (a *App) Context(r *http.Request, data Data) Data {
 	data.SetDefault("Path", r.URL.Path)
 	data.SetDefault("User", a.Auth.CurrentUser(r))
 	data.SetDefault("Session", sess)
-	data.SetDefault("CSRFToken", a.Sessions.CSRFToken(r))
+	data.SetDefault("CSRFToken", a.Sessions.Token(r))
 	data.SetDefault("Version", Version)
 	data.SetDefault("Debug", a.Settings.Debug)
 	data.SetDefault("Nonce", middleware.NonceFrom(r.Context()))

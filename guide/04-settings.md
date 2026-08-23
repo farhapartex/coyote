@@ -141,6 +141,8 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `SecretKey` | none | Required. Under `Debug` an ephemeral key is generated with a warning |
 | `AllowedHosts` | none | Required unless `Debug`. `"*"` allows any, `".example.com"` matches subdomains |
 | `Databases` | one SQLite entry at `<BaseDir>/coyote.db` | First entry is the default connection |
+| `Caches` | one in-memory entry | First entry is the default cache; see [Caching](33-caching.md) |
+| `PageCache` | off | Whole-page caching; see [Caching](33-caching.md) |
 | `Server.Host` | `127.0.0.1` | |
 | `Server.Port` | `8000` | |
 | `Server.ReadTimeout` | none | |
@@ -217,5 +219,6 @@ framework itself never reads the environment — only your `settings.go` does, w
 
 ## Next
 
+- [Caching →](33-caching.md) — the `Caches` list in detail
 - [Databases →](11-database.md) — the `Databases` list in detail
 - [Routing →](05-routing.md)
