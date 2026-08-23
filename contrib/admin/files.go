@@ -1,9 +1,11 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/upload"
 )
@@ -43,13 +45,13 @@ func (a *Admin) attachFiles(r *http.Request, entry managed, record model.Record,
 			continue
 		}
 		if err != nil {
-			problems[field.Column] = uploadProblem(err)
+			problems[field.Column] = uploadProblem(r.Context(), err)
 			continue
 		}
 
 		ref := file.Ref
 		if err := a.app.Uploads.Commit(r.Context(), &ref); err != nil {
-			problems[field.Column] = "could not be stored"
+			problems[field.Column] = i18n.T(r.Context(), "could not be stored")
 			continue
 		}
 		record[field.Column] = string(ref)
@@ -57,18 +59,18 @@ func (a *Admin) attachFiles(r *http.Request, entry managed, record model.Record,
 	return problems
 }
 
-func uploadProblem(err error) string {
+func uploadProblem(ctx context.Context, err error) string {
 	switch {
 	case errors.Is(err, upload.ErrTooLarge):
-		return "is larger than the limit"
+		return i18n.T(ctx, "is larger than the limit")
 	case errors.Is(err, upload.ErrTypeNotAllow):
-		return "is not an accepted file type"
+		return i18n.T(ctx, "is not an accepted file type")
 	case errors.Is(err, upload.ErrTypeMismatch):
-		return "does not match the type it claims to be"
+		return i18n.T(ctx, "does not match the type it claims to be")
 	case errors.Is(err, upload.ErrTooManyPixel):
-		return "has too many pixels"
+		return i18n.T(ctx, "has too many pixels")
 	case errors.Is(err, upload.ErrEmptyFile):
-		return "is empty"
+		return i18n.T(ctx, "is empty")
 	}
-	return "could not be uploaded"
+	return i18n.T(ctx, "could not be uploaded")
 }

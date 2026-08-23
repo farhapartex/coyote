@@ -1,0 +1,160 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Coyote\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: templates/register.html:27
+msgid "Already have one?"
+msgstr ""
+
+#: templates/profile.html:23
+#: templates/profile.html:36
+msgid "Change password"
+msgstr ""
+
+#: templates/profile.html:33
+msgid "Confirm new password"
+msgstr ""
+
+#: templates/register.html:24
+msgid "Create account"
+msgstr ""
+
+#: handlers.go:70
+#: handlers.go:97
+#: templates/register.html:3
+msgid "Create an account"
+msgstr ""
+
+#: templates/login.html:18
+msgid "Create one"
+msgstr ""
+
+#: templates/profile.html:27
+msgid "Current password"
+msgstr ""
+
+#: templates/profile.html:15
+#: templates/register.html:18
+msgid "Email"
+msgstr ""
+
+#: templates/profile.html:8
+#: templates/register.html:8
+msgid "First name"
+msgstr ""
+
+#: handlers.go:35
+msgid "Invalid username or password."
+msgstr ""
+
+#: templates/profile.html:11
+#: templates/register.html:11
+msgid "Last name"
+msgstr ""
+
+#: templates/profile.html:30
+msgid "New password"
+msgstr ""
+
+#: templates/login.html:18
+msgid "No account yet?"
+msgstr ""
+
+#: templates/login.html:11
+#: templates/register.html:21
+msgid "Password"
+msgstr ""
+
+#: handlers.go:190
+msgid "Password changed."
+msgstr ""
+
+#: handlers.go:140
+msgid "Profile saved."
+msgstr ""
+
+#: templates/profile.html:19
+msgid "Save profile"
+msgstr ""
+
+#: handlers.go:20
+#: handlers.go:43
+#: templates/login.html:14
+#: templates/login.html:3
+#: templates/register.html:27
+msgid "Sign in"
+msgstr ""
+
+#: templates/profile.html:43
+msgid "Sign out"
+msgstr ""
+
+#: templates/profile.html:18
+msgid "Signed in as %s."
+msgstr ""
+
+#: handlers.go:207
+msgid "Something went wrong. Please try again."
+msgstr ""
+
+#: handlers.go:203
+msgid "That does not look like an email address."
+msgstr ""
+
+#: handlers.go:199
+msgid "That email is already registered."
+msgstr ""
+
+#: handlers.go:197
+msgid "That username is already taken."
+msgstr ""
+
+#: handlers.go:179
+msgid "The new passwords do not match."
+msgstr ""
+
+#: handlers.go:37
+msgid "This account has been disabled."
+msgstr ""
+
+#: handlers.go:182
+msgid "Too many attempts. Try again later."
+msgstr ""
+
+#: handlers.go:40
+msgid "Too many failed attempts. Try again later."
+msgstr ""
+
+#: templates/login.html:8
+#: templates/register.html:15
+msgid "Username"
+msgstr ""
+
+#: handlers.go:201
+msgid "Usernames may use letters, digits, dots, hyphens and underscores."
+msgstr ""
+
+#: handlers.go:52
+msgid "Welcome back, %s."
+msgstr ""
+
+#: handlers.go:106
+msgid "Welcome, %s."
+msgstr ""
+
+#: handlers.go:176
+msgid "Your current password is not right."
+msgstr ""
+
+#: handlers.go:112
+#: handlers.go:136
+#: handlers.go:146
+#: handlers.go:165
+#: templates/profile.html:3
+msgid "Your profile"
+msgstr ""

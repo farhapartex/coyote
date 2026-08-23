@@ -6,9 +6,6 @@ Translations come from gettext PO files, so your translators can use the tools t
 project that never mentions locales pays nothing: one locale, no catalogs loaded, and every
 `{{.Locale.T "…"}}` returns its own English.
 
-> This page describes what has landed. The translated admin portal is still in progress — see
-> [Not here yet](#not-here-yet).
-
 ## Configuring it
 
 ```go
@@ -382,6 +379,38 @@ It **exits non-zero** when anything is untranslated or a catalog is missing, so 
 pipeline. `--strict` also fails on fuzzy entries, obsolete entries, and messages that could not be
 extracted — which is what you want on a release branch rather than on every commit.
 
+## The admin portal is translated
+
+Every string in the admin portal and in `contrib/accounts` goes through the same translation function
+your own pages use, and both ship an embedded catalog. Mount the portal in a project with `fr` in
+`I18N.Supported` and it is in French, with no catalog of your own:
+
+```
+Tableau de bord · Utilisateurs · Rôles · Sessions · Déconnexion
+```
+
+French ships today. Other locales are a matter of translating the `.pot` that ships beside the
+templates — `contrib/admin/locales/coyote.pot` and `contrib/accounts/locales/coyote.pot`, both generated
+by `makemessages` from the framework's own source.
+
+### Overriding a framework string
+
+Your catalog is consulted **before** the framework's, so changing one word needs one entry rather than
+a fork:
+
+```po
+msgid "Dashboard"
+msgstr "Mon tableau"
+```
+
+Everything you do not override still comes from the framework's catalog.
+
+### A locale with no catalog
+
+The portal falls back to English, string by string — never to blanks. An Arabic visitor with no Arabic
+catalog gets English text in a right-to-left layout, which is ugly but usable, and is what you want
+while a translation is in progress.
+
 ## Right to left
 
 ```html
@@ -389,8 +418,14 @@ extracted — which is what you want on a release branch rather than on every co
 ```
 
 `Direction()` returns `ltr` or `rtl`, and `RTL()` is the boolean form. Arabic, Hebrew, Persian, Urdu,
-Pashto and Divehi are recognised. Styling your own pages is your business; use CSS logical properties
-(`margin-inline-start` rather than `margin-left`) and flexbox, and most layouts mirror themselves.
+Pashto and Divehi are recognised.
+
+**The admin portal is RTL-correct.** Its stylesheet uses no directional properties at all — flexbox and
+logical properties only — and a test fails the build if `margin-left`, `text-align: left` or any of
+their siblings reappears. That is cheaper to keep than to retrofit.
+
+Styling your own pages is your business; use logical properties (`margin-inline-start` rather than
+`margin-left`) and flexbox, and most layouts mirror themselves for nothing.
 
 ## Every setting
 
@@ -430,10 +465,6 @@ Implement `Loader` to read translations from a database, an API, or JSON, and se
 return an empty string instead.
 
 ## Not here yet
-
-Landing in the remaining stages of this work:
-
-- The admin portal translated, and RTL-correct.
 
 Deliberately **not** planned: `core/form` validation messages are not translated. `form.Problems` is
 `map[string][]string` and its rules return finished English sentences, so a French visitor submitting a

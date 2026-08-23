@@ -20,7 +20,7 @@ type Bundle struct {
 	def       string
 	supported []string
 	fallbacks map[string]string
-	catalogs  map[string]Catalog
+	catalogs  map[string][]Catalog
 	chains    map[string][]string
 	debug     bool
 	zone      *time.Location
@@ -34,7 +34,7 @@ func NewBundle(opts Options) *Bundle {
 	b := &Bundle{
 		def:       Normalise(opts.Default),
 		fallbacks: map[string]string{},
-		catalogs:  map[string]Catalog{},
+		catalogs:  map[string][]Catalog{},
 		chains:    map[string][]string{},
 		debug:     opts.Debug,
 		zone:      opts.Zone,
@@ -75,24 +75,28 @@ func (b *Bundle) Add(catalog Catalog) {
 	if catalog == nil {
 		return
 	}
+	tag := Normalise(catalog.Tag())
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.catalogs[Normalise(catalog.Tag())] = catalog
+	b.catalogs[tag] = append(b.catalogs[tag], catalog)
 	b.chains = map[string][]string{}
 }
 
 func (b *Bundle) Has(tag string) bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	_, found := b.catalogs[Normalise(tag)]
-	return found
+	return len(b.catalogs[Normalise(tag)]) > 0
 }
 
 func (b *Bundle) Catalog(tag string) (Catalog, bool) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	catalog, found := b.catalogs[Normalise(tag)]
-	return catalog, found
+	list := b.catalogs[Normalise(tag)]
+	if len(list) == 0 {
+		return nil, false
+	}
+	return list[0], true
 }
 
 func (b *Bundle) Supports(tag string) bool {
@@ -171,18 +175,16 @@ func (b *Bundle) lookup(chain []string, context, msgid string, n int, plural boo
 	defer b.mu.RUnlock()
 
 	for _, tag := range chain {
-		catalog, found := b.catalogs[tag]
-		if !found {
-			continue
-		}
-		if plural {
-			if value, ok := catalog.LookupPlural(context, msgid, n); ok {
+		for _, catalog := range b.catalogs[tag] {
+			if plural {
+				if value, ok := catalog.LookupPlural(context, msgid, n); ok {
+					return value, true
+				}
+				continue
+			}
+			if value, ok := catalog.Lookup(context, msgid); ok {
 				return value, true
 			}
-			continue
-		}
-		if value, ok := catalog.Lookup(context, msgid); ok {
-			return value, true
 		}
 	}
 	return "", false

@@ -1,0 +1,691 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Coyote\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: templates/roles.html:24
+msgid "%d permission granted"
+msgid_plural "%d permissions granted"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/resource_list.html:88
+msgid "%d total"
+msgstr ""
+
+#: bulk.go:49
+msgid "%s applied to %d %s."
+msgstr ""
+
+#: resolve.go:24
+msgid "%s are read only."
+msgstr ""
+
+#: handler_resource.go:135
+msgid "%s created."
+msgstr ""
+
+#: handler_resource.go:194
+msgid "%s deleted."
+msgstr ""
+
+#: templates/resource_form.html:1
+#: templates/resource_form.html:5
+msgid "%s details"
+msgstr ""
+
+#: handler_resource.go:176
+msgid "%s updated."
+msgstr ""
+
+#: handler_roles.go:114
+msgid "A role needs a name."
+msgstr ""
+
+#: templates/user_form.html:45
+msgid "Active"
+msgstr ""
+
+#: templates/dashboard.html:13
+#: templates/sessions.html:5
+msgid "Active sessions"
+msgstr ""
+
+#: templates/resource_form.html:1
+#: templates/resource_form.html:5
+#: templates/resource_list.html:23
+msgid "Add %s"
+msgstr ""
+
+#: templates/roles.html:6
+msgid "Add role"
+msgstr ""
+
+#: templates/dashboard.html:6
+#: templates/user_form.html:1
+#: templates/user_form.html:5
+#: templates/users.html:11
+msgid "Add user"
+msgstr ""
+
+#: templates/base.html:6
+msgid "Admin"
+msgstr ""
+
+#: templates/resource_list.html:20
+#: templates/resource_list.html:66
+#: templates/roles.html:41
+#: templates/sessions.html:47
+#: templates/users.html:54
+msgid "Apply"
+msgstr ""
+
+#: templates/resource_list.html:31
+#: templates/roles.html:12
+#: templates/sessions.html:16
+#: templates/users.html:18
+msgid "Apply to the selected rows?"
+msgstr ""
+
+#: templates/resource_form.html:6
+msgid "Back to %s"
+msgstr ""
+
+#: templates/notfound.html:10
+msgid "Back to dashboard"
+msgstr ""
+
+#: templates/role_form.html:6
+msgid "Back to roles"
+msgstr ""
+
+#: templates/forbidden.html:5
+msgid "Back to the dashboard"
+msgstr ""
+
+#: templates/user_form.html:6
+msgid "Back to users"
+msgstr ""
+
+#: templates/user_form.html:49
+msgid "Can sign in to this admin portal."
+msgstr ""
+
+#: templates/resource_form.html:70
+#: templates/role_form.html:52
+#: templates/user_form.html:76
+msgid "Cancel"
+msgstr ""
+
+#: templates/resource_form.html:69
+#: templates/role_form.html:27
+msgid "Create"
+msgstr ""
+
+#: templates/role_form.html:51
+msgid "Create role"
+msgstr ""
+
+#: templates/user_form.html:75
+msgid "Create user"
+msgstr ""
+
+#: templates/dashboard.html:20
+msgid "Created"
+msgstr ""
+
+#: templates/resource_form.html:33
+msgid "Current file"
+msgstr ""
+
+#: templates/resource_form.html:82
+msgid "Danger zone"
+msgstr ""
+
+#: templates/base.html:167
+#: templates/dashboard.html:1
+#: templates/dashboard.html:5
+msgid "Dashboard"
+msgstr ""
+
+#: templates/resource_list.html:63
+#: templates/role_form.html:27
+#: templates/roles.html:29
+#: templates/roles.html:39
+#: templates/users.html:41
+#: templates/users.html:52
+msgid "Delete"
+msgstr ""
+
+#: templates/resource_form.html:87
+msgid "Delete %s"
+msgstr ""
+
+#: templates/roles.html:27
+msgid "Delete %s? Anyone holding it loses those permissions."
+msgstr ""
+
+#: templates/users.html:39
+msgid "Delete %s? This cannot be undone."
+msgstr ""
+
+#: templates/resource_form.html:85
+msgid "Delete this %s? This cannot be undone."
+msgstr ""
+
+#: bulk.go:79
+msgid "Deleted %d %s."
+msgstr ""
+
+#: bulk_builtin.go:86
+msgid "Deleted %d role."
+msgid_plural "Deleted %d roles."
+msgstr[0] ""
+msgstr[1] ""
+
+#: bulk_builtin.go:53
+msgid "Deleted %d user."
+msgid_plural "Deleted %d users."
+msgstr[0] ""
+msgstr[1] ""
+
+#: bulk.go:72
+msgid "Deleted %d, then failed on %s: %s"
+msgstr ""
+
+#: bulk_builtin.go:45
+#: bulk_builtin.go:80
+msgid "Deleted %d, then stopped: %s"
+msgstr ""
+
+#: templates/role_form.html:19
+#: templates/roles.html:16
+msgid "Description"
+msgstr ""
+
+#: templates/resource_list.html:54
+msgid "Details"
+msgstr ""
+
+#: templates/user_form.html:5
+msgid "Edit %s"
+msgstr ""
+
+#: templates/user_form.html:1
+msgid "Edit user"
+msgstr ""
+
+#: templates/dashboard.html:20
+#: templates/user_form.html:27
+#: templates/users.html:22
+msgid "Email"
+msgstr ""
+
+#: templates/sessions.html:20
+msgid "Expires"
+msgstr ""
+
+#: templates/user_form.html:20
+msgid "First name"
+msgstr ""
+
+#: templates/dashboard.html:60
+msgid "Framework"
+msgstr ""
+
+#: templates/user_form.html:53
+msgid "Full permissions, and always counts as staff."
+msgstr ""
+
+#: templates/sessions.html:12
+msgid "Implement session.ManageableStore to enable this page."
+msgstr ""
+
+#: templates/user_form.html:45
+msgid "Inactive accounts cannot log in."
+msgstr ""
+
+#: handler_auth.go:34
+msgid "Invalid username or password."
+msgstr ""
+
+#: templates/users.html:22
+msgid "Last login"
+msgstr ""
+
+#: templates/user_form.html:23
+msgid "Last name"
+msgstr ""
+
+#: templates/user_form.html:33
+msgid "Leave blank to keep the current password. Changing it signs the user out everywhere."
+msgstr ""
+
+#: templates/login.html:1
+#: templates/login.html:25
+msgid "Log in"
+msgstr ""
+
+#: templates/base.html:188
+msgid "Log out"
+msgstr ""
+
+#: templates/role_form.html:16
+#: templates/roles.html:16
+#: templates/users.html:22
+msgid "Name"
+msgstr ""
+
+#: templates/user_form.html:31
+msgid "New password"
+msgstr ""
+
+#: templates/role_form.html:1
+#: templates/role_form.html:5
+msgid "New role"
+msgstr ""
+
+#: templates/resource_list.html:86
+msgid "Next"
+msgstr ""
+
+#: templates/resource_list.html:72
+msgid "No %s yet."
+msgstr ""
+
+#: templates/sessions.html:51
+msgid "No active sessions."
+msgstr ""
+
+#: templates/role_form.html:46
+msgid "No permissions exist yet. Run coyote syncpermissions to create them from your models."
+msgstr ""
+
+#: templates/roles.html:46
+msgid "No roles yet. A role is a named bundle of permissions that you hand to staff accounts."
+msgstr ""
+
+#: templates/users.html:59
+msgid "No users match “%s”."
+msgstr ""
+
+#: templates/dashboard.html:35
+#: templates/users.html:59
+msgid "No users yet."
+msgstr ""
+
+#: templates/forbidden.html:3
+msgid "Not allowed"
+msgstr ""
+
+#: templates/notfound.html:1
+#: templates/notfound.html:5
+msgid "Not found"
+msgstr ""
+
+#: templates/resource_list.html:72
+msgid "Nothing matches that search."
+msgstr ""
+
+#: bulk.go:28
+#: bulk_builtin.go:18
+msgid "Nothing was selected."
+msgstr ""
+
+#: templates/resource_list.html:88
+msgid "Page %d of %d"
+msgstr ""
+
+#: templates/login.html:22
+#: templates/user_form.html:31
+msgid "Password"
+msgstr ""
+
+#: errors.go:24
+msgid "Passwords must be at least 8 characters."
+msgstr ""
+
+#: templates/role_form.html:23
+#: templates/roles.html:16
+msgid "Permissions"
+msgstr ""
+
+#: handler_roles.go:192
+msgid "Permissions are turned off for this project."
+msgstr ""
+
+#: templates/resource_list.html:80
+msgid "Previous"
+msgstr ""
+
+#: templates/role_form.html:27
+msgid "Read"
+msgstr ""
+
+#: templates/dashboard.html:17
+msgid "Recently added users"
+msgstr ""
+
+#: templates/dashboard.html:41
+msgid "Registered sections"
+msgstr ""
+
+#: templates/role_form.html:27
+msgid "Resource"
+msgstr ""
+
+#: templates/sessions.html:34
+#: templates/sessions.html:45
+msgid "Revoke"
+msgstr ""
+
+#: bulk_builtin.go:108
+msgid "Revoked %d session."
+msgid_plural "Revoked %d sessions."
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/users.html:22
+msgid "Role"
+msgstr ""
+
+#: handler_roles.go:155
+msgid "Role deleted."
+msgstr ""
+
+#: templates/base.html:170
+#: templates/dashboard.html:20
+#: templates/roles.html:1
+#: templates/roles.html:5
+#: templates/user_form.html:59
+msgid "Roles"
+msgstr ""
+
+#: templates/resource_form.html:69
+#: templates/role_form.html:51
+#: templates/user_form.html:75
+msgid "Save changes"
+msgstr ""
+
+#: handler_roles.go:142
+msgid "Saved %s."
+msgstr ""
+
+#: templates/users.html:9
+msgid "Search"
+msgstr ""
+
+#: templates/resource_list.html:10
+msgid "Search %s"
+msgstr ""
+
+#: templates/users.html:8
+msgid "Search name, username or email"
+msgstr ""
+
+#: templates/dashboard.html:56
+msgid "Server"
+msgstr ""
+
+#: templates/sessions.html:20
+msgid "Session"
+msgstr ""
+
+#: handler_sessions.go:67
+msgid "Session revoked."
+msgstr ""
+
+#: templates/base.html:171
+#: templates/sessions.html:1
+msgid "Sessions"
+msgstr ""
+
+#: templates/dashboard.html:12
+#: templates/user_form.html:49
+msgid "Staff"
+msgstr ""
+
+#: templates/sessions.html:20
+msgid "Started"
+msgstr ""
+
+#: templates/users.html:22
+msgid "Status"
+msgstr ""
+
+#: templates/user_form.html:53
+msgid "Superadmin"
+msgstr ""
+
+#: templates/dashboard.html:11
+msgid "Superadmins"
+msgstr ""
+
+#: bulk.go:54
+#: bulk_builtin.go:32
+#: bulk_builtin.go:72
+msgid "That action is not available."
+msgstr ""
+
+#: errors.go:30
+msgid "That does not look like a valid email address."
+msgstr ""
+
+#: errors.go:28
+msgid "That email address is already registered."
+msgstr ""
+
+#: errors.go:32
+msgid "That user no longer exists."
+msgstr ""
+
+#: errors.go:20
+msgid "That username is already taken."
+msgstr ""
+
+#: handler_sessions.go:69
+msgid "The configured session store cannot revoke sessions."
+msgstr ""
+
+#: templates/sessions.html:11
+msgid "The configured session store does not support listing sessions."
+msgstr ""
+
+#: templates/notfound.html:9
+msgid "The record you asked for does not exist."
+msgstr ""
+
+#: handler_auth.go:50
+msgid "This account does not have access to the admin portal."
+msgstr ""
+
+#: handler_auth.go:36
+msgid "This account has been disabled."
+msgstr ""
+
+#: handler_auth.go:39
+msgid "Too many failed attempts. Try again later."
+msgstr ""
+
+#: templates/role_form.html:27
+msgid "Update"
+msgstr ""
+
+#: templates/dashboard.html:59
+msgid "Uptime"
+msgstr ""
+
+#: handler_sessions.go:61
+msgid "Use log out to end your own session."
+msgstr ""
+
+#: templates/sessions.html:20
+msgid "User"
+msgstr ""
+
+#: handler_users.go:132
+msgid "User %s created."
+msgstr ""
+
+#: handler_users.go:190
+msgid "User %s updated."
+msgstr ""
+
+#: handler_users.go:208
+msgid "User deleted."
+msgstr ""
+
+#: templates/dashboard.html:20
+#: templates/login.html:19
+#: templates/user_form.html:16
+#: templates/users.html:22
+msgid "Username"
+msgstr ""
+
+#: errors.go:22
+msgid "Usernames must be 3-64 characters using letters, digits or . _ @ + -"
+msgstr ""
+
+#: templates/base.html:169
+#: templates/dashboard.html:10
+#: templates/users.html:1
+#: templates/users.html:5
+msgid "Users"
+msgstr ""
+
+#: handler_auth.go:60
+msgid "Welcome back, %s."
+msgstr ""
+
+#: templates/resource_list.html:62
+#: templates/roles.html:38
+#: templates/sessions.html:44
+#: templates/users.html:51
+msgid "With selected…"
+msgstr ""
+
+#: templates/user_form.html:40
+msgid "You are editing your own account, so role and status fields are locked."
+msgstr ""
+
+#: templates/user_form.html:61
+msgid "You cannot change your own roles."
+msgstr ""
+
+#: handler_users.go:198
+msgid "You cannot delete your own account."
+msgstr ""
+
+#: errors.go:26
+msgid "You cannot remove or disable the last active superadmin."
+msgstr ""
+
+#: templates/forbidden.html:4
+msgid "Your account does not have permission to do that. Ask a superadmin to grant it."
+msgstr ""
+
+#: bulk_builtin.go:55
+msgid "Your own account was left alone."
+msgstr ""
+
+#: templates/users.html:34
+msgid "active"
+msgstr ""
+
+#: handler_sessions.go:34
+#: templates/sessions.html:27
+msgid "anonymous"
+msgstr ""
+
+#: templates/resource_list.html:14
+msgid "any"
+msgstr ""
+
+#: files.go:54
+msgid "could not be stored"
+msgstr ""
+
+#: files.go:75
+msgid "could not be uploaded"
+msgstr ""
+
+#: templates/users.html:34
+msgid "disabled"
+msgstr ""
+
+#: files.go:69
+msgid "does not match the type it claims to be"
+msgstr ""
+
+#: templates/resource_form.html:51
+msgid "generated"
+msgstr ""
+
+#: files.go:71
+msgid "has too many pixels"
+msgstr ""
+
+#: templates/user_form.html:79
+msgid "id %s"
+msgstr ""
+
+#: files.go:73
+msgid "is empty"
+msgstr ""
+
+#: files.go:65
+msgid "is larger than the limit"
+msgstr ""
+
+#: files.go:67
+msgid "is not an accepted file type"
+msgstr ""
+
+#: templates/users.html:35
+msgid "never"
+msgstr ""
+
+#: templates/resource_list.html:16
+msgid "no"
+msgstr ""
+
+#: templates/resource_form.html:35
+msgid "remove"
+msgstr ""
+
+#: templates/base.html:184
+#: templates/users.html:32
+msgid "staff"
+msgstr ""
+
+#: templates/base.html:184
+#: templates/dashboard.html:27
+#: templates/users.html:32
+msgid "superadmin"
+msgstr ""
+
+#: templates/sessions.html:26
+msgid "this device"
+msgstr ""
+
+#: handler_sessions.go:39
+msgid "unknown"
+msgstr ""
+
+#: templates/base.html:184
+#: templates/dashboard.html:27
+#: templates/users.html:32
+msgid "user"
+msgstr ""
+
+#: templates/resource_list.html:15
+msgid "yes"
+msgstr ""
+
+#: templates/users.html:43
+msgid "you"
+msgstr ""

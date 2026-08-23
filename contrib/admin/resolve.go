@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/store"
 	"github.com/farhapartex/coyote/core/view"
@@ -20,7 +21,7 @@ func (a *Admin) storeFor(w http.ResponseWriter, r *http.Request) (model.Store, b
 
 func (a *Admin) writableStore(w http.ResponseWriter, r *http.Request, entry managed) (model.Store, bool) {
 	if entry.readOnly {
-		view.Error(r, entry.schema.Plural+" are read only.")
+		view.Error(r, i18n.Tf(r.Context(), "%s are read only.", entry.schema.Plural))
 		view.Redirect(w, r, a.prefix+"/"+entry.Slug())
 		return nil, false
 	}

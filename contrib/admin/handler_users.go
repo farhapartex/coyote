@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -111,7 +112,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		a.render(w, r, http.StatusBadRequest, "user_form.html", view.Data{
-			"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(err),
+			"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(r.Context(), err),
 		})
 		return
 	}
@@ -119,7 +120,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 		user.IsActive = false
 		if err := a.app.Auth.Users().Update(user); err != nil {
 			a.render(w, r, http.StatusBadRequest, "user_form.html", view.Data{
-				"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(err),
+				"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(r.Context(), err),
 			})
 			return
 		}
@@ -128,7 +129,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	view.Flash(r, "success", "User "+user.Username+" created.")
+	view.Flash(r, "success", i18n.Tf(r.Context(), "User %s created.", user.Username))
 	view.Redirect(w, r, a.prefix+"/users")
 }
 
@@ -158,7 +159,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 
 	fail := func(err error) {
 		a.render(w, r, http.StatusBadRequest, "user_form.html", view.Data{
-			"Nav": "users", "IsNew": false, "Form": user, "Error": humanize(err),
+			"Nav": "users", "IsNew": false, "Form": user, "Error": humanize(r.Context(), err),
 		})
 	}
 
@@ -186,7 +187,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	view.Flash(r, "success", "User "+user.Username+" updated.")
+	view.Flash(r, "success", i18n.Tf(r.Context(), "User %s updated.", user.Username))
 	view.Redirect(w, r, a.prefix+"/users")
 }
 
@@ -194,16 +195,16 @@ func (a *Admin) userDelete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	me := a.currentUser(r)
 	if me != nil && me.ID == id {
-		view.Flash(r, "error", "You cannot delete your own account.")
+		view.Flash(r, "error", i18n.T(r.Context(), "You cannot delete your own account."))
 		view.Redirect(w, r, a.prefix+"/users")
 		return
 	}
 	if err := a.app.Auth.Users().Delete(id); err != nil {
-		view.Flash(r, "error", humanize(err))
+		view.Flash(r, "error", humanize(r.Context(), err))
 		view.Redirect(w, r, a.prefix+"/users")
 		return
 	}
 	a.revokeUserSessions(id)
-	view.Flash(r, "success", "User deleted.")
+	view.Flash(r, "success", i18n.T(r.Context(), "User deleted."))
 	view.Redirect(w, r, a.prefix+"/users")
 }

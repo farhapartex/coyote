@@ -1,20 +1,20 @@
 {{define "content"}}
 <div class="card">
-  <h1>Sign in</h1>
+  <h1>{{.Locale.T "Sign in"}}</h1>
   {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
   <form method="post" action="{{.Prefix}}/login">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
     <input type="hidden" name="next" value="{{.Next}}">
-    <label>Username
+    <label>{{.Locale.T "Username"}}
       <input type="text" name="username" value="{{.Username}}" autocomplete="username" required autofocus>
     </label>
-    <label>Password
+    <label>{{.Locale.T "Password"}}
       <input type="password" name="password" autocomplete="current-password" required>
     </label>
-    <button type="submit">Sign in</button>
+    <button type="submit">{{.Locale.T "Sign in"}}</button>
   </form>
 </div>
 {{if .AllowRegistration}}
-<p class="foot muted">No account yet? <a href="{{.Prefix}}/register">Create one</a>.</p>
+<p class="foot muted">{{.Locale.T "No account yet?"}} <a href="{{.Prefix}}/register">{{.Locale.T "Create one"}}</a>.</p>
 {{end}}
 {{end}}

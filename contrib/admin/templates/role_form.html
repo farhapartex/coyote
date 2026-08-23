@@ -1,9 +1,9 @@
-{{define "title"}}{{if .IsNew}}New role{{else}}{{.Form.Name}}{{end}}{{end}}
+{{define "title"}}{{if .IsNew}}{{.Locale.T "New role"}}{{else}}{{.Form.Name}}{{end}}{{end}}
 
 {{define "content"}}
 <div class="page-head">
-  <h2>{{if .IsNew}}New role{{else}}{{.Form.Name}}{{end}}</h2>
-  <a class="btn secondary" href="{{.Prefix}}/roles">Back to roles</a>
+  <h2>{{if .IsNew}}{{.Locale.T "New role"}}{{else}}{{.Form.Name}}{{end}}</h2>
+  <a class="btn secondary" href="{{.Prefix}}/roles">{{.Locale.T "Back to roles"}}</a>
 </div>
 
 {{if .Error}}<div class="alert error">{{.Error}}</div>{{end}}
@@ -13,18 +13,18 @@
     <form method="post" action="{{if .IsNew}}{{.Prefix}}/roles/new{{else}}{{.Prefix}}/roles/{{.Form.ID}}{{end}}" class="stack">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
-      <label>Name
+      <label>{{.Locale.T "Name"}}
         <input type="text" name="name" value="{{.Form.Name}}" required maxlength="100" autofocus>
       </label>
-      <label>Description
+      <label>{{.Locale.T "Description"}}
         <textarea name="description" rows="3" maxlength="255">{{.Form.Description}}</textarea>
       </label>
 
-      <h3 style="margin:24px 0 8px;font-size:15px">Permissions</h3>
+      <h3 style="margin:24px 0 8px;font-size:15px">{{.Locale.T "Permissions"}}</h3>
       {{if .Groups}}
       <table>
         <thead>
-          <tr><th>Resource</th><th>Create</th><th>Read</th><th>Update</th><th>Delete</th></tr>
+          <tr><th>{{.Locale.T "Resource"}}</th><th>{{.Locale.T "Create"}}</th><th>{{.Locale.T "Read"}}</th><th>{{.Locale.T "Update"}}</th><th>{{.Locale.T "Delete"}}</th></tr>
         </thead>
         <tbody>
           {{range .Groups}}
@@ -43,13 +43,13 @@
       </table>
       {{else}}
       <p class="muted">
-        No permissions exist yet. Run <code>coyote syncpermissions</code> to create them from your models.
+        {{.Locale.T "No permissions exist yet. Run coyote syncpermissions to create them from your models."}}
       </p>
       {{end}}
 
       <div class="actions">
-        <button class="btn" type="submit">{{if .IsNew}}Create role{{else}}Save changes{{end}}</button>
-        <a class="btn secondary" href="{{.Prefix}}/roles">Cancel</a>
+        <button class="btn" type="submit">{{if .IsNew}}{{.Locale.T "Create role"}}{{else}}{{.Locale.T "Save changes"}}{{end}}</button>
+        <a class="btn secondary" href="{{.Prefix}}/roles">{{.Locale.T "Cancel"}}</a>
       </div>
     </form>
   </div>

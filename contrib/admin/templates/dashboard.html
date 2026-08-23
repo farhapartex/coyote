@@ -1,30 +1,30 @@
-{{define "title"}}Dashboard{{end}}
+{{define "title"}}{{.Locale.T "Dashboard"}}{{end}}
 
 {{define "content"}}
 <div class="page-head">
-  <h2>Dashboard</h2>
-  <a class="btn" href="{{.Prefix}}/users/new">Add user</a>
+  <h2>{{.Locale.T "Dashboard"}}</h2>
+  <a class="btn" href="{{.Prefix}}/users/new">{{.Locale.T "Add user"}}</a>
 </div>
 
 <div class="grid">
-  <div class="stat"><div class="n">{{.UserCount}}</div><div class="k">Users</div></div>
-  <div class="stat"><div class="n">{{.SuperadminCount}}</div><div class="k">Superadmins</div></div>
-  <div class="stat"><div class="n">{{.StaffCount}}</div><div class="k">Staff</div></div>
-  <div class="stat"><div class="n">{{if lt .SessionCount 0}}—{{else}}{{.SessionCount}}{{end}}</div><div class="k">Active sessions</div></div>
+  <div class="stat"><div class="n">{{.UserCount}}</div><div class="k">{{.Locale.T "Users"}}</div></div>
+  <div class="stat"><div class="n">{{.SuperadminCount}}</div><div class="k">{{.Locale.T "Superadmins"}}</div></div>
+  <div class="stat"><div class="n">{{.StaffCount}}</div><div class="k">{{.Locale.T "Staff"}}</div></div>
+  <div class="stat"><div class="n">{{if lt .SessionCount 0}}—{{else}}{{.SessionCount}}{{end}}</div><div class="k">{{.Locale.T "Active sessions"}}</div></div>
 </div>
 
 <div class="card">
-  <div class="card-head">Recently added users</div>
+  <div class="card-head">{{.Locale.T "Recently added users"}}</div>
   {{if .Recent}}
   <table>
-    <thead><tr><th>Username</th><th>Email</th><th>Roles</th><th>Created</th></tr></thead>
+    <thead><tr><th>{{.Locale.T "Username"}}</th><th>{{.Locale.T "Email"}}</th><th>{{.Locale.T "Roles"}}</th><th>{{.Locale.T "Created"}}</th></tr></thead>
     <tbody>
       {{range .Recent}}
       <tr>
         <td><a href="{{$.Prefix}}/users/{{.ID}}">{{.Username}}</a></td>
         <td class="muted">{{if .Email}}{{.Email}}{{else}}—{{end}}</td>
         <td>
-          {{if .IsSuperadmin}}<span class="tag brand">superadmin</span>{{else}}<span class="tag">user</span>{{end}}
+          {{if .IsSuperadmin}}<span class="tag brand">{{$.Locale.T "superadmin"}}</span>{{else}}<span class="tag">{{$.Locale.T "user"}}</span>{{end}}
         </td>
         <td class="muted">{{.CreatedAt.Format "2 Jan 2006 15:04"}}</td>
       </tr>
@@ -32,13 +32,13 @@
     </tbody>
   </table>
   {{else}}
-  <div class="empty">No users yet.</div>
+  <div class="empty">{{.Locale.T "No users yet."}}</div>
   {{end}}
 </div>
 
 {{if .Sections}}
 <div class="card">
-  <div class="card-head">Registered sections</div>
+  <div class="card-head">{{.Locale.T "Registered sections"}}</div>
   <table>
     <tbody>
       {{range .Sections}}
@@ -53,11 +53,11 @@
 {{end}}
 
 <div class="card">
-  <div class="card-head">Server</div>
+  <div class="card-head">{{.Locale.T "Server"}}</div>
   <table>
     <tbody>
-      <tr><td>Uptime</td><td class="mono">{{.Uptime}}</td></tr>
-      <tr><td>Framework</td><td class="mono">Coyote v{{.Version}}</td></tr>
+      <tr><td>{{.Locale.T "Uptime"}}</td><td class="mono">{{.Uptime}}</td></tr>
+      <tr><td>{{.Locale.T "Framework"}}</td><td class="mono">Coyote v{{.Version}}</td></tr>
     </tbody>
   </table>
 </div>

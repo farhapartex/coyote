@@ -68,3 +68,10 @@ func LoadInto(bundle *Bundle, loader Loader) []error {
 	}
 	return problems
 }
+
+func Layer(bundle *Bundle, fsys fs.FS, dir string) []error {
+	if bundle == nil || fsys == nil {
+		return nil
+	}
+	return LoadInto(bundle, NewFSLoader(fsys, dir))
+}

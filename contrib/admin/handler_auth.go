@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -30,12 +31,12 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.app.Auth.AuthenticateRequest(r, username, password)
 	if err != nil {
-		message, status := "Invalid username or password.", http.StatusUnauthorized
+		message, status := i18n.T(r.Context(), "Invalid username or password."), http.StatusUnauthorized
 		if errors.Is(err, auth.ErrInactiveAccount) {
-			message = "This account has been disabled."
+			message = i18n.T(r.Context(), "This account has been disabled.")
 		}
 		if errors.Is(err, auth.ErrTooManyAttempts) {
-			message, status = "Too many failed attempts. Try again later.", http.StatusTooManyRequests
+			message, status = i18n.T(r.Context(), "Too many failed attempts. Try again later."), http.StatusTooManyRequests
 		}
 		a.render(w, r, status, "login.html", view.Data{
 			"Error":    message,
@@ -46,7 +47,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	if !user.CanReachAdmin() {
 		a.render(w, r, http.StatusForbidden, "login.html", view.Data{
-			"Error":    "This account does not have access to the admin portal.",
+			"Error":    i18n.T(r.Context(), "This account does not have access to the admin portal."),
 			"Username": username,
 			"Next":     next,
 		})
@@ -56,7 +57,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)
 		return
 	}
-	view.Flash(r, "success", "Welcome back, "+user.DisplayName()+".")
+	view.Flash(r, "success", i18n.Tf(r.Context(), "Welcome back, %s.", user.DisplayName()))
 	view.Redirect(w, r, next)
 }
 

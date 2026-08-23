@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/template"
 	"github.com/farhapartex/coyote/core/view"
 )
 
-//go:embed templates
+//go:embed templates locales
 var templateFS embed.FS
 
 type Options struct {
@@ -78,6 +79,8 @@ func Mount(application *app.App, opts Options) *Accounts {
 		group.Get("/register", a.registerForm)
 		group.Post("/register", a.registerSubmit)
 	}
+
+	i18n.Layer(application.Bundle(), templateFS, "locales")
 
 	guarded := group.Group("", application.Auth.RequireLogin(prefix+"/login"))
 	guarded.Get("/profile", a.profileForm)

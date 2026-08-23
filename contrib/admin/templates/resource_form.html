@@ -1,9 +1,9 @@
-{{define "title"}}{{if .IsNew}}Add {{.Resource.Label}}{{else}}{{.Resource.Label}} details{{end}}{{end}}
+{{define "title"}}{{if .IsNew}}{{.Locale.Tf "Add %s" .Resource.Label}}{{else}}{{.Locale.Tf "%s details" .Resource.Label}}{{end}}{{end}}
 
 {{define "content"}}
 <div class="page-head">
-  <h2>{{if .IsNew}}Add {{.Resource.Label}}{{else}}{{.Resource.Label}} details{{end}}</h2>
-  <a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}">Back to {{.Resource.Title}}</a>
+  <h2>{{if .IsNew}}{{.Locale.Tf "Add %s" .Resource.Label}}{{else}}{{.Locale.Tf "%s details" .Resource.Label}}{{end}}</h2>
+  <a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}">{{.Locale.Tf "Back to %s" .Resource.Title}}</a>
 </div>
 
 {{if .Error}}<div class="flash error">{{.Error}}</div>{{end}}
@@ -30,9 +30,9 @@
         {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}
         {{if .URL}}
         <span class="filenow">
-          <a href="{{.URL}}" target="_blank" rel="noopener">Current file</a>
+          <a href="{{.URL}}" target="_blank" rel="noopener">{{$.Locale.T "Current file"}}</a>
           <label class="inline muted" style="font-weight:400;font-size:12px">
-            <input type="checkbox" name="{{.Column}}__clear" value="1"> remove
+            <input type="checkbox" name="{{.Column}}__clear" value="1"> {{$.Locale.T "remove"}}
           </label>
         </span>
         {{end}}
@@ -48,7 +48,7 @@
       </div>
       {{else}}
       <label>
-        {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}{{if .ReadOnly}} <span class="muted" style="font-weight:400">generated</span>{{end}}
+        {{.Label}}{{if .Required}} <span class="muted">*</span>{{end}}{{if .ReadOnly}} <span class="muted" style="font-weight:400">{{$.Locale.T "generated"}}</span>{{end}}
         {{if .Multi}}
         <textarea name="{{.Column}}" rows="3"
                   {{if .Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}
@@ -66,8 +66,8 @@
       {{end}}
 
       <div class="actions">
-        {{if not .ReadOnly}}<button class="btn" type="submit">{{if .IsNew}}Create{{else}}Save changes{{end}}</button>{{end}}
-        <a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}">Cancel</a>
+        {{if not .ReadOnly}}<button class="btn" type="submit">{{if .IsNew}}{{.Locale.T "Create"}}{{else}}{{.Locale.T "Save changes"}}{{end}}</button>{{end}}
+        <a class="btn secondary" href="{{.Prefix}}/{{.Resource.Slug}}">{{.Locale.T "Cancel"}}</a>
         <span class="spacer"></span>
         {{if not .IsNew}}
         <span class="muted mono" style="font-size:12px">{{.RecordID}}</span>
@@ -79,12 +79,12 @@
 
 {{if and (not .IsNew) (not .ReadOnly)}}
 <div class="card">
-  <div class="card-head">Danger zone</div>
+  <div class="card-head">{{.Locale.T "Danger zone"}}</div>
   <div class="card-body">
     <form method="post" action="{{.Prefix}}/{{.Resource.Slug}}/{{.RecordID}}/delete"
-          onsubmit="return confirm('Delete this {{.Resource.Label}}? This cannot be undone.')">
+          onsubmit="return confirm('{{.Locale.Tf "Delete this %s? This cannot be undone." .Resource.Label}}')">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-      <button class="btn danger" type="submit">Delete {{.Resource.Label}}</button>
+      <button class="btn danger" type="submit">{{.Locale.Tf "Delete %s" .Resource.Label}}</button>
     </form>
   </div>
 </div>
