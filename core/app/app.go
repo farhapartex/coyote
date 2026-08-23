@@ -92,11 +92,13 @@ func NewFrom(s Settings) *App {
 	a.Uploads = uploadService(s)
 
 	a.Templates = template.New(template.Options{
-		FS:     templateFS(s),
-		Layout: s.Templates.Layout,
-		Shared: s.Templates.Shared,
-		Funcs:  templateFuncs(s, a),
-		Reload: s.AutoReloadTemplates(),
+		FS:       templateFS(s),
+		Layout:   s.Templates.Layout,
+		Shared:   s.Templates.Shared,
+		Funcs:    templateFuncs(s, a),
+		Reload:   s.AutoReloadTemplates(),
+		Fragment: fragmentCache(s, a),
+		OnError:  func(err error) { logger.Warn(err.Error()) },
 	})
 
 	a.Auth = auth.NewService(userStore(s, a), sessions, auth.Options{
