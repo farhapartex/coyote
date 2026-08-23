@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -22,6 +23,62 @@ func newRedisStore(t *testing.T, server *fakeRedis, mutate ...func(*redis.Option
 	store := redis.New(opts)
 	t.Cleanup(func() { _ = store.Close() })
 	return store
+}
+
+func TestRedisAgainstARealServer(t *testing.T) {
+	address := os.Getenv("COYOTE_TEST_REDIS")
+	if address == "" {
+		t.Skip("set COYOTE_TEST_REDIS=host:port to run this against a real Redis")
+	}
+
+	ctx := context.Background()
+	store := redis.New(redis.Options{Address: address, DialTimeout: 2 * time.Second})
+	t.Cleanup(func() { _ = store.Close() })
+
+	if err := store.Ping(ctx); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+
+	prefix := "coyote:selftest:"
+	t.Cleanup(func() { _ = store.ClearPrefix(ctx, prefix) })
+
+	payload := []byte{0x00, 0x0d, 0x0a, 0xff, '$', '*'}
+	if err := store.Set(ctx, prefix+"binary", payload, time.Minute); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	value, found, err := store.Get(ctx, prefix+"binary")
+	if err != nil || !found || string(value) != string(payload) {
+		t.Fatalf("Get = %v, %v, %v", value, found, err)
+	}
+
+	if err := store.Set(ctx, prefix+"brief", []byte("x"), 50*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(120 * time.Millisecond)
+	if _, found, _ := store.Get(ctx, prefix+"brief"); found {
+		t.Error("PX should have expired the key")
+	}
+
+	if got, err := store.Incr(ctx, prefix+"counter", 2, time.Minute); err != nil || got != 2 {
+		t.Errorf("Incr = %d, %v", got, err)
+	}
+
+	for i := range 12 {
+		if err := store.Set(ctx, prefix+"bulk"+strconv.Itoa(i), []byte("x"), time.Minute); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.ClearPrefix(ctx, prefix+"bulk"); err != nil {
+		t.Fatalf("ClearPrefix: %v", err)
+	}
+	for i := range 12 {
+		if _, found, _ := store.Get(ctx, prefix+"bulk"+strconv.Itoa(i)); found {
+			t.Fatalf("bulk%d survived ClearPrefix", i)
+		}
+	}
+	if _, found, _ := store.Get(ctx, prefix+"binary"); !found {
+		t.Error("ClearPrefix removed a key outside its prefix")
+	}
 }
 
 func TestRedisRoundTrip(t *testing.T) {
