@@ -20,7 +20,7 @@ func (e *Engine) Fragment(name string, ttl int, part any, data any) (htmltemplat
 		return e.renderFragment(name, data)
 	}
 
-	key := fragmentKey(name, part)
+	key := fragmentKey(name, part, data)
 	ctx := context.Background()
 
 	if raw, found, err := e.fragments.Get(ctx, key); err == nil && found {
@@ -92,8 +92,23 @@ func (e *Engine) report(err error) {
 	}
 }
 
-func fragmentKey(name string, part any) string {
-	return fragmentPrefix + name + "|" + fmt.Sprint(part)
+func fragmentKey(name string, part any, data any) string {
+	key := fragmentPrefix + name + "|" + fmt.Sprint(part)
+	if tag := localeTag(data); tag != "" {
+		key += "#" + tag
+	}
+	return key
+}
+
+type tagged interface {
+	Tag() string
+}
+
+func localeTag(data any) string {
+	if holder, ok := lookupValue(data, "Locale").(tagged); ok {
+		return holder.Tag()
+	}
+	return ""
 }
 
 func leakedSecret(rendered string, data any) string {
@@ -110,19 +125,23 @@ type mintedSecret interface {
 	Minted() string
 }
 
-func lookupString(data any, key string) string {
+func lookupValue(data any, key string) any {
 	holder := reflect.ValueOf(data)
 	if !holder.IsValid() || holder.Kind() != reflect.Map {
-		return ""
+		return nil
 	}
 	if holder.Type().Key().Kind() != reflect.String {
-		return ""
+		return nil
 	}
 	found := holder.MapIndex(reflect.ValueOf(key).Convert(holder.Type().Key()))
 	if !found.IsValid() {
-		return ""
+		return nil
 	}
-	switch value := found.Interface().(type) {
+	return found.Interface()
+}
+
+func lookupString(data any, key string) string {
+	switch value := lookupValue(data, key).(type) {
 	case string:
 		return value
 	case mintedSecret:
