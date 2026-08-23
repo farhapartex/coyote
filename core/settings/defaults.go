@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/farhapartex/coyote/core/cache"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -57,6 +58,12 @@ func Default() Settings {
 			PasswordMinLength:   8,
 			PBKDF2Iterations:    600000,
 		},
+		I18N: I18N{
+			Default:   i18n.DefaultTag,
+			Supported: []string{i18n.DefaultTag},
+			Dir:       i18n.DefaultDir,
+		},
+		TimeZone: "UTC",
 		Templates: Templates{
 			Layout: "layouts/base.html",
 			Shared: []string{"layouts/*.html", "partials/*.html"},
