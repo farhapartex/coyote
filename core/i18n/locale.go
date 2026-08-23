@@ -3,12 +3,51 @@ package i18n
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 type Locale struct {
-	bundle *Bundle
-	tag    string
-	chain  []string
+	bundle    *Bundle
+	tag       string
+	chain     []string
+	zone      *time.Location
+	formatter Formatter
+}
+
+func (l *Locale) Zone() *time.Location {
+	if l == nil || l.zone == nil {
+		return time.UTC
+	}
+	return l.zone
+}
+
+func (l *Locale) inZone(t time.Time) time.Time { return t.In(l.Zone()) }
+
+func (l *Locale) Format() Formatter {
+	if l == nil {
+		return newFormatter(&Locale{tag: DefaultTag})
+	}
+	if l.formatter == nil {
+		l.formatter = newFormatter(l)
+	}
+	return l.formatter
+}
+
+func (l *Locale) Date(t time.Time) string { return l.Format().Date(t) }
+
+func (l *Locale) Time(t time.Time) string { return l.Format().Time(t) }
+
+func (l *Locale) DateTime(t time.Time) string { return l.Format().DateTime(t) }
+
+func (l *Locale) Number(value any) string { return l.Format().Number(value) }
+
+func (l *Locale) Money(value any, currency string) string { return l.Format().Money(value, currency) }
+
+func (l *Locale) LongDate(t time.Time) string {
+	if long, ok := l.Format().(interface{ LongDate(time.Time) string }); ok {
+		return long.LongDate(t)
+	}
+	return l.Date(t)
 }
 
 func (l *Locale) Tag() string {

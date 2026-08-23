@@ -6,8 +6,8 @@ Translations come from gettext PO files, so your translators can use the tools t
 project that never mentions locales pays nothing: one locale, no catalogs loaded, and every
 `{{.Locale.T "…"}}` returns its own English.
 
-> This page describes what has landed. Formatting, `makemessages`, `checkmessages` and the translated
-> admin portal are still in progress — see [Not here yet](#not-here-yet).
+> This page describes what has landed. `makemessages`, `checkmessages` and the translated admin portal
+> are still in progress — see [Not here yet](#not-here-yet).
 
 ## Configuring it
 
@@ -251,6 +251,67 @@ Under `Debug` a missing key is logged **once per key**, not once per render — 
 `range` would otherwise write ten thousand identical warnings. `a.Bundle()` and `Locale.Missing()`
 report what was missed, which is enough to put a list on an internal page.
 
+## Dates, numbers and money
+
+```html
+<p>{{.Locale.Date .CreatedAt}}</p>        <!-- 04/03/2026 -->
+<p>{{.Locale.LongDate .CreatedAt}}</p>    <!-- 4 March 2026 -->
+<p>{{.Locale.Time .CreatedAt}}</p>        <!-- 15:30, or 3:30 PM -->
+<p>{{.Locale.DateTime .CreatedAt}}</p>
+<p>{{.Locale.Number .Total}}</p>          <!-- 1,234,567.89 -->
+<p>{{.Locale.Money .Price "EUR"}}</p>     <!-- 1 234,50 € in French -->
+```
+
+What the built-in formatter knows, per locale: the date field order, 12- or 24-hour time, the decimal
+and grouping separators, digit grouping (including Indian lakh and crore, so `hi` gives `1,23,45,678`),
+and whether the currency symbol leads or trails and whether a no-break space sits between. Currency
+minor units come from the currency, not the locale — yen and won get no decimals, Kuwaiti dinar gets
+three.
+
+`LongDate` is the interesting one: **month names come from your catalog.** The formatter asks for
+`January` … `December` through the same lookup as everything else, so a translator supplies them once
+and every long date in the project is right. There is no month-name table in the framework.
+
+### It is not CLDR, and here is the honest boundary
+
+The table covers about twenty common locales and falls back to a sane default. It gets the separators,
+the field order and the symbol placement right for those; it does **not** implement the full CLDR
+pattern algebra, alternate calendars, or accounting negatives. That is a deliberate trade: full CLDR
+means linking `golang.org/x/text`'s tables into every binary, including the single-locale ones.
+
+If you need it, the seam is one line:
+
+```go
+type Formatter interface {
+	Date(t time.Time) string
+	Time(t time.Time) string
+	DateTime(t time.Time) string
+	Number(value any) string
+	Money(value any, currency string) string
+}
+```
+
+```go
+s.I18N.Formatter = myTextFormatter{}   // wrapping golang.org/x/text/message
+```
+
+Implement `LongDate(time.Time) string` too and it is used; leave it out and `Date` is used instead.
+
+## Time zones
+
+```go
+s.TimeZone = "Europe/Paris"
+```
+
+`.Date`, `.Time`, `.DateTime` and `.LongDate` all render in that zone. The database keeps UTC — this is
+a presentation setting, not a storage one. `.Locale.Zone()` gives you the `*time.Location` if you need
+it in a handler.
+
+The zone is loaded and validated at startup, and a bad value is a **configuration error rather than a
+silent fall back to UTC**, because a mistyped zone quietly shifting every timestamp is the kind of bug
+that is found a year later. On a `scratch` image there is no system zoneinfo, so add
+`import _ "time/tzdata"` to your main package.
+
 ## Right to left
 
 ```html
@@ -273,6 +334,7 @@ Pashto and Divehi are recognised. Styling your own pages is your business; use C
 | `I18N.URLPrefix` | `false` | `/fr/about`, with the default locale unprefixed |
 | `I18N.CookieName` | `coyote_locale` | |
 | `I18N.Loader` | PO from `FS` or `Dir` | Any `i18n.Loader`, for catalogs from elsewhere |
+| `I18N.Formatter` | built-in table | Any `i18n.Formatter`, for full CLDR via `x/text` |
 | `TimeZone` | `UTC` | Validated at startup; needs `time/tzdata` on a scratch image |
 
 ## Your own catalog source
@@ -301,7 +363,6 @@ return an empty string instead.
 
 Landing in the remaining stages of this work:
 
-- Locale-aware date, time, number and currency formatting, and timestamps rendered in `TimeZone`.
 - `coyote makemessages` to extract message ids from Go and template sources into a `.pot`, merging into
   existing catalogs without losing a translator's work.
 - `coyote checkmessages` to report missing, fuzzy and obsolete entries, and exit non-zero for CI.

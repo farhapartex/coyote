@@ -15,6 +15,7 @@ type I18N struct {
 	URLPrefix  bool
 	CookieName string
 	Loader     i18n.Loader
+	Formatter  i18n.Formatter
 }
 
 func (i I18N) Enabled() bool { return len(i.Supported) > 1 || i.Loader != nil || i.FS != nil }

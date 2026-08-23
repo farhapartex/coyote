@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/farhapartex/coyote/core/i18n"
 )
@@ -15,6 +16,8 @@ func buildBundle(s Settings, logger *slog.Logger) *i18n.Bundle {
 		Supported: s.I18N.Supported,
 		Fallbacks: s.I18N.Fallbacks,
 		Debug:     s.Debug,
+		Zone:      loadZone(s, logger),
+		Formatter: s.I18N.Formatter,
 		OnMissing: func(tag, msgid string) {
 			if s.Debug {
 				logger.Warn("no translation", "locale", tag, "message", msgid)
@@ -30,6 +33,19 @@ func buildBundle(s Settings, logger *slog.Logger) *i18n.Bundle {
 		logger.Warn("catalog not loaded, falling back to the source text", "error", problem)
 	}
 	return bundle
+}
+
+func loadZone(s Settings, logger *slog.Logger) *time.Location {
+	if s.TimeZone == "" {
+		return time.UTC
+	}
+	zone, err := time.LoadLocation(s.TimeZone)
+	if err != nil {
+		logger.Error("time zone could not be loaded, falling back to UTC",
+			"zone", s.TimeZone, "error", err)
+		return time.UTC
+	}
+	return zone
 }
 
 func localeLoader(s Settings) i18n.Loader {

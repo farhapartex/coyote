@@ -3,6 +3,7 @@ package i18n
 import (
 	"sort"
 	"sync"
+	"time"
 )
 
 type Options struct {
@@ -10,6 +11,8 @@ type Options struct {
 	Supported []string
 	Fallbacks map[string]string
 	Debug     bool
+	Zone      *time.Location
+	Formatter Formatter
 	OnMissing func(tag, msgid string)
 }
 
@@ -20,6 +23,8 @@ type Bundle struct {
 	catalogs  map[string]Catalog
 	chains    map[string][]string
 	debug     bool
+	zone      *time.Location
+	formatter Formatter
 	onMissing func(tag, msgid string)
 	reported  sync.Map
 	mu        sync.RWMutex
@@ -32,7 +37,12 @@ func NewBundle(opts Options) *Bundle {
 		catalogs:  map[string]Catalog{},
 		chains:    map[string][]string{},
 		debug:     opts.Debug,
+		zone:      opts.Zone,
+		formatter: opts.Formatter,
 		onMissing: opts.OnMissing,
+	}
+	if b.zone == nil {
+		b.zone = time.UTC
 	}
 	if b.def == "" {
 		b.def = DefaultTag
@@ -147,7 +157,13 @@ func (b *Bundle) Locale(tag string) *Locale {
 	if normalised == "" || !b.Supports(normalised) {
 		normalised = b.def
 	}
-	return &Locale{bundle: b, tag: normalised, chain: b.Chain(normalised)}
+	return &Locale{
+		bundle:    b,
+		tag:       normalised,
+		chain:     b.Chain(normalised),
+		zone:      b.zone,
+		formatter: b.formatter,
+	}
 }
 
 func (b *Bundle) lookup(chain []string, context, msgid string, n int, plural bool) (string, bool) {
