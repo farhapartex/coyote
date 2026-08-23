@@ -95,6 +95,14 @@ Using a second layout is a matter of naming it in the page's own define block, o
 | `media` | build a URL for an [uploaded file](31-uploads.md) |
 | `fragment` | render a partial through the [cache](33-caching.md) |
 
+Translation is a method on the render context rather than a function, because a template function
+cannot know which request is rendering — see [Internationalisation](34-internationalisation.md):
+
+```html
+{{.Locale.T "Save changes"}}
+{{.Locale.N "%d note" "%d notes" (len .Notes)}}
+```
+
 Add your own:
 
 ```go
