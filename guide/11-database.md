@@ -228,6 +228,9 @@ Use it when you want the same column-driven, schema-derived access the admin use
 over records. Use `a.DB()` when you want typed structs and the full query language. Both talk to the
 same database.
 
+Reads through this port can be cached per table, opt in with `store.Cached` — see
+[Caching](33-caching.md).
+
 ## Multiple connections
 
 `a.DB()` is the default connection. Reach another by alias, and it is opened once and reused:

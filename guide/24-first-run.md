@@ -25,6 +25,19 @@ The server still starts in every case — an unreachable database downgrades to 
 refusing to boot, so a misconfigured database does not take the whole site down before you can read
 the message.
 
+A **cache** is the exception. If you configured one and it cannot be reached, the server refuses to
+start, because configuring Redis is a statement that Redis exists:
+
+```
+$ coyote start
+coyote: coyote/cache: the "default" cache is unreachable
+    backend redis at 127.0.0.1:6379
+
+  start Redis, or set Caches[0].Backend to "memory" or "file" in settings.go
+```
+
+The default in-memory cache never does this. See [Caching](33-caching.md).
+
 ## The sequence
 
 ```

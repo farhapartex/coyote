@@ -20,6 +20,7 @@ CSP                only when Security.CSP is set
 CORS               only when Security.CORS has origins
 Compress           only when Security.Compress is on
 RateLimit          only when Security.RateLimit is set
+PageCache          only when PageCache.Enabled; inside Compress, outside Session
 Session            loads the session, writes the cookie on the way out
 Auth               resolves the current user
   ↓
@@ -61,6 +62,7 @@ Order is the order you add them.
 | `middleware.RequireHTTPS` | redirect plain HTTP to HTTPS |
 | `middleware.StripTrailingSlash` | normalise `/path/` to `/path` |
 | `middleware.RateLimitBy(policy, key)` | rate limit on something other than IP |
+| `middleware.PageCache(cache, policy)` | serve whole pages from a cache — [Caching](33-caching.md) |
 | `a.Auth.RequireLogin(url)` | guard — [Authentication](14-authentication.md) |
 | `a.Auth.RequireSuperadmin(url)` | guard |
 

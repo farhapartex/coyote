@@ -1,0 +1,52 @@
+{{define "content"}}
+<h1>{{.Title}}</h1>
+<p class="lead">Two aliases, one key, no collision.</p>
+
+{{with .Error}}<p class="flash flash-error">{{.}}</p>{{end}}
+
+<div class="card">
+  <table>
+    <tr>
+      <td>default cache</td>
+      <td>{{if .Found}}<code>{{.Value}}</code>{{else}}<span class="muted">nothing stored</span>{{end}}</td>
+    </tr>
+    <tr>
+      <td>pages cache</td>
+      <td>{{if .Pages}}<code>{{.Pages}}</code>{{else}}<span class="muted">nothing stored</span>{{end}}</td>
+    </tr>
+  </table>
+</div>
+
+<form method="post" action="/cached">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <input name="note" placeholder="something to remember" required>
+  <button name="action" value="default">Store in default</button>
+  <button name="action" value="pages">Store in pages</button>
+  <button name="action" value="clear">Clear default</button>
+</form>
+
+<h2>Statistics</h2>
+<p class="muted">
+  Per process, like the rate-limit counters. Redis reports no entry count on purpose.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Alias</th><th>Backend</th><th>Hits</th><th>Misses</th><th>Hit rate</th><th>Entries</th></tr>
+  </thead>
+  <tbody>
+    {{range .Stats}}
+    <tr>
+      <td>{{.Alias}}</td>
+      <td>{{.Backend}}</td>
+      <td>{{.Hits}}</td>
+      <td>{{.Misses}}</td>
+      <td>{{printf "%.0f%%" .HitPercent}}</td>
+      <td>{{if lt .Entries 0}}<span class="muted">n/a</span>{{else}}{{.Entries}}{{end}}</td>
+    </tr>
+    {{else}}
+    <tr><td colspan="6" class="muted">No cache has been used yet in this process.</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}

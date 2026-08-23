@@ -91,6 +91,9 @@ Using a second layout is a matter of naming it in the page's own define block, o
 | Function | Purpose |
 | --- | --- |
 | `url` | reverse a [named route](06-named-routes.md) |
+| `static` | resolve a [fingerprinted asset](09-static-files.md) |
+| `media` | build a URL for an [uploaded file](31-uploads.md) |
+| `fragment` | render a partial through the [cache](33-caching.md) |
 
 Add your own:
 

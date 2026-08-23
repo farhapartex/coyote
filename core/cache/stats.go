@@ -22,6 +22,8 @@ func (s Stats) HitRate() float64 {
 	return float64(s.Hits) / float64(total)
 }
 
+func (s Stats) HitPercent() float64 { return s.HitRate() * 100 }
+
 type Status struct {
 	Alias     string
 	Backend   string

@@ -31,6 +31,7 @@ straight to the one you need.
 | [30. Forms and validation](30-forms.md) | Binding a request into a struct or a model |
 | [31. File uploads](31-uploads.md) | Storage, validation, staging, serving |
 | [32. Pagination](32-pagination.md) | Page sizes, controls, custom paginators |
+| [33. Caching](33-caching.md) | Backends, Remember, fragments, page and query caching |
 | [8. Templates](08-templates.md) | Layouts, partials, pages, functions |
 | [9. Static files](09-static-files.md) | Embedded or from disk |
 
