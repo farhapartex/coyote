@@ -13,11 +13,8 @@ func (a *App) Render(w http.ResponseWriter, r *http.Request, page string, data D
 }
 
 func (a *App) RenderStatus(w http.ResponseWriter, r *http.Request, status int, page string, data Data) {
-	if data == nil {
-		data = Data{}
-	}
-	a.Context(r, data)
-	if err := a.Templates.Render(w, status, page, data); err != nil {
+	merged := a.Context(r, data)
+	if err := a.Templates.Render(w, status, page, merged); err != nil {
 		a.Logger.Error("render failed", slog.String("page", page), slog.Any("error", err))
 		if a.Settings.Debug {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -28,9 +25,14 @@ func (a *App) RenderStatus(w http.ResponseWriter, r *http.Request, status int, p
 }
 
 func (a *App) Context(r *http.Request, data Data) Data {
-	if data == nil {
-		data = Data{}
+	merged := make(Data, len(data)+10)
+	for key, value := range data {
+		merged[key] = value
 	}
+	return a.decorate(r, merged)
+}
+
+func (a *App) decorate(r *http.Request, data Data) Data {
 	sess := session.FromRequest(r)
 	data.SetDefault("Request", r)
 	data.SetDefault("Path", r.URL.Path)

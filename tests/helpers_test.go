@@ -34,6 +34,8 @@ func templateFS() fstest.MapFS {
 			`{{define "content"}}<style nonce="{{.Nonce}}">body{color:red}</style>{{end}}`)},
 		"pages/badlink.html": &fstest.MapFile{Data: []byte(
 			`{{define "content"}}<a href="{{url "does.not.exist"}}">x</a>{{end}}`)},
+		"pages/whoami.html": &fstest.MapFile{Data: []byte(
+			`{{define "content"}}user={{with .User}}{{.Username}}{{else}}anonymous{{end}}{{end}}`)},
 		"pages/form.html": &fstest.MapFile{Data: []byte(
 			`{{define "content"}}<form method="post">` +
 				`<input type="hidden" name="csrf_token" value="{{.CSRFToken}}"></form>{{end}}`)},

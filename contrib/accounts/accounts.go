@@ -107,7 +107,7 @@ func (a *Accounts) render(w http.ResponseWriter, r *http.Request, status int, pa
 		return
 	}
 
-	a.app.Context(r, data)
+	data = a.app.Context(r, data)
 	if err := a.templates.Render(w, status, "templates/"+page, data); err != nil {
 		a.app.Logger.Error("accounts render failed", "page", page, "error", err)
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)
