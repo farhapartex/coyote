@@ -49,6 +49,7 @@ func (s Settings) validate() error {
 		s.validateCore,
 		s.validateDatabases,
 		s.validateCaches,
+		s.validatePageCache,
 		s.validateServer,
 		s.validateSessions,
 		s.validateAuth,

@@ -2,6 +2,7 @@ package settings
 
 import (
 	"strconv"
+	"strings"
 )
 
 func (s Settings) validateCaches(add func(string)) {
@@ -49,6 +50,29 @@ func (s Settings) validateCaches(add func(string)) {
 		if entry.Store != nil && entry.Backend != CacheInMemory {
 			add(label + ".Store is set alongside the " + strconv.Quote(string(entry.Backend)) +
 				" backend; choose one")
+		}
+	}
+}
+
+func (s Settings) validatePageCache(add func(string)) {
+	page := s.PageCache
+	if !page.Enabled {
+		if page.TTL > 0 || page.Alias != "" || len(page.Paths) > 0 {
+			add("PageCache is configured but PageCache.Enabled is false, so no page would be cached")
+		}
+		return
+	}
+	if page.TTL <= 0 {
+		add("PageCache.Enabled is set but PageCache.TTL is not; a page cache with no lifetime caches nothing")
+	}
+	if page.Alias != "" {
+		if _, found := s.CacheByAlias(page.Alias); !found {
+			add("PageCache.Alias " + strconv.Quote(page.Alias) + " does not match any entry in Caches")
+		}
+	}
+	for _, prefix := range append(append([]string{}, page.Paths...), page.Skip...) {
+		if !strings.HasPrefix(prefix, "/") {
+			add("PageCache paths must start with \"/\"; " + strconv.Quote(prefix) + " does not")
 		}
 	}
 }

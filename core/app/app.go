@@ -121,6 +121,9 @@ func NewFrom(s Settings) *App {
 		middleware.SecureHeaders,
 	}
 	a.global = append(a.global, securityPolicies(s)...)
+	if pages := a.pageCache(s); pages != nil {
+		a.global = append(a.global, pages)
+	}
 	a.global = append(a.global, sessions.Middleware, a.Auth.Middleware)
 
 	if fsys := staticFS(s); fsys != nil {
