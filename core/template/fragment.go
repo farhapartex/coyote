@@ -106,6 +106,10 @@ func leakedSecret(rendered string, data any) string {
 	return ""
 }
 
+type mintedSecret interface {
+	Minted() string
+}
+
 func lookupString(data any, key string) string {
 	holder := reflect.ValueOf(data)
 	if !holder.IsValid() || holder.Kind() != reflect.Map {
@@ -118,9 +122,11 @@ func lookupString(data any, key string) string {
 	if !found.IsValid() {
 		return ""
 	}
-	text, ok := found.Interface().(string)
-	if !ok {
-		return ""
+	switch value := found.Interface().(type) {
+	case string:
+		return value
+	case mintedSecret:
+		return value.Minted()
 	}
-	return text
+	return ""
 }
