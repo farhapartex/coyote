@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/middleware"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/router"
@@ -42,6 +43,8 @@ type App struct {
 	server    *http.Server
 	sessions  session.Store
 	models    *model.Registry
+	bundle    *i18n.Bundle
+	locales   *i18n.Detector
 	store     model.Store
 	storeOnce sync.Once
 	manifest  staticManifest
@@ -79,6 +82,8 @@ func NewFrom(s Settings) *App {
 		Domain:     s.Sessions.Domain,
 	})
 
+	bundle := buildBundle(s, logger)
+
 	*a = App{
 		Router:   router.New(),
 		Settings: s,
@@ -87,6 +92,8 @@ func NewFrom(s Settings) *App {
 		Started:  time.Now(),
 		sessions: store,
 		models:   defaultModels(s),
+		bundle:   bundle,
+		locales:  i18n.NewDetector(bundle, s.I18N.Cookie(), s.I18N.URLPrefix),
 	}
 
 	a.Uploads = uploadService(s)
@@ -121,6 +128,7 @@ func NewFrom(s Settings) *App {
 		middleware.SecureHeaders,
 	}
 	a.global = append(a.global, securityPolicies(s)...)
+	a.global = append(a.global, a.locales.Middleware)
 	if pages := a.pageCache(s); pages != nil {
 		a.global = append(a.global, pages)
 	}

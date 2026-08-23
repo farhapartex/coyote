@@ -40,6 +40,7 @@ func (a *App) Context(r *http.Request, data Data) Data {
 	data.SetDefault("Version", Version)
 	data.SetDefault("Debug", a.Settings.Debug)
 	data.SetDefault("Nonce", middleware.NonceFrom(r.Context()))
+	data.SetDefault("Locale", a.Locale(r))
 	if sess != nil {
 		data.SetDefault("Flashes", sess.Flashes())
 	}
