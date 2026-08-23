@@ -18,6 +18,10 @@ func (a *App) Run() error {
 }
 
 func (a *App) Serve() error {
+	if err := a.CheckCaches(context.Background()); err != nil {
+		return err
+	}
+
 	s := a.Settings
 	a.server = &http.Server{
 		Addr:              s.Addr(),
