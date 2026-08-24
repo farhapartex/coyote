@@ -7,6 +7,7 @@ import (
 	"github.com/farhapartex/coyote/contrib/accounts"
 	"github.com/farhapartex/coyote/contrib/admin"
 	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/session"
 	"github.com/farhapartex/coyote/core/view"
@@ -28,12 +29,12 @@ func main() {
 	})
 
 	application.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {
-		application.Render(w, r, "pages/home.html", view.Data{"Title": "Home", "HideNav": true})
+		application.Render(w, r, "pages/home.html", view.Data{"Title": i18n.T(r.Context(), "Home"), "HideNav": true})
 	}).Named("home")
 
 	application.Get("/about", func(w http.ResponseWriter, r *http.Request) {
 		application.Render(w, r, "pages/about.html", view.Data{
-			"Title":        "About",
+			"Title":        i18n.T(r.Context(), "About"),
 			"DatabaseName": application.Settings.Database().Name,
 		})
 	}).Named("about")
@@ -42,7 +43,7 @@ func main() {
 		sess := session.FromRequest(r)
 		notes, _ := sess.Get("notes").([]string)
 		application.Render(w, r, "pages/notes.html", view.Data{
-			"Title": "Session notes",
+			"Title": i18n.T(r.Context(), "Session notes"),
 			"Notes": notes,
 		})
 	}, application.CSRF).Named("notes")
@@ -54,24 +55,27 @@ func main() {
 		}
 		note := r.PostForm.Get("note")
 		if note == "" {
-			view.Flash(r, "error", "Write something first.")
+			view.Flash(r, "error", i18n.T(r.Context(), "Write something first."))
 			view.Redirect(w, r, "/notes")
 			return
 		}
 		sess := session.FromRequest(r)
 		notes, _ := sess.Get("notes").([]string)
 		sess.Set("notes", append(notes, note))
-		view.Flash(r, "success", "Note saved to your session.")
+		view.Flash(r, "success", i18n.T(r.Context(), "Note saved to your session."))
 		view.Redirect(w, r, "/notes")
 	}, application.CSRF)
 
 	private := application.Group("/me", application.Auth.RequireLogin(application.Settings.Auth.LoginURL))
 	private.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		application.Render(w, r, "pages/profile.html", view.Data{"Title": "Your profile"})
+		application.Render(w, r, "pages/profile.html", view.Data{"Title": i18n.T(r.Context(), "Your profile")})
 	})
 
 	reports := application.Group("/reports", application.Auth.RequirePermission("products.read"))
 	reports.Get("/{$}", reportHandler(application)).Named("reports")
+
+	application.Get("/locale", application.Locales().SwitchHandler("/"))
+	application.Post("/locale", application.Locales().SwitchHandler("/"), application.CSRF)
 
 	application.Get("/cached", cachedPage(application), application.CSRF).Named("cached")
 	application.Post("/cached", cachedSave(application), application.CSRF)

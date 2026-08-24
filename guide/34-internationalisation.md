@@ -232,6 +232,29 @@ active. `SwitchHandler` writes the cookie, refuses a locale you do not support, 
 to `next` — checked to be a same-origin path, so it cannot be turned into an open redirect. With URL
 prefixes on it also moves them to the same page under the new locale.
 
+### A picker in the nav costs you the page cache
+
+The form above works, and if your nav is shared by every page it will quietly disable
+[page caching](33-caching.md) across the whole site. `{{.CSRFToken}}` mints a token, minting writes the
+session, writing sets a cookie, and the page cache refuses to store any response that sets one.
+
+For a language switch the answer is a plain link, because changing your own language is not an action
+that needs protecting:
+
+```go
+a.Get("/locale", a.Locales().SwitchHandler("/"))
+```
+
+```html
+{{$path := .Path}}
+{{range .Locale.Available}}
+  <a href="/locale?locale={{.Tag}}&next={{$path}}"{{if .Active}} class="on"{{end}}>{{.Name}}</a>
+{{end}}
+```
+
+`SwitchHandler` reads the locale from the query as well as the form, so the same handler serves both.
+Keep the POST form for anything that really is a state change, and keep it off pages you want cached.
+
 ## Missing translations
 
 Resolution runs **active locale → fallback chain → the source string**. It never renders an empty
@@ -463,6 +486,21 @@ type Catalog interface {
 Implement `Loader` to read translations from a database, an API, or JSON, and set `I18N.Loader`. A
 `false` second return means "not translated here", which is what makes the fallback chain work — do not
 return an empty string instead.
+
+## In the example app
+
+`example/` exercises all of it: `en`, `fr` and `ar` with embedded catalogs, a language picker in the
+nav, `{{.Locale.N}}` on the notes page, `{{.Locale.DateTime}}` on the profile, and `/about` under the
+page cache so you can watch `X-Cache` stay separate per language.
+
+```
+cd example && go run .
+curl -si -H "Accept-Language: fr" http://127.0.0.1:8081/about | grep -i x-cache
+```
+
+Arabic is worth a look for two reasons: the layout flips to right-to-left, and the notes count uses the
+**dual** form for exactly two — `ملاحظتان` rather than a plural — straight out of the six-form rule in
+`ar.po`.
 
 ## Not here yet
 

@@ -91,9 +91,9 @@ cd example
 go run .
 ```
 
-Serves on `127.0.0.1:8000` with a small site, two managed models, and the admin portal. It reads
-`PORT`, `HOST`, `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS` and `DB_NAME` from the environment, so
-`PORT=9000 go run .` works.
+Serves on `127.0.0.1:8081` with a small site, two managed models, the admin portal, caching, and
+English, French and Arabic. It reads `PORT`, `HOST`, `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `DB_NAME`,
+`REDIS_ADDR` and `TZ_NAME` from the environment, so `PORT=9000 go run .` works.
 
 ## Tests
 

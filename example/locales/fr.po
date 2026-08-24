@@ -1,0 +1,133 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Coyote example\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "%d note in this session"
+msgid_plural "%d notes in this session"
+msgstr[0] "%d note dans cette session"
+msgstr[1] "%d notes dans cette session"
+
+msgid "A session-first web framework for Go, shaped like Django but sized for the standard library."
+msgstr "Un framework web pour Go centré sur les sessions, façonné comme Django mais taillé pour la bibliothèque standard."
+
+msgid "About"
+msgstr "À propos"
+
+msgid "Active"
+msgstr "Actif"
+
+msgid "Add"
+msgstr "Ajouter"
+
+msgid "Anything you add here is kept in your session on the server until it expires."
+msgstr "Tout ce que vous ajoutez ici est conservé dans votre session sur le serveur jusqu’à son expiration."
+
+msgid "Built with Coyote v%s"
+msgstr "Propulsé par Coyote v%s"
+
+msgid "Cache"
+msgstr "Cache"
+
+msgid "Coyote is Django-shaped, but Go-sized."
+msgstr "Coyote a la forme de Django, mais la taille de Go."
+
+msgid "Email"
+msgstr "E-mail"
+
+msgid "Home"
+msgstr "Accueil"
+
+msgid "Last login"
+msgstr "Dernière connexion"
+
+msgid "Log in"
+msgstr "Connexion"
+
+msgid "Log out"
+msgstr "Déconnexion"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "No notes in this session yet."
+msgstr "Aucune note dans cette session pour le moment."
+
+msgid "Notes"
+msgstr "Notes"
+
+msgid "Session expires"
+msgstr "La session expire le"
+
+msgid "Session notes"
+msgstr "Notes de session"
+
+msgid "Session started"
+msgstr "Session démarrée le"
+
+msgid "Superadmin"
+msgstr "Super-administrateur"
+
+msgid "This page is only reachable when a session is authenticated."
+msgstr "Cette page n’est accessible qu’avec une session authentifiée."
+
+msgid "Username"
+msgstr "Nom d’utilisateur"
+
+msgid "Write a note"
+msgstr "Écrivez une note"
+
+msgid "Your profile"
+msgstr "Votre profil"
+
+msgid "never"
+msgstr "jamais"
+
+msgid "January"
+msgstr "janvier"
+
+msgid "February"
+msgstr "février"
+
+msgid "March"
+msgstr "mars"
+
+msgid "April"
+msgstr "avril"
+
+msgid "May"
+msgstr "mai"
+
+msgid "June"
+msgstr "juin"
+
+msgid "July"
+msgstr "juillet"
+
+msgid "August"
+msgstr "août"
+
+msgid "September"
+msgstr "septembre"
+
+msgid "October"
+msgstr "octobre"
+
+msgid "November"
+msgstr "novembre"
+
+msgid "December"
+msgstr "décembre"
+
+msgid "Note saved to your session."
+msgstr "Note enregistrée dans votre session."
+
+msgid "Product report"
+msgstr "Rapport produits"
+
+msgid "Write something first."
+msgstr "Écrivez d’abord quelque chose."

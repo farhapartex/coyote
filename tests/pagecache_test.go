@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/farhapartex/coyote/core/app"
@@ -276,5 +277,47 @@ func TestPageCacheValidationRejectsARelativePath(t *testing.T) {
 	})...)
 	if err == nil || !strings.Contains(err.Error(), "must start with") {
 		t.Errorf("error = %v, want a complaint about the path", err)
+	}
+}
+
+func TestPageCacheIsLostByACSRFTokenInASharedPartial(t *testing.T) {
+	templates := fstest.MapFS{
+		"layouts/base.html": &fstest.MapFile{Data: []byte(
+			`{{define "base.html"}}{{template "nav.html" .}}{{block "content" .}}{{end}}{{end}}`)},
+		"partials/nav.html": &fstest.MapFile{Data: []byte(
+			`{{define "nav.html"}}<nav>menu</nav>{{end}}`)},
+		"partials/form.html": &fstest.MapFile{Data: []byte(
+			`{{define "form.html"}}<form><input value="{{.CSRFToken}}"></form>{{end}}`)},
+		"pages/plain.html": &fstest.MapFile{Data: []byte(`{{define "content"}}<p>plain</p>{{end}}`)},
+		"pages/withform.html": &fstest.MapFile{Data: []byte(
+			`{{define "content"}}{{template "form.html" .}}{{end}}`)},
+	}
+
+	a := newTestApp(t, func(s *settings.Settings) {
+		s.Templates.FS = templates
+		s.Templates.Layout = "layouts/base.html"
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute}
+	})
+	a.Get("/plain", func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/plain.html", app.Data{})
+	})
+	a.Get("/withform", func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/withform.html", app.Data{})
+	})
+
+	status := func(target string) string {
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		return rec.Header().Get(middleware.CacheStatusHeader)
+	}
+
+	status("/plain")
+	if got := status("/plain"); got != middleware.CacheHit {
+		t.Errorf("a page with no token should cache, got %q", got)
+	}
+
+	status("/withform")
+	if got := status("/withform"); got == middleware.CacheHit {
+		t.Error("a page that mints a CSRF token sets a cookie, so it must never be cached")
 	}
 }

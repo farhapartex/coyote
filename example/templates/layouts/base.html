@@ -13,7 +13,7 @@
     {{range .Flashes}}<div class="flash {{.Kind}}">{{.Message}}</div>{{end}}
     {{block "content" .}}{{end}}
   </main>
-  <footer>Built with Coyote v{{.Version}}</footer>
+  <footer>{{.Locale.Tf "Built with Coyote v%s" .Version}}</footer>
 </body>
 </html>
 {{end}}

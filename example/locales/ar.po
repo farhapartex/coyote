@@ -1,0 +1,101 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Coyote example\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+msgid "%d note in this session"
+msgid_plural "%d notes in this session"
+msgstr[0] "لا ملاحظات في هذه الجلسة"
+msgstr[1] "ملاحظة واحدة في هذه الجلسة"
+msgstr[2] "ملاحظتان في هذه الجلسة"
+msgstr[3] "%d ملاحظات في هذه الجلسة"
+msgstr[4] "%d ملاحظة في هذه الجلسة"
+msgstr[5] "%d ملاحظة في هذه الجلسة"
+
+msgid "A session-first web framework for Go, shaped like Django but sized for the standard library."
+msgstr "إطار عمل للويب بلغة Go يعتمد على الجلسات، بشكل جانغو وبحجم المكتبة القياسية."
+
+msgid "About"
+msgstr "حول"
+
+msgid "Active"
+msgstr "نشط"
+
+msgid "Add"
+msgstr "إضافة"
+
+msgid "Anything you add here is kept in your session on the server until it expires."
+msgstr "كل ما تضيفه هنا يُحفظ في جلستك على الخادم حتى انتهاء صلاحيتها."
+
+msgid "Built with Coyote v%s"
+msgstr "بُني بواسطة Coyote v%s"
+
+msgid "Cache"
+msgstr "الذاكرة المؤقتة"
+
+msgid "Coyote is Django-shaped, but Go-sized."
+msgstr "‏Coyote بشكل جانغو، وبحجم Go."
+
+msgid "Email"
+msgstr "البريد الإلكتروني"
+
+msgid "Home"
+msgstr "الرئيسية"
+
+msgid "Last login"
+msgstr "آخر تسجيل دخول"
+
+msgid "Log in"
+msgstr "تسجيل الدخول"
+
+msgid "Log out"
+msgstr "تسجيل الخروج"
+
+msgid "Name"
+msgstr "الاسم"
+
+msgid "No notes in this session yet."
+msgstr "لا توجد ملاحظات في هذه الجلسة بعد."
+
+msgid "Notes"
+msgstr "الملاحظات"
+
+msgid "Session expires"
+msgstr "تنتهي الجلسة"
+
+msgid "Session notes"
+msgstr "ملاحظات الجلسة"
+
+msgid "Session started"
+msgstr "بدأت الجلسة"
+
+msgid "Superadmin"
+msgstr "مدير عام"
+
+msgid "This page is only reachable when a session is authenticated."
+msgstr "هذه الصفحة متاحة فقط عند وجود جلسة موثّقة."
+
+msgid "Username"
+msgstr "اسم المستخدم"
+
+msgid "Write a note"
+msgstr "اكتب ملاحظة"
+
+msgid "Your profile"
+msgstr "ملفك الشخصي"
+
+msgid "never"
+msgstr "أبدًا"
+
+msgid "Note saved to your session."
+msgstr "تم حفظ الملاحظة في جلستك."
+
+msgid "Product report"
+msgstr "تقرير المنتجات"
+
+msgid "Write something first."
+msgstr "اكتب شيئًا أولاً."
