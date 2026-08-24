@@ -1,5 +1,5 @@
 {{define "base.html"}}<!doctype html>
-<html lang="en">
+<html lang="{{.Locale.Tag}}" dir="{{.Locale.Direction}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,7 +13,7 @@
     {{range .Flashes}}<div class="flash {{.Kind}}">{{.Message}}</div>{{end}}
     {{block "content" .}}{{end}}
   </main>
-  <footer>Built with Coyote v{{.Version}}</footer>
+  <footer>{{.Locale.Tf "Built with Coyote v%s" .Version}}</footer>
 </body>
 </html>
 {{end}}

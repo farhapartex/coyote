@@ -220,6 +220,12 @@ The `Set-Cookie` rule is the one doing the real work. Sessions are written
 emits no cookie and is cacheable, while anything that touched a session emits one and is not.
 Personalised pages exclude themselves without you configuring anything.
 
+**The corollary catches people out:** `{{.CSRFToken}}` mints a token, which writes the session, which
+sets a cookie. So a page carrying a form is never cached — correct, but if the form lives in a partial
+that every page shares, such as a search box or a language picker in the nav, you have turned page
+caching off for the whole site. Keep CSRF-protected forms out of shared partials, or accept that those
+pages are uncacheable.
+
 `Vary` is honoured: the response's `Vary` header names are recorded, and the body is keyed by those
 request headers, so two languages get two entries. `Vary: *` is never cached. A `max-age` or `s-maxage`
 on the response overrides the policy TTL.

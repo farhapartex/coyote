@@ -1,9 +1,9 @@
-{{define "title"}}{{if .IsNew}}Add user{{else}}Edit user{{end}}{{end}}
+{{define "title"}}{{if .IsNew}}{{.Locale.T "Add user"}}{{else}}{{.Locale.T "Edit user"}}{{end}}{{end}}
 
 {{define "content"}}
 <div class="page-head">
-  <h2>{{if .IsNew}}Add user{{else}}Edit {{.Form.Username}}{{end}}</h2>
-  <a class="btn secondary" href="{{.Prefix}}/users">Back to users</a>
+  <h2>{{if .IsNew}}{{.Locale.T "Add user"}}{{else}}{{.Locale.Tf "Edit %s" .Form.Username}}{{end}}</h2>
+  <a class="btn secondary" href="{{.Prefix}}/users">{{.Locale.T "Back to users"}}</a>
 </div>
 
 {{if .Error}}<div class="flash error">{{.Error}}</div>{{end}}
@@ -13,52 +13,52 @@
     <form method="post" action="{{if .IsNew}}{{.Prefix}}/users/new{{else}}{{.Prefix}}/users/{{.Form.ID}}{{end}}" class="stack">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
-      <label>Username
+      <label>{{.Locale.T "Username"}}
         <input type="text" name="username" value="{{.Form.Username}}" autocomplete="off" required>
       </label>
       <div class="pair">
-        <label>First name
+        <label>{{.Locale.T "First name"}}
           <input type="text" name="first_name" value="{{.Form.FirstName}}" autocomplete="off">
         </label>
-        <label>Last name
+        <label>{{.Locale.T "Last name"}}
           <input type="text" name="last_name" value="{{.Form.LastName}}" autocomplete="off">
         </label>
       </div>
-      <label>Email
+      <label>{{.Locale.T "Email"}}
         <input type="email" name="email" value="{{.Form.Email}}" autocomplete="off">
       </label>
       {{if or .IsNew .AllowPasswordChange}}
-      <label>{{if .IsNew}}Password{{else}}New password{{end}}
+      <label>{{if .IsNew}}{{.Locale.T "Password"}}{{else}}{{.Locale.T "New password"}}{{end}}
         <input type="password" name="password" autocomplete="new-password" {{if .IsNew}}required{{end}}>
-        {{if not .IsNew}}<span class="hint muted" style="font-weight:400;font-size:12px">Leave blank to keep the current password. Changing it signs the user out everywhere.</span>{{end}}
+        {{if not .IsNew}}<span class="hint muted" style="font-weight:400;font-size:12px">{{.Locale.T "Leave blank to keep the current password. Changing it signs the user out everywhere."}}</span>{{end}}
       </label>
       {{end}}
 
       <div class="checks">
         {{if eq .User.ID .Form.ID}}
         <p class="muted" style="font-size:13px;margin:0 0 10px">
-          You are editing your own account, so role and status fields are locked.
+          {{.Locale.T "You are editing your own account, so role and status fields are locked."}}
         </p>
         {{else}}
         <label>
           <input type="checkbox" name="is_active" value="1" {{if .Form.IsActive}}checked{{end}}>
-          <span>Active<span class="hint">Inactive accounts cannot log in.</span></span>
+          <span>{{.Locale.T "Active"}}<span class="hint">{{.Locale.T "Inactive accounts cannot log in."}}</span></span>
         </label>
         <label>
           <input type="checkbox" name="is_staff" value="1" {{if .Form.IsStaff}}checked{{end}}>
-          <span>Staff<span class="hint">Can sign in to this admin portal.</span></span>
+          <span>{{.Locale.T "Staff"}}<span class="hint">{{.Locale.T "Can sign in to this admin portal."}}</span></span>
         </label>
         <label>
           <input type="checkbox" name="is_superadmin" value="1" {{if .Form.IsSuperadmin}}checked{{end}}>
-          <span>Superadmin<span class="hint">Full permissions, and always counts as staff.</span></span>
+          <span>{{.Locale.T "Superadmin"}}<span class="hint">{{.Locale.T "Full permissions, and always counts as staff."}}</span></span>
         </label>
         {{end}}
       </div>
 
       {{if .Roles}}
-      <h3 style="margin:20px 0 8px;font-size:15px">Roles</h3>
+      <h3 style="margin:20px 0 8px;font-size:15px">{{.Locale.T "Roles"}}</h3>
       {{if eq .User.ID .Form.ID}}
-      <p class="muted" style="font-size:13px;margin:0">You cannot change your own roles.</p>
+      <p class="muted" style="font-size:13px;margin:0">{{.Locale.T "You cannot change your own roles."}}</p>
       {{else}}
       <div class="checks">
         {{range .Roles}}
@@ -72,11 +72,11 @@
       {{end}}
 
       <div class="actions">
-        <button class="btn" type="submit">{{if .IsNew}}Create user{{else}}Save changes{{end}}</button>
-        <a class="btn secondary" href="{{.Prefix}}/users">Cancel</a>
+        <button class="btn" type="submit">{{if .IsNew}}{{.Locale.T "Create user"}}{{else}}{{.Locale.T "Save changes"}}{{end}}</button>
+        <a class="btn secondary" href="{{.Prefix}}/users">{{.Locale.T "Cancel"}}</a>
         <span class="spacer"></span>
         {{if not .IsNew}}
-        <span class="muted mono" style="font-size:12px">id {{.Form.ID}}</span>
+        <span class="muted mono" style="font-size:12px">{{.Locale.Tf "id %s" .Form.ID}}</span>
         {{end}}
       </div>
     </form>

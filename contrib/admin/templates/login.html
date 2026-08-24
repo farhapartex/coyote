@@ -1,4 +1,4 @@
-{{define "title"}}Log in{{end}}
+{{define "title"}}{{.Locale.T "Log in"}}{{end}}
 
 {{define "body"}}
 <div class="login-wrap">
@@ -16,13 +16,13 @@
       <form method="post" action="{{.Prefix}}/login" class="stack">
         <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
         <input type="hidden" name="next" value="{{.Next}}">
-        <label>Username
+        <label>{{.Locale.T "Username"}}
           <input type="text" name="username" value="{{.Username}}" autocomplete="username" autofocus required>
         </label>
-        <label>Password
+        <label>{{.Locale.T "Password"}}
           <input type="password" name="password" autocomplete="current-password" required>
         </label>
-        <button class="btn" type="submit" style="width:100%">Log in</button>
+        <button class="btn" type="submit" style="width:100%">{{.Locale.T "Log in"}}</button>
       </form>
     </div>
   </div>

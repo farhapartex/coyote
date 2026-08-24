@@ -1,28 +1,28 @@
 {{define "content"}}
 <div class="card">
-  <h1>Create an account</h1>
+  <h1>{{.Locale.T "Create an account"}}</h1>
   {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
   <form method="post" action="{{.Prefix}}/register">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
     <div class="row">
-      <label>First name
+      <label>{{.Locale.T "First name"}}
         <input type="text" name="first_name" value="{{.Form.FirstName}}" autocomplete="given-name">
       </label>
-      <label>Last name
+      <label>{{.Locale.T "Last name"}}
         <input type="text" name="last_name" value="{{.Form.LastName}}" autocomplete="family-name">
       </label>
     </div>
-    <label>Username
+    <label>{{.Locale.T "Username"}}
       <input type="text" name="username" value="{{.Form.Username}}" autocomplete="username" required>
     </label>
-    <label>Email
+    <label>{{.Locale.T "Email"}}
       <input type="email" name="email" value="{{.Form.Email}}" autocomplete="email">
     </label>
-    <label>Password
+    <label>{{.Locale.T "Password"}}
       <input type="password" name="password" autocomplete="new-password" required>
     </label>
-    <button type="submit">Create account</button>
+    <button type="submit">{{.Locale.T "Create account"}}</button>
   </form>
 </div>
-<p class="foot muted">Already have one? <a href="{{.Prefix}}/login">Sign in</a>.</p>
+<p class="foot muted">{{.Locale.T "Already have one?"}} <a href="{{.Prefix}}/login">{{.Locale.T "Sign in"}}</a>.</p>
 {{end}}

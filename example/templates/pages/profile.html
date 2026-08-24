@@ -1,22 +1,22 @@
 {{define "content"}}
-<h1>Your profile</h1>
-<p class="lead">This page is only reachable when a session is authenticated.</p>
+<h1>{{.Locale.T "Your profile"}}</h1>
+<p class="lead">{{.Locale.T "This page is only reachable when a session is authenticated."}}</p>
 
 <div class="card">
   <table>
-    <tr><td>Username</td><td>{{.User.Username}}</td></tr>
-    <tr><td>Name</td><td>{{with .User.FullName}}{{.}}{{else}}—{{end}}</td></tr>
-    <tr><td>Email</td><td>{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}</td></tr>
-    <tr><td>Active</td><td>{{.User.IsActive}}</td></tr>
-    <tr><td>Superadmin</td><td>{{.User.IsSuperadmin}}</td></tr>
-    <tr><td>Last login</td><td>{{if .User.HasLoggedIn}}{{.User.LastLoginAt.Format "2 Jan 2006 15:04:05"}}{{else}}never{{end}}</td></tr>
-    <tr><td>Session started</td><td>{{.Session.CreatedAt.Format "2 Jan 2006 15:04:05"}}</td></tr>
-    <tr><td>Session expires</td><td>{{.Session.ExpiresAt.Format "2 Jan 2006 15:04:05"}}</td></tr>
+    <tr><td>{{.Locale.T "Username"}}</td><td>{{.User.Username}}</td></tr>
+    <tr><td>{{.Locale.T "Name"}}</td><td>{{with .User.FullName}}{{.}}{{else}}—{{end}}</td></tr>
+    <tr><td>{{.Locale.T "Email"}}</td><td>{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}</td></tr>
+    <tr><td>{{.Locale.T "Active"}}</td><td>{{.User.IsActive}}</td></tr>
+    <tr><td>{{.Locale.T "Superadmin"}}</td><td>{{.User.IsSuperadmin}}</td></tr>
+    <tr><td>{{.Locale.T "Last login"}}</td><td>{{if .User.HasLoggedIn}}{{.Locale.DateTime .User.LastLoginAt}}{{else}}{{.Locale.T "never"}}{{end}}</td></tr>
+    <tr><td>{{.Locale.T "Session started"}}</td><td>{{.Locale.DateTime .Session.CreatedAt}}</td></tr>
+    <tr><td>{{.Locale.T "Session expires"}}</td><td>{{.Locale.DateTime .Session.ExpiresAt}}</td></tr>
   </table>
 </div>
 
 <form method="post" action="/admin/logout">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-  <button type="submit">Log out</button>
+  <button type="submit">{{.Locale.T "Log out"}}</button>
 </form>
 {{end}}

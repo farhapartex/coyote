@@ -27,7 +27,8 @@ func Registered() []Command { return extra }
 
 func Default() *Registry {
 	registry := NewRegistry(Start{}, MigrateFromEnv(), MakeMigrations{Label: os.Getenv(EnvName)},
-		SQLMigrate{}, CreateSuperadmin{}, SyncPermissions{}, CollectStatic{}, RollbackFromEnv(), Shell{}, DBShell{})
+		SQLMigrate{}, CreateSuperadmin{}, SyncPermissions{}, CollectStatic{}, RollbackFromEnv(), Shell{}, DBShell{},
+		MakeMessagesFromEnv(), CheckMessagesFromEnv())
 	registry.Add(extra...)
 	return registry
 }

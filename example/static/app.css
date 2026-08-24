@@ -104,3 +104,15 @@ button:hover { background: var(--brand-dark); }
 ol, ul { padding-left: 22px; }
 li { margin: 4px 0; }
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px; }
+
+.langs { display: inline-flex; gap: 4px; margin-inline-start: 12px; }
+.langs a {
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid #d8e2e8;
+  border-radius: 999px;
+  background: #fff;
+  text-decoration: none;
+}
+.langs a.on { background: #00add8; border-color: #00add8; color: #fff; cursor: default; }

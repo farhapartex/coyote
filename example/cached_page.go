@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -27,7 +28,7 @@ func cachedPage(a *app.App) http.HandlerFunc {
 		}
 
 		a.Render(w, r, "pages/cached.html", view.Data{
-			"Title":  "Cache",
+			"Title":  i18n.T(r.Context(), "Cache"),
 			"Value":  string(stored),
 			"Found":  found,
 			"Pages":  fromPages,

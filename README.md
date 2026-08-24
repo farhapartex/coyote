@@ -48,6 +48,8 @@ func main() {
   limiting, CORS, gzip, HSTS, and Let's Encrypt certificates.
 - **Caching** — one interface over memory, disk or Redis, with `Remember`, template fragments, whole
   pages and query results. The Redis client is standard library, so it costs no dependency.
+- **Internationalisation** — gettext catalogs, plural rules read from each translator's own file,
+  locale detection, and an admin portal that is already translated and right-to-left correct.
 - **One CLI** — `makemigrations`, `migrate`, `createsuperadmin`, `start`, pinned to your project as
   a Go tool.
 
@@ -89,9 +91,9 @@ cd example
 go run .
 ```
 
-Serves on `127.0.0.1:8000` with a small site, two managed models, and the admin portal. It reads
-`PORT`, `HOST`, `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS` and `DB_NAME` from the environment, so
-`PORT=9000 go run .` works.
+Serves on `127.0.0.1:8081` with a small site, two managed models, the admin portal, caching, and
+English, French and Arabic. It reads `PORT`, `HOST`, `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `DB_NAME`,
+`REDIS_ADDR` and `TZ_NAME` from the environment, so `PORT=9000 go run .` works.
 
 ## Tests
 
@@ -106,4 +108,4 @@ Coyote is in active development on phase 1. Working today: settings, routing, se
 authentication and permissions, templates, forms, file uploads, pagination, migrations, caching, the
 admin portal, project scaffolding, and the security middleware above.
 
-Not here yet: internationalisation, email, full-text search, a swappable user model, and soft delete.
+Not here yet: email, full-text search, a swappable user model, and soft delete.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/form"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/store"
 	"github.com/farhapartex/coyote/core/upload"
@@ -131,7 +132,7 @@ func (a *Admin) resourceCreate(entry managed) http.HandlerFunc {
 			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, "", map[string]string{"": err.Error()})
 			return
 		}
-		view.Success(r, entry.schema.Label+" created.")
+		view.Success(r, i18n.Tf(r.Context(), "%s created.", entry.schema.Label))
 		view.Redirect(w, r, a.prefix+"/"+entry.Slug())
 	}
 }
@@ -172,7 +173,7 @@ func (a *Admin) resourceUpdate(entry managed) http.HandlerFunc {
 			a.renderForm(w, r, http.StatusBadRequest, entry, bound.Record, id, map[string]string{"": err.Error()})
 			return
 		}
-		view.Success(r, entry.schema.Label+" updated.")
+		view.Success(r, i18n.Tf(r.Context(), "%s updated.", entry.schema.Label))
 		view.Redirect(w, r, a.prefix+"/"+entry.Slug())
 	}
 }
@@ -190,7 +191,7 @@ func (a *Admin) resourceDelete(entry managed) http.HandlerFunc {
 			}
 			view.Error(r, err.Error())
 		} else {
-			view.Success(r, entry.schema.Label+" deleted.")
+			view.Success(r, i18n.Tf(r.Context(), "%s deleted.", entry.schema.Label))
 		}
 		view.Redirect(w, r, a.prefix+"/"+entry.Slug())
 	}

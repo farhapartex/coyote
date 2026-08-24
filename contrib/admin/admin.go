@@ -5,10 +5,11 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/template"
 )
 
-//go:embed templates assets
+//go:embed templates assets locales
 var templateFS embed.FS
 
 type Admin struct {
@@ -46,6 +47,7 @@ func Mount(application *app.App) *Admin {
 	a.router = group
 
 	a.routes(group, prefix+"/login")
+	i18n.Layer(application.Bundle(), templateFS, "locales")
 
 	return a
 }

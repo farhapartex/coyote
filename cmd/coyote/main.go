@@ -49,6 +49,10 @@ func run(args []string) error {
 		return collectStatic(rest)
 	case cli.NameMakeMigrations:
 		return makeMigrations(rest)
+	case cli.NameMakeMessages:
+		return makeMessages(rest)
+	case cli.NameCheckMessages:
+		return checkMessages(rest)
 	case cli.NameSQLMigrate:
 		return sqlMigrate(rest)
 	case cli.NameCreateSuperadmin:

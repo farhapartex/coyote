@@ -194,6 +194,13 @@ contrib/admin  resource interfaces, registry, generic handlers, two templates
 The admin depends only on `model.Store`, never on `core/store`, so a different backend is a matter
 of supplying another implementation. One list template and one form template serve every resource.
 
+## In other languages
+
+Every string in the portal goes through the framework's translation layer, and a French catalog ships
+with it. Add `fr` to `I18N.Supported` and the portal is in French; supply your own catalog entry for a
+message id to override one of ours. The layout is right-to-left correct for Arabic, Hebrew and the rest.
+See [Internationalisation](34-internationalisation.md).
+
 ## Next
 
 [Middleware →](16-middleware.md)

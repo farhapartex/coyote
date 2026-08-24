@@ -10,6 +10,8 @@ commands:
   startapp <name>   scaffold a feature package under internal/
   start             build and run the project in the current directory
   makemigrations    write a migration file for changes to your models
+  makemessages      extract translatable text into your catalogs
+  checkmessages     report missing, fuzzy or obsolete translations
   migrate           apply migrations that have not been applied yet
   sqlmigrate        print the SQL a pending migration would run
   rollback          undo the most recently applied migration
@@ -42,6 +44,10 @@ flags for rollback:
 
 flags for makemigrations:
   --name=NAME       name the generated migration instead of guessing one
+
+flags for makemessages and checkmessages:
+  --locale=TAG      work on one locale instead of every supported one
+  --strict          checkmessages only: fail on fuzzy and obsolete entries too
 
 flags for createsuperadmin:
   --username=U      skip the prompt for the username

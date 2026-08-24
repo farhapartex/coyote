@@ -1,10 +1,10 @@
 package admin
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/farhapartex/coyote/core/form"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -15,7 +15,7 @@ func (a *Admin) selected(w http.ResponseWriter, r *http.Request, back string) ([
 	}
 	ids := r.PostForm["ids"]
 	if len(ids) == 0 {
-		view.Flash(r, "error", "Nothing was selected.")
+		view.Flash(r, "error", i18n.T(r.Context(), "Nothing was selected."))
 		view.Redirect(w, r, back)
 		return nil, false
 	}
@@ -29,7 +29,7 @@ func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.PostForm.Get("action") != DeleteAction {
-		view.Flash(r, "error", "That action is not available.")
+		view.Flash(r, "error", i18n.T(r.Context(), "That action is not available."))
 		view.Redirect(w, r, back)
 		return
 	}
@@ -42,7 +42,7 @@ func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if err := a.app.Auth.Users().Delete(id); err != nil {
-			view.Flash(r, "error", fmt.Sprintf("Deleted %d, then stopped: %s", deleted, humanize(err)))
+			view.Flash(r, "error", i18n.Tf(r.Context(), "Deleted %d, then stopped: %s", deleted, humanize(r.Context(), err)))
 			view.Redirect(w, r, back)
 			return
 		}
@@ -50,9 +50,9 @@ func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 		deleted++
 	}
 
-	message := fmt.Sprintf("Deleted %d user(s).", deleted)
+	message := i18n.N(r.Context(), "Deleted %d user.", "Deleted %d users.", deleted)
 	if skipped > 0 {
-		message += " Your own account was left alone."
+		message += " " + i18n.T(r.Context(), "Your own account was left alone.")
 	}
 	view.Success(r, message)
 	view.Redirect(w, r, back)
@@ -69,7 +69,7 @@ func (a *Admin) roleBulk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.PostForm.Get("action") != DeleteAction {
-		view.Flash(r, "error", "That action is not available.")
+		view.Flash(r, "error", i18n.T(r.Context(), "That action is not available."))
 		view.Redirect(w, r, back)
 		return
 	}
@@ -77,13 +77,13 @@ func (a *Admin) roleBulk(w http.ResponseWriter, r *http.Request) {
 	deleted := 0
 	for _, id := range ids {
 		if err := store.DeleteRole(id); err != nil {
-			view.Flash(r, "error", fmt.Sprintf("Deleted %d, then stopped: %s", deleted, humanize(err)))
+			view.Flash(r, "error", i18n.Tf(r.Context(), "Deleted %d, then stopped: %s", deleted, humanize(r.Context(), err)))
 			view.Redirect(w, r, back)
 			return
 		}
 		deleted++
 	}
-	view.Success(r, fmt.Sprintf("Deleted %d role(s).", deleted))
+	view.Success(r, i18n.N(r.Context(), "Deleted %d role.", "Deleted %d roles.", deleted))
 	view.Redirect(w, r, back)
 }
 
@@ -105,6 +105,6 @@ func (a *Admin) sessionBulk(w http.ResponseWriter, r *http.Request) {
 			revoked++
 		}
 	}
-	view.Success(r, fmt.Sprintf("Revoked %d session(s).", revoked))
+	view.Success(r, i18n.N(r.Context(), "Revoked %d session.", "Revoked %d sessions.", revoked))
 	view.Redirect(w, r, back)
 }

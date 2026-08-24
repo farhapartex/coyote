@@ -17,12 +17,19 @@ var templateFS embed.FS
 //go:embed static
 var staticFS embed.FS
 
+//go:embed locales
+var localeFS embed.FS
+
 func init() {
 	templates, err := fs.Sub(templateFS, "templates")
 	if err != nil {
 		log.Fatal(err)
 	}
 	static, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		log.Fatal(err)
+	}
+	locales, err := fs.Sub(localeFS, "locales")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,6 +72,13 @@ func init() {
 			TTL:     30 * time.Second,
 			Paths:   []string{"/about"},
 		}
+
+		s.I18N = settings.I18N{
+			Default:   "en",
+			Supported: []string{"en", "fr", "ar"},
+			FS:        locales,
+		}
+		s.TimeZone = settings.Env("TZ_NAME", "UTC")
 
 		s.Sessions.Lifetime = 8 * time.Hour
 		s.Sessions.Rolling = true

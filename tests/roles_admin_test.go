@@ -81,7 +81,7 @@ func TestRolesAreListedAndCreatedFromTheAdmin(t *testing.T) {
 	if !strings.Contains(body, "Widget viewer") {
 		t.Error("the new role should be listed")
 	}
-	if !strings.Contains(body, "1 granted") {
+	if !strings.Contains(body, "1 permission granted") {
 		t.Error("the list should show how many permissions the role carries")
 	}
 

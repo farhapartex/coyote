@@ -142,6 +142,8 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `AllowedHosts` | none | Required unless `Debug`. `"*"` allows any, `".example.com"` matches subdomains |
 | `Databases` | one SQLite entry at `<BaseDir>/coyote.db` | First entry is the default connection |
 | `Caches` | one in-memory entry | First entry is the default cache; see [Caching](33-caching.md) |
+| `I18N` | one locale, `en` | Locales, catalogs, detection; see [Internationalisation](34-internationalisation.md) |
+| `TimeZone` | `UTC` | Validated at startup; needs `time/tzdata` on a scratch image |
 | `PageCache` | off | Whole-page caching; see [Caching](33-caching.md) |
 | `Server.Host` | `127.0.0.1` | |
 | `Server.Port` | `8000` | |
@@ -219,6 +221,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 
 ## Next
 
+- [Internationalisation →](34-internationalisation.md) — the `I18N` group in detail
 - [Caching →](33-caching.md) — the `Caches` list in detail
 - [Databases →](11-database.md) — the `Databases` list in detail
 - [Routing →](05-routing.md)

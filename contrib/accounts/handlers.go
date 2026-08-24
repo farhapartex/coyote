@@ -1,11 +1,13 @@
 package accounts
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -15,7 +17,7 @@ func (a *Accounts) loginForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.render(w, r, http.StatusOK, "login.html", a.pages.Login, view.Data{
-		"Title": "Sign in",
+		"Title": i18n.T(r.Context(), "Sign in"),
 		"Next":  view.SafeNext(r.URL.Query().Get("next"), a.afterIn),
 	})
 }
@@ -30,15 +32,15 @@ func (a *Accounts) loginSubmit(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.app.Auth.AuthenticateRequest(r, username, r.PostForm.Get("password"))
 	if err != nil {
-		message, status := "Invalid username or password.", http.StatusUnauthorized
+		message, status := i18n.T(r.Context(), "Invalid username or password."), http.StatusUnauthorized
 		if errors.Is(err, auth.ErrInactiveAccount) {
-			message = "This account has been disabled."
+			message = i18n.T(r.Context(), "This account has been disabled.")
 		}
 		if errors.Is(err, auth.ErrTooManyAttempts) {
-			message, status = "Too many failed attempts. Try again later.", http.StatusTooManyRequests
+			message, status = i18n.T(r.Context(), "Too many failed attempts. Try again later."), http.StatusTooManyRequests
 		}
 		a.render(w, r, status, "login.html", a.pages.Login, view.Data{
-			"Title": "Sign in", "Error": message, "Username": username, "Next": next,
+			"Title": i18n.T(r.Context(), "Sign in"), "Error": message, "Username": username, "Next": next,
 		})
 		return
 	}
@@ -47,7 +49,7 @@ func (a *Accounts) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)
 		return
 	}
-	view.Success(r, "Welcome back, "+user.DisplayName()+".")
+	view.Success(r, i18n.Tf(r.Context(), "Welcome back, %s.", user.DisplayName()))
 	view.Redirect(w, r, next)
 }
 
@@ -65,7 +67,7 @@ func (a *Accounts) registerForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.render(w, r, http.StatusOK, "register.html", a.pages.Register, view.Data{
-		"Title": "Create an account",
+		"Title": i18n.T(r.Context(), "Create an account"),
 		"Form":  &auth.User{},
 	})
 }
@@ -92,7 +94,7 @@ func (a *Accounts) registerSubmit(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		a.render(w, r, http.StatusBadRequest, "register.html", a.pages.Register, view.Data{
-			"Title": "Create an account", "Form": form, "Error": humanize(err),
+			"Title": i18n.T(r.Context(), "Create an account"), "Form": form, "Error": humanize(r.Context(), err),
 		})
 		return
 	}
@@ -101,13 +103,13 @@ func (a *Accounts) registerSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)
 		return
 	}
-	view.Success(r, "Welcome, "+user.DisplayName()+".")
+	view.Success(r, i18n.Tf(r.Context(), "Welcome, %s.", user.DisplayName()))
 	view.Redirect(w, r, a.afterIn)
 }
 
 func (a *Accounts) profileForm(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, http.StatusOK, "profile.html", a.pages.Profile, view.Data{
-		"Title": "Your profile",
+		"Title": i18n.T(r.Context(), "Your profile"),
 		"Wide":  true,
 		"Form":  a.app.Auth.CurrentUser(r),
 	})
@@ -131,17 +133,17 @@ func (a *Accounts) profileSave(w http.ResponseWriter, r *http.Request) {
 
 	if err := a.app.Auth.Users().Update(updated); err != nil {
 		a.render(w, r, http.StatusBadRequest, "profile.html", a.pages.Profile, view.Data{
-			"Title": "Your profile", "Form": updated, "Error": humanize(err),
+			"Title": i18n.T(r.Context(), "Your profile"), "Form": updated, "Error": humanize(r.Context(), err),
 		})
 		return
 	}
-	view.Success(r, "Profile saved.")
+	view.Success(r, i18n.T(r.Context(), "Profile saved."))
 	view.Redirect(w, r, a.prefix+"/profile")
 }
 
 func (a *Accounts) passwordForm(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, http.StatusOK, "profile.html", a.pages.Profile, view.Data{
-		"Title": "Your profile",
+		"Title": i18n.T(r.Context(), "Your profile"),
 		"Wide":  true,
 		"Form":  a.app.Auth.CurrentUser(r),
 	})
@@ -160,7 +162,7 @@ func (a *Accounts) passwordSave(w http.ResponseWriter, r *http.Request) {
 
 	fail := func(message string) {
 		a.render(w, r, http.StatusBadRequest, "profile.html", a.pages.Profile, view.Data{
-			"Title": "Your profile", "Form": user, "PasswordError": message,
+			"Title": i18n.T(r.Context(), "Your profile"), "Form": user, "PasswordError": message,
 		})
 	}
 
@@ -171,36 +173,36 @@ func (a *Accounts) passwordSave(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case errors.Is(err, auth.ErrWrongPassword):
-		fail("Your current password is not right.")
+		fail(i18n.T(r.Context(), "Your current password is not right."))
 		return
 	case errors.Is(err, auth.ErrPasswordMismatch):
-		fail("The new passwords do not match.")
+		fail(i18n.T(r.Context(), "The new passwords do not match."))
 		return
 	case errors.Is(err, auth.ErrTooManyAttempts):
-		fail("Too many attempts. Try again later.")
+		fail(i18n.T(r.Context(), "Too many attempts. Try again later."))
 		return
 	case err != nil:
-		fail(humanize(err))
+		fail(humanize(r.Context(), err))
 		return
 	}
 
 	a.app.Auth.RevokeOtherSessions(r)
-	view.Success(r, "Password changed.")
+	view.Success(r, i18n.T(r.Context(), "Password changed."))
 	view.Redirect(w, r, a.prefix+"/profile")
 }
 
-func humanize(err error) string {
+func humanize(ctx context.Context, err error) string {
 	switch {
 	case errors.Is(err, auth.ErrUserExists):
-		return "That username is already taken."
+		return i18n.T(ctx, "That username is already taken.")
 	case errors.Is(err, auth.ErrEmailExists):
-		return "That email is already registered."
+		return i18n.T(ctx, "That email is already registered.")
 	case errors.Is(err, auth.ErrInvalidUser):
-		return "Usernames may use letters, digits, dots, hyphens and underscores."
+		return i18n.T(ctx, "Usernames may use letters, digits, dots, hyphens and underscores.")
 	case errors.Is(err, auth.ErrInvalidEmail):
-		return "That does not look like an email address."
+		return i18n.T(ctx, "That does not look like an email address.")
 	case errors.Is(err, auth.ErrPasswordRejected):
 		return strings.ReplaceAll(strings.ReplaceAll(err.Error(), "coyote/auth: ", ""), "\n", "; ")
 	}
-	return "Something went wrong. Please try again."
+	return i18n.T(ctx, "Something went wrong. Please try again.")
 }

@@ -36,6 +36,8 @@ type Settings struct {
 	Migrations Migrations
 	Sessions   Sessions
 	Auth       Auth
+	I18N       I18N
+	TimeZone   string
 	Templates  Templates
 	PageCache  PageCache
 	Pagination Pagination

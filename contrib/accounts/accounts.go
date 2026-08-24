@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/template"
 	"github.com/farhapartex/coyote/core/view"
 )
 
-//go:embed templates
+//go:embed templates locales
 var templateFS embed.FS
 
 type Options struct {
@@ -79,6 +80,8 @@ func Mount(application *app.App, opts Options) *Accounts {
 		group.Post("/register", a.registerSubmit)
 	}
 
+	i18n.Layer(application.Bundle(), templateFS, "locales")
+
 	guarded := group.Group("", application.Auth.RequireLogin(prefix+"/login"))
 	guarded.Get("/profile", a.profileForm)
 	guarded.Post("/profile", a.profileSave)
@@ -107,7 +110,7 @@ func (a *Accounts) render(w http.ResponseWriter, r *http.Request, status int, pa
 		return
 	}
 
-	a.app.Context(r, data)
+	data = a.app.Context(r, data)
 	if err := a.templates.Render(w, status, "templates/"+page, data); err != nil {
 		a.app.Logger.Error("accounts render failed", "page", page, "error", err)
 		http.Error(w, "500 internal server error", http.StatusInternalServerError)

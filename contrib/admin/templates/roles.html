@@ -1,19 +1,19 @@
-{{define "title"}}Roles{{end}}
+{{define "title"}}{{.Locale.T "Roles"}}{{end}}
 
 {{define "content"}}
 <div class="page-head">
-  <h2>Roles <span class="muted" style="font-size:15px;font-weight:400">({{len .Roles}})</span></h2>
-  <a class="btn" href="{{.Prefix}}/roles/new">Add role</a>
+  <h2>{{.Locale.T "Roles"}} <span class="muted" style="font-size:15px;font-weight:400">({{len .Roles}})</span></h2>
+  <a class="btn" href="{{.Prefix}}/roles/new">{{.Locale.T "Add role"}}</a>
 </div>
 
 <div class="card">
   {{if .Roles}}
   <form method="post" action="{{.Prefix}}/roles/bulk" id="bulk"
-        onsubmit="return this.action.value != '' && confirm('Apply to the selected rows?')">
+        onsubmit="return this.action.value != '' && confirm('{{.Locale.T "Apply to the selected rows?"}}')">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <table>
     <thead>
-      <tr><th style="width:1%"><input type="checkbox" onclick="for (const box of document.querySelectorAll('#bulk input[name=ids]')) box.checked = this.checked"></th><th>Name</th><th>Description</th><th>Permissions</th><th></th></tr>
+      <tr><th style="width:1%"><input type="checkbox" onclick="for (const box of document.querySelectorAll('#bulk input[name=ids]')) box.checked = this.checked"></th><th>{{.Locale.T "Name"}}</th><th>{{.Locale.T "Description"}}</th><th>{{.Locale.T "Permissions"}}</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Roles}}
@@ -21,12 +21,12 @@
         <td><input type="checkbox" name="ids" value="{{.ID}}"></td>
         <td><a href="{{$.Prefix}}/roles/{{.ID}}">{{.Name}}</a></td>
         <td class="muted">{{if .Description}}{{.Description}}{{else}}—{{end}}</td>
-        <td><span class="tag">{{index $.Counts .ID}} granted</span></td>
+        <td><span class="tag">{{$.Locale.N "%d permission granted" "%d permissions granted" (index $.Counts .ID)}}</span></td>
         <td class="right">
           <form method="post" action="{{$.Prefix}}/roles/{{.ID}}/delete" class="inline"
-                onsubmit="return confirm('Delete {{.Name}}? Anyone holding it loses those permissions.')">
+                onsubmit="return confirm('{{$.Locale.Tf "Delete %s? Anyone holding it loses those permissions." .Name}}')">
             <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <button class="btn danger" type="submit">Delete</button>
+            <button class="btn danger" type="submit">{{$.Locale.T "Delete"}}</button>
           </form>
         </td>
       </tr>
@@ -35,15 +35,15 @@
   </table>
   <div class="bulk">
     <select name="action">
-      <option value="">With selected…</option>
-      <option value="delete">Delete</option>
+      <option value="">{{.Locale.T "With selected…"}}</option>
+      <option value="delete">{{.Locale.T "Delete"}}</option>
     </select>
-    <button class="btn secondary" type="submit">Apply</button>
+    <button class="btn secondary" type="submit">{{.Locale.T "Apply"}}</button>
   </div>
   </form>
   {{else}}
   <p class="muted" style="padding:20px">
-    No roles yet. A role is a named bundle of permissions that you hand to staff accounts.
+    {{.Locale.T "No roles yet. A role is a named bundle of permissions that you hand to staff accounts."}}
   </p>
   {{end}}
 </div>

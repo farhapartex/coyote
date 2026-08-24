@@ -1,13 +1,13 @@
-{{define "title"}}Not found{{end}}
+{{define "title"}}{{.Locale.T "Not found"}}{{end}}
 
 {{define "content"}}
 <div class="page-head">
-  <h2>Not found</h2>
+  <h2>{{.Locale.T "Not found"}}</h2>
 </div>
 <div class="card">
   <div class="empty">
-    The record you asked for does not exist.<br><br>
-    <a class="btn secondary" href="{{.Prefix}}/">Back to dashboard</a>
+    {{.Locale.T "The record you asked for does not exist."}}<br><br>
+    <a class="btn secondary" href="{{.Prefix}}/">{{.Locale.T "Back to dashboard"}}</a>
   </div>
 </div>
 {{end}}

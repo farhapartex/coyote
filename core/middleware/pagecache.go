@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/cache"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/settings"
 )
 
@@ -73,6 +74,9 @@ func baseKey(r *http.Request) string {
 	key := pagePrefix + r.Method + ":" + r.Host + r.URL.Path
 	if r.URL.RawQuery != "" {
 		key += "?" + r.URL.RawQuery
+	}
+	if locale := i18n.From(r.Context()); locale != nil {
+		key += "#" + locale.Tag()
 	}
 	return key
 }

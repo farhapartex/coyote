@@ -4,15 +4,21 @@
 <header class="topbar">
   <a class="logo" href="/">coyote</a>
   <nav>
-    <a href="{{url "home"}}" class="{{if eq .Path "/"}}active{{end}}">Home</a>
-    <a href="{{url "notes"}}" class="{{if eq .Path "/notes"}}active{{end}}">Notes</a>
-    <a href="{{url "cached"}}" class="{{if eq .Path "/cached"}}active{{end}}">Cache</a>
-    <a href="{{url "about"}}" class="{{if eq .Path "/about"}}active{{end}}">About</a>
+    <a href="{{url "home"}}" class="{{if eq .Path "/"}}active{{end}}">{{.Locale.T "Home"}}</a>
+    <a href="{{url "notes"}}" class="{{if eq .Path "/notes"}}active{{end}}">{{.Locale.T "Notes"}}</a>
+    <a href="{{url "cached"}}" class="{{if eq .Path "/cached"}}active{{end}}">{{.Locale.T "Cache"}}</a>
+    <span class="langs">
+      {{$path := .Path}}
+      {{range .Locale.Available}}
+      <a href="/locale?locale={{.Tag}}&next={{$path}}"{{if .Active}} class="on"{{end}}>{{.Name}}</a>
+      {{end}}
+    </span>
+    <a href="{{url "about"}}" class="{{if eq .Path "/about"}}active{{end}}">{{.Locale.T "About"}}</a>
     {{if .User}}
       <a href="/me/">{{.User.Username}}</a>
       {{if .User.IsSuperadmin}}<a href="/admin/">Admin</a>{{end}}
     {{else}}
-      <a href="/admin/login">Log in</a>
+      <a href="/admin/login">{{.Locale.T "Log in"}}</a>
     {{end}}
   </nav>
 </header>

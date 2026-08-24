@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -110,13 +111,13 @@ func (a *Admin) roleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if role.Name == "" {
-		fail("A role needs a name.")
+		fail(i18n.T(r.Context(), "A role needs a name."))
 		return
 	}
 
 	if id == "" {
 		if err := store.CreateRole(role); err != nil {
-			fail(humanize(err))
+			fail(humanize(r.Context(), err))
 			return
 		}
 	} else {
@@ -128,7 +129,7 @@ func (a *Admin) roleSave(w http.ResponseWriter, r *http.Request) {
 		existing.Name = role.Name
 		existing.Description = role.Description
 		if err := store.UpdateRole(existing); err != nil {
-			fail(humanize(err))
+			fail(humanize(r.Context(), err))
 			return
 		}
 		role = existing
@@ -138,7 +139,7 @@ func (a *Admin) roleSave(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	view.Success(r, "Saved "+role.Name+".")
+	view.Success(r, i18n.Tf(r.Context(), "Saved %s.", role.Name))
 	view.Redirect(w, r, a.prefix+"/roles")
 }
 
@@ -151,7 +152,7 @@ func (a *Admin) roleDelete(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	view.Success(r, "Role deleted.")
+	view.Success(r, i18n.T(r.Context(), "Role deleted."))
 	view.Redirect(w, r, a.prefix+"/roles")
 }
 
@@ -188,7 +189,7 @@ func (a *Admin) permissionStore(w http.ResponseWriter, r *http.Request) (auth.Pe
 	store := a.app.Auth.Permissions()
 	if store == nil {
 		a.render(w, r, http.StatusNotFound, "notfound.html", view.Data{
-			"Message": "Permissions are turned off for this project.",
+			"Message": i18n.T(r.Context(), "Permissions are turned off for this project."),
 		})
 		return nil, false
 	}

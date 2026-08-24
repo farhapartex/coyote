@@ -1,11 +1,11 @@
 package admin
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/form"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -25,7 +25,7 @@ func (a *Admin) resourceBulk(entry managed) http.HandlerFunc {
 		ids := r.PostForm["ids"]
 		back := a.prefix + "/" + entry.Slug()
 		if len(ids) == 0 {
-			view.Flash(r, "error", "Nothing was selected.")
+			view.Flash(r, "error", i18n.T(r.Context(), "Nothing was selected."))
 			view.Redirect(w, r, back)
 			return
 		}
@@ -42,16 +42,16 @@ func (a *Admin) resourceBulk(entry managed) http.HandlerFunc {
 			}
 			affected, err := action.Run(r, ids)
 			if err != nil {
-				view.Flash(r, "error", humanize(err))
+				view.Flash(r, "error", humanize(r.Context(), err))
 				view.Redirect(w, r, back)
 				return
 			}
-			view.Success(r, fmt.Sprintf("%s applied to %d %s.", action.Label, affected, entry.Title()))
+			view.Success(r, i18n.Tf(r.Context(), "%s applied to %d %s.", action.Label, affected, entry.Title()))
 			view.Redirect(w, r, back)
 			return
 		}
 
-		view.Flash(r, "error", "That action is not available.")
+		view.Flash(r, "error", i18n.T(r.Context(), "That action is not available."))
 		view.Redirect(w, r, back)
 	}
 }
@@ -69,13 +69,13 @@ func (a *Admin) bulkDelete(w http.ResponseWriter, r *http.Request, entry managed
 	deleted := 0
 	for _, id := range ids {
 		if err := records.Delete(r.Context(), entry.schema, id); err != nil {
-			view.Flash(r, "error", fmt.Sprintf("Deleted %d, then failed on %s: %s", deleted, id, humanize(err)))
+			view.Flash(r, "error", i18n.Tf(r.Context(), "Deleted %d, then failed on %s: %s", deleted, id, humanize(r.Context(), err)))
 			view.Redirect(w, r, back)
 			return
 		}
 		deleted++
 	}
 
-	view.Success(r, fmt.Sprintf("Deleted %d %s.", deleted, entry.Title()))
+	view.Success(r, i18n.Tf(r.Context(), "Deleted %d %s.", deleted, entry.Title()))
 	view.Redirect(w, r, back)
 }

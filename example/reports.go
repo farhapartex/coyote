@@ -7,6 +7,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/cache"
+	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/view"
 )
@@ -36,7 +37,7 @@ func reportHandler(a *app.App) http.HandlerFunc {
 		}
 
 		a.Render(w, r, "pages/reports.html", view.Data{
-			"Title":  "Product report",
+			"Title":  i18n.T(r.Context(), "Product report"),
 			"Report": report,
 			"Age":    time.Since(report.Built).Round(time.Second).String(),
 		})

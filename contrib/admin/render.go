@@ -10,7 +10,7 @@ func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page 
 	if data == nil {
 		data = view.Data{}
 	}
-	a.app.Context(r, data)
+	data = a.app.Context(r, data)
 	data["Prefix"] = a.prefix
 	data["SiteName"] = a.siteName
 	data["Tagline"] = a.tagline

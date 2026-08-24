@@ -103,6 +103,36 @@ func makeMigrations(args []string) error {
 	return invoke(env)
 }
 
+func makeMessages(args []string) error {
+	fs := flag.NewFlagSet("makemessages", flag.ContinueOnError)
+	locale := fs.String("locale", "", "only update this locale")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameMakeMessages)
+	if *locale != "" {
+		env = append(env, cli.EnvLocale+"="+*locale)
+	}
+	return invoke(env)
+}
+
+func checkMessages(args []string) error {
+	fs := flag.NewFlagSet("checkmessages", flag.ContinueOnError)
+	locale := fs.String("locale", "", "only check this locale")
+	strict := fs.Bool("strict", false, "fail on fuzzy and obsolete entries too")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameCheckMessages)
+	if *locale != "" {
+		env = append(env, cli.EnvLocale+"="+*locale)
+	}
+	if *strict {
+		env = append(env, cli.EnvStrict+"=1")
+	}
+	return invoke(env)
+}
+
 func createSuperadmin(args []string) error {
 	fs := flag.NewFlagSet("createsuperadmin", flag.ContinueOnError)
 	username := fs.String("username", "", "username for the superadmin")
