@@ -41,6 +41,7 @@ func (s *Settings) normalize() {
 	}
 
 	s.normalizeCaches()
+	s.normalizeEmail()
 
 	for i := range s.Databases {
 		db := &s.Databases[i]

@@ -61,6 +61,7 @@ func (s Settings) validate() error {
 		s.validateAdmin,
 		s.validateSecurity,
 		s.validateLogging,
+		s.validateEmail,
 	} {
 		check(add)
 	}
