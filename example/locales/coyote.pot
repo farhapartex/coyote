@@ -1,0 +1,202 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Coyote demo\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: templates/pages/notes.html:13
+msgid "%d note in this session"
+msgid_plural "%d notes in this session"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/pages/home.html:6
+msgid "A session-first web framework for Go, shaped like Django but sized for the standard library."
+msgstr ""
+
+#: main.go:37
+#: templates/pages/about.html:2
+#: templates/partials/nav.html:17
+msgid "About"
+msgstr ""
+
+#: templates/pages/profile.html:10
+msgid "Active"
+msgstr ""
+
+#: templates/pages/notes.html:8
+msgid "Add"
+msgstr ""
+
+#: templates/pages/notes.html:3
+msgid "Anything you add here is kept in your session on the server until it expires."
+msgstr ""
+
+#: templates/layouts/base.html:16
+msgid "Built with Coyote v%s"
+msgstr ""
+
+#: cached_page.go:31
+#: templates/partials/nav.html:9
+msgid "Cache"
+msgstr ""
+
+#: templates/partials/nav.html:10
+msgid "Contact"
+msgstr ""
+
+#: mail.go:27
+#: templates/pages/contact.html:2
+msgid "Contact us"
+msgstr ""
+
+#: templates/pages/about.html:3
+msgid "Coyote is Django-shaped, but Go-sized."
+msgstr ""
+
+#: templates/pages/contact.html:26
+msgid "Delivering through %s."
+msgstr ""
+
+#: templates/pages/profile.html:9
+msgid "Email"
+msgstr ""
+
+#: templates/pages/contact.html:19
+msgid "Hand the message to a goroutine instead of waiting for the server"
+msgstr ""
+
+#: main.go:32
+#: templates/partials/nav.html:7
+msgid "Home"
+msgstr ""
+
+#: templates/pages/profile.html:12
+msgid "Last login"
+msgstr ""
+
+#: templates/pages/home.html:8
+#: templates/partials/nav.html:22
+msgid "Log in"
+msgstr ""
+
+#: templates/pages/profile.html:20
+msgid "Log out"
+msgstr ""
+
+#: templates/pages/profile.html:8
+msgid "Name"
+msgstr ""
+
+#: templates/pages/notes.html:18
+msgid "No notes in this session yet."
+msgstr ""
+
+#: main.go:65
+msgid "Note saved to your session."
+msgstr ""
+
+#: templates/partials/nav.html:8
+msgid "Notes"
+msgstr ""
+
+#: mail.go:101
+msgid "Please fill in your name, your email address and a message."
+msgstr ""
+
+#: reports.go:40
+msgid "Product report"
+msgstr ""
+
+#: templates/pages/contact.html:22
+msgid "Send"
+msgstr ""
+
+#: templates/pages/contact.html:27
+msgid "Sending synchronously reports a failure straight to you. Sending in a goroutine cannot, so it logs instead and uses a background context, because the request context is cancelled as soon as this page is returned. A real deployment wants a queue rather than a bare goroutine."
+msgstr ""
+
+#: templates/pages/profile.html:14
+msgid "Session expires"
+msgstr ""
+
+#: main.go:46
+#: templates/pages/notes.html:2
+msgid "Session notes"
+msgstr ""
+
+#: templates/pages/profile.html:13
+msgid "Session started"
+msgstr ""
+
+#: templates/pages/profile.html:11
+msgid "Superadmin"
+msgstr ""
+
+#: mail.go:49
+msgid "Thank you, we will be in touch."
+msgstr ""
+
+#: mail.go:64
+msgid "Thank you, your message is on its way."
+msgstr ""
+
+#: mail.go:105
+msgid "That email address does not look right."
+msgstr ""
+
+#: mail.go:103
+msgid "That message contains something we cannot send."
+msgstr ""
+
+#: templates/pages/contact.html:3
+msgid "The framework contributes an interface and a configuration struct. Composing this message, choosing when to send it and deciding what to tell you afterwards is all application code."
+msgstr ""
+
+#: templates/pages/profile.html:3
+msgid "This page is only reachable when a session is authenticated."
+msgstr ""
+
+#: templates/pages/profile.html:7
+msgid "Username"
+msgstr ""
+
+#: mail.go:107
+msgid "We could not prepare your message."
+msgstr ""
+
+#: mail.go:59
+msgid "We could not send your message. Please try again."
+msgstr ""
+
+#: templates/pages/notes.html:7
+msgid "Write a note"
+msgstr ""
+
+#: main.go:58
+msgid "Write something first."
+msgstr ""
+
+#: templates/pages/contact.html:11
+msgid "Your email address"
+msgstr ""
+
+#: templates/pages/contact.html:14
+msgid "Your message"
+msgstr ""
+
+#: templates/pages/contact.html:8
+msgid "Your name"
+msgstr ""
+
+#: main.go:71
+#: templates/pages/profile.html:2
+msgid "Your profile"
+msgstr ""
+
+#: templates/pages/profile.html:12
+msgid "never"
+msgstr ""
