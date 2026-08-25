@@ -111,6 +111,9 @@ func (m Message) Validate() error {
 	if len(m.Subject) > maxSubjectLength {
 		return fmt.Errorf("coyote/mail: the subject is longer than %d characters", maxSubjectLength)
 	}
+	if containsBreak(m.MessageID) {
+		return fmt.Errorf("%w: message id", ErrHeaderInjection)
+	}
 	if !m.HasBody() {
 		return ErrNoBody
 	}

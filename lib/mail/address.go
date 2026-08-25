@@ -49,6 +49,10 @@ func FormatAddress(name, address string) string {
 func FormatAddressList(addresses []netmail.Address) string {
 	parts := make([]string, 0, len(addresses))
 	for _, address := range addresses {
+		if address.Name == "" {
+			parts = append(parts, address.Address)
+			continue
+		}
 		formatted := address
 		parts = append(parts, formatted.String())
 	}
