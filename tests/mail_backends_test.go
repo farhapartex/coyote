@@ -374,3 +374,45 @@ func TestBackendsAreSafeUnderConcurrentSends(t *testing.T) {
 		t.Errorf("the memory backend kept %d distinct subjects, want %d", len(subjects), senders)
 	}
 }
+
+func TestWithDefaultFromFillsABlankSender(t *testing.T) {
+	inner := mail.NewMemory()
+	sender := mail.WithDefaultFrom(inner, "shop@example.test")
+
+	message := mail.Message{
+		To:      []string{"ada@example.test"},
+		Subject: "No sender set",
+		Text:    "Hello.",
+	}
+
+	if err := inner.Send(context.Background(), message); !errors.Is(err, mail.ErrNoSender) {
+		t.Fatalf("a bare backend should refuse a message with no From: %v", err)
+	}
+	if err := sender.Send(context.Background(), message); err != nil {
+		t.Fatalf("the wrapper should supply the missing From: %v", err)
+	}
+
+	recorded, _ := inner.Last()
+	if recorded.From != "shop@example.test" {
+		t.Errorf("From = %q", recorded.From)
+	}
+	if message.From != "" {
+		t.Error("the caller's message was mutated")
+	}
+
+	explicit := message
+	explicit.From = "orders@example.test"
+	if err := sender.Send(context.Background(), explicit); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if last, _ := inner.Last(); last.From != "orders@example.test" {
+		t.Errorf("From = %q, an explicit sender must win", last.From)
+	}
+
+	if mail.WithDefaultFrom(inner, "  ") != mail.Sender(inner) {
+		t.Error("a blank default should hand back the inner backend unchanged")
+	}
+	if mail.WithDefaultFrom(nil, "shop@example.test") != nil {
+		t.Error("wrapping nothing should give nothing")
+	}
+}

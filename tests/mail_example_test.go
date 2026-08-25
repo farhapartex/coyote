@@ -8,8 +8,10 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/settings"
 	"github.com/farhapartex/coyote/core/view"
 	"github.com/farhapartex/coyote/lib/mail"
@@ -242,5 +244,138 @@ func TestContactFormThroughACustomDecoratorBackend(t *testing.T) {
 
 	if failing.failed.Load() != 1 {
 		t.Errorf("the decorator counted %d failures, want 1", failing.failed.Load())
+	}
+}
+
+func TestDocumentedPasswordResetFlowEmailsAWorkingLink(t *testing.T) {
+	outbox := mail.NewMemory()
+
+	a := newTestApp(t, func(s *settings.Settings) {
+		s.Auth.ResetTokens = true
+		s.Auth.ResetTokenLifetime = time.Hour
+		s.Email = settings.Email{From: "shop@example.test", Sender: outbox}
+	})
+
+	if _, err := a.Auth.CreateUser(auth.NewUser{
+		Username: "ada",
+		Email:    "ada@example.test",
+		Password: "her-first-secret",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	sender, err := a.Settings.Email.Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resetLog := &strings.Builder{}
+	a.Post("/reset/request", requestReset(a, sender, resetLog))
+
+	client := newClient(t, a.Handler())
+	for _, address := range []string{"ada@example.test", "nobody@example.test"} {
+		response := client.do(http.MethodPost, "/reset/request",
+			url.Values{"email": {address}}).Result()
+		if response.StatusCode >= 500 {
+			t.Fatalf("status = %d for %s", response.StatusCode, address)
+		}
+	}
+
+	if resetLog.Len() != 0 {
+		t.Fatalf("the handler logged a failure: %s", resetLog.String())
+	}
+	if outbox.Count() != 1 {
+		t.Fatalf("%d messages sent; an unknown address must not send one", outbox.Count())
+	}
+
+	message, _ := outbox.Last()
+	if message.To[0] != "ada@example.test" {
+		t.Errorf("To = %v", message.To)
+	}
+	if message.From != "shop@example.test" {
+		t.Errorf("From = %q, the configured sender should fill it in", message.From)
+	}
+
+	_, query, found := strings.Cut(message.Text, "token=")
+	if !found {
+		t.Fatalf("no token in the email:\n%s", message.Text)
+	}
+	token, err := url.QueryUnescape(strings.TrimSpace(query))
+	if err != nil {
+		t.Fatalf("the token is not url-safe: %v", err)
+	}
+
+	if _, err := a.Auth.CheckResetToken(token); err != nil {
+		t.Fatalf("the emailed token does not work: %v", err)
+	}
+	if _, err := a.Auth.UseResetToken(token, auth.PasswordChange{
+		New: "a-second-secret", Confirm: "a-second-secret",
+	}); err != nil {
+		t.Fatalf("consuming the emailed token: %v", err)
+	}
+	if _, err := a.Auth.CheckResetToken(token); err == nil {
+		t.Error("the token should be single use")
+	}
+
+	if strings.Contains(message.Text, auth.TokenDigest(token)) {
+		t.Error("the email should carry the token, never its digest")
+	}
+}
+
+func requestReset(a *app.App, sender mail.Sender, resetLog *strings.Builder) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		address := r.PostForm.Get("email")
+
+		user, err := a.Auth.Users().ByEmail(address)
+		if err == nil {
+			plain, err := a.Auth.CreateResetToken(user.ID)
+			if err != nil {
+				resetLog.WriteString(err.Error())
+			} else {
+				link := "https://shop.test/reset?token=" + url.QueryEscape(plain)
+				err = sender.Send(r.Context(), mail.Message{
+					From:    a.Settings.Email.From,
+					To:      []string{address},
+					Subject: "Reset your password",
+					Text:    "Open this link within the hour:\n\n" + link + "\n",
+				})
+				if err != nil {
+					resetLog.WriteString(err.Error())
+				}
+			}
+		}
+
+		view.Flash(r, "success", "If that address has an account, a link is on its way.")
+		view.Redirect(w, r, "/accounts/login")
+	}
+}
+
+func TestATemplateCanRenderAnEmailBody(t *testing.T) {
+	outbox := mail.NewMemory()
+	a := newTestApp(t, func(s *settings.Settings) {
+		s.Email = settings.Email{From: "shop@example.test", Sender: outbox}
+	})
+
+	buf, err := a.Templates.RenderToBuffer("pages/hello.html", view.Data{"Name": "Receipt"})
+	if err != nil {
+		t.Fatalf("RenderToBuffer: %v", err)
+	}
+	if buf.Len() == 0 {
+		t.Fatal("the rendered body is empty")
+	}
+
+	message := mail.Message{
+		From:    a.Settings.Email.From,
+		To:      []string{"ada@example.test"},
+		Subject: "Receipt",
+		HTML:    buf.String(),
+	}
+	if err := outbox.Send(context.Background(), message); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	sent, _ := outbox.Last()
+	if !strings.Contains(sent.HTML, "Receipt") {
+		t.Errorf("the rendered body did not reach the message: %q", sent.HTML)
 	}
 }

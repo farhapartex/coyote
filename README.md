@@ -79,7 +79,7 @@ Start with the [quick start](guide/02-quickstart.md), or browse the full
 | **Getting started** | [Installation](guide/01-installation.md) · [Quick start](guide/02-quickstart.md) · [Project layout](guide/03-project-layout.md) | |
 | **Configuration** | [Settings](guide/04-settings.md) | |
 | **Requests** | [Routing](guide/05-routing.md) · [Named routes](guide/06-named-routes.md) · [Views](guide/07-views.md) · [Templates](guide/08-templates.md) · [Static files](guide/09-static-files.md) · [Forms](guide/30-forms.md) · [Uploads](guide/31-uploads.md) · [Pagination](guide/32-pagination.md) | |
-| **Data** | [Models](guide/10-models.md) · [Database](guide/11-database.md) · [Migrations](guide/12-migrations.md) · [Caching](guide/33-caching.md) | |
+| **Data** | [Models](guide/10-models.md) · [Database](guide/11-database.md) · [Migrations](guide/12-migrations.md) · [Caching](guide/33-caching.md) · [Email](guide/35-email.md) | |
 | **Users** | [Sessions](guide/13-sessions.md) · [Authentication](guide/14-authentication.md) · [Admin portal](guide/15-admin.md) · [Permissions](guide/28-permissions.md) · [Accounts](guide/29-accounts.md) | |
 | **Security** | [Middleware](guide/16-middleware.md) · [Headers and CSP](guide/17-security-headers.md) · [CSRF](guide/18-csrf.md) · [Rate limiting](guide/19-rate-limiting.md) · [CORS](guide/20-cors.md) · [Compression](guide/21-compression.md) · [HTTPS](guide/22-https.md) | |
 | **Operations** | [CLI](guide/23-cli.md) · [First run](guide/24-first-run.md) · [Deployment](guide/25-deployment.md) · [Testing](guide/26-testing.md) · [Architecture](guide/27-architecture.md) | |
@@ -108,4 +108,4 @@ Coyote is in active development on phase 1. Working today: settings, routing, se
 authentication and permissions, templates, forms, file uploads, pagination, migrations, caching, the
 admin portal, project scaffolding, and the security middleware above.
 
-Not here yet: email, full-text search, a swappable user model, and soft delete.
+Not here yet: full-text search, a swappable user model, and soft delete.

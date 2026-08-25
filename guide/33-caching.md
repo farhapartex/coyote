@@ -334,4 +334,4 @@ seam exists.
 
 ## Next
 
-[Architecture →](27-architecture.md)
+[Email →](35-email.md)
