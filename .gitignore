@@ -10,5 +10,7 @@ phases
 /example/media
 /example/staticfiles
 /example/cache
+/example/mail/
+/example/locales/coyote.pot
 
 /CLAUDE.md

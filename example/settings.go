@@ -9,6 +9,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/settings"
+	"github.com/farhapartex/coyote/lib/mail"
 )
 
 //go:embed templates
@@ -103,6 +104,21 @@ func init() {
 
 		s.Static.FS = static
 		s.Static.URL = "/static/"
+
+		s.Email = settings.Email{
+			Backend: settings.EmailBackend(settings.Env("EMAIL_BACKEND", "file")),
+			From:    settings.Env("EMAIL_FROM", "coyote@example.test"),
+		}
+		switch s.Email.Backend {
+		case settings.EmailToFile:
+			s.Email.Dir = settings.Env("EMAIL_DIR", "mail")
+		case settings.EmailToSMTP:
+			s.Email.Host = settings.Env("SMTP_HOST", "127.0.0.1")
+			s.Email.Port = settings.EnvInt("SMTP_PORT", 1025)
+			s.Email.TLS = mail.TLSMode(settings.Env("SMTP_TLS", "none"))
+			s.Email.Username = settings.Env("SMTP_USER", "")
+			s.Email.Password = settings.Env("SMTP_PASSWORD", "")
+		}
 
 		s.Admin.Prefix = "/admin"
 		s.Admin.SiteName = "Coyote demo"

@@ -7,6 +7,7 @@
     <a href="{{url "home"}}" class="{{if eq .Path "/"}}active{{end}}">{{.Locale.T "Home"}}</a>
     <a href="{{url "notes"}}" class="{{if eq .Path "/notes"}}active{{end}}">{{.Locale.T "Notes"}}</a>
     <a href="{{url "cached"}}" class="{{if eq .Path "/cached"}}active{{end}}">{{.Locale.T "Cache"}}</a>
+    <a href="{{url "contact"}}" class="{{if eq .Path "/contact"}}active{{end}}">{{.Locale.T "Contact"}}</a>
     <span class="langs">
       {{$path := .Path}}
       {{range .Locale.Available}}

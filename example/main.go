@@ -80,6 +80,15 @@ func main() {
 	application.Get("/cached", cachedPage(application), application.CSRF).Named("cached")
 	application.Post("/cached", cachedSave(application), application.CSRF)
 
+	sender, err := mailSender(application)
+	if err != nil {
+		log.Fatal(err)
+	}
+	outbox := counting(sender)
+
+	application.Get("/contact", contactPage(application), application.CSRF).Named("contact")
+	application.Post("/contact", contactSend(application, outbox), application.CSRF)
+
 	if err := application.Run(); err != nil {
 		log.Fatal(err)
 	}

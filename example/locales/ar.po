@@ -37,11 +37,23 @@ msgstr "بُني بواسطة Coyote v%s"
 msgid "Cache"
 msgstr "الذاكرة المؤقتة"
 
+msgid "Contact"
+msgstr "اتصل بنا"
+
+msgid "Contact us"
+msgstr "اتصل بنا"
+
 msgid "Coyote is Django-shaped, but Go-sized."
 msgstr "‏Coyote بشكل جانغو، وبحجم Go."
 
+msgid "Delivering through %s."
+msgstr "الإرسال عبر %s."
+
 msgid "Email"
 msgstr "البريد الإلكتروني"
+
+msgid "Hand the message to a goroutine instead of waiting for the server"
+msgstr "أرسل الرسالة عبر goroutine بدلاً من انتظار الخادم"
 
 msgid "Home"
 msgstr "الرئيسية"
@@ -61,8 +73,23 @@ msgstr "الاسم"
 msgid "No notes in this session yet."
 msgstr "لا توجد ملاحظات في هذه الجلسة بعد."
 
+msgid "Note saved to your session."
+msgstr "تم حفظ الملاحظة في جلستك."
+
 msgid "Notes"
 msgstr "الملاحظات"
+
+msgid "Please fill in your name, your email address and a message."
+msgstr "الرجاء إدخال اسمك وبريدك الإلكتروني ورسالتك."
+
+msgid "Product report"
+msgstr "تقرير المنتجات"
+
+msgid "Send"
+msgstr "إرسال"
+
+msgid "Sending synchronously reports a failure straight to you. Sending in a goroutine cannot, so it logs instead and uses a background context, because the request context is cancelled as soon as this page is returned. A real deployment wants a queue rather than a bare goroutine."
+msgstr "الإرسال المتزامن يبلّغك بالفشل مباشرة، أما الإرسال عبر goroutine فلا يمكنه ذلك، لذا يُسجّل الخطأ ويستخدم سياقاً خلفياً، لأن سياق الطلب يُلغى بمجرد إعادة هذه الصفحة. ويحتاج النشر الفعلي إلى طابور بدلاً من goroutine مجردة."
 
 msgid "Session expires"
 msgstr "تنتهي الجلسة"
@@ -76,26 +103,50 @@ msgstr "بدأت الجلسة"
 msgid "Superadmin"
 msgstr "مدير عام"
 
+msgid "Thank you, we will be in touch."
+msgstr "شكراً لك، سنتواصل معك."
+
+msgid "Thank you, your message is on its way."
+msgstr "شكراً لك، رسالتك في الطريق."
+
+msgid "That email address does not look right."
+msgstr "هذا البريد الإلكتروني لا يبدو صحيحاً."
+
+msgid "That message contains something we cannot send."
+msgstr "تحتوي الرسالة على ما لا نستطيع إرساله."
+
+msgid "The framework contributes an interface and a configuration struct. Composing this message, choosing when to send it and deciding what to tell you afterwards is all application code."
+msgstr "يوفر الإطار واجهة وبنية إعدادات، أما تأليف هذه الرسالة واختيار وقت إرسالها وما يُقال لك بعد ذلك فكله من كود التطبيق."
+
 msgid "This page is only reachable when a session is authenticated."
 msgstr "هذه الصفحة متاحة فقط عند وجود جلسة موثّقة."
 
 msgid "Username"
 msgstr "اسم المستخدم"
 
+msgid "We could not prepare your message."
+msgstr "لم نستطع تجهيز رسالتك."
+
+msgid "We could not send your message. Please try again."
+msgstr "لم نستطع إرسال رسالتك. الرجاء المحاولة مرة أخرى."
+
 msgid "Write a note"
 msgstr "اكتب ملاحظة"
+
+msgid "Write something first."
+msgstr "اكتب شيئًا أولاً."
+
+msgid "Your email address"
+msgstr "بريدك الإلكتروني"
+
+msgid "Your message"
+msgstr "رسالتك"
+
+msgid "Your name"
+msgstr "اسمك"
 
 msgid "Your profile"
 msgstr "ملفك الشخصي"
 
 msgid "never"
 msgstr "أبدًا"
-
-msgid "Note saved to your session."
-msgstr "تم حفظ الملاحظة في جلستك."
-
-msgid "Product report"
-msgstr "تقرير المنتجات"
-
-msgid "Write something first."
-msgstr "اكتب شيئًا أولاً."
