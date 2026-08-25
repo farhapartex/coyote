@@ -80,6 +80,23 @@ func (m Message) Attach(attachments ...Attachment) Message {
 	return copied
 }
 
+func (m Message) clone() Message {
+	copied := m
+	copied.To = slices.Clone(m.To)
+	copied.CC = slices.Clone(m.CC)
+	copied.BCC = slices.Clone(m.BCC)
+	copied.Headers = maps.Clone(m.Headers)
+
+	if m.Attachments != nil {
+		copied.Attachments = make([]Attachment, 0, len(m.Attachments))
+		for _, attachment := range m.Attachments {
+			attachment.Content = slices.Clone(attachment.Content)
+			copied.Attachments = append(copied.Attachments, attachment)
+		}
+	}
+	return copied
+}
+
 func (m Message) Validate() error {
 	if strings.TrimSpace(m.From) == "" {
 		return ErrNoSender
