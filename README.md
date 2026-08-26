@@ -84,23 +84,22 @@ Start with the [quick start](guide/02-quickstart.md), or browse the full
 | **Security** | [Middleware](guide/16-middleware.md) · [Headers and CSP](guide/17-security-headers.md) · [CSRF](guide/18-csrf.md) · [Rate limiting](guide/19-rate-limiting.md) · [CORS](guide/20-cors.md) · [Compression](guide/21-compression.md) · [HTTPS](guide/22-https.md) | |
 | **Operations** | [CLI](guide/23-cli.md) · [First run](guide/24-first-run.md) · [Deployment](guide/25-deployment.md) · [Testing](guide/26-testing.md) · [Architecture](guide/27-architecture.md) | |
 
-## Running the example
-
-```
-cd example
-go run .
-```
-
-Serves on `127.0.0.1:8081` with a small site, two managed models, the admin portal, caching, and
-English, French and Arabic. It reads `PORT`, `HOST`, `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `DB_NAME`,
-`REDIS_ADDR` and `TZ_NAME` from the environment, so `PORT=9000 go run .` works.
-
 ## Tests
 
 ```
 go test ./tests/
 go test -race ./tests/
 ```
+
+The end-to-end harness drives the framework from the outside, the way a developer does — it builds the
+command, scaffolds a project from scratch, and exercises each feature in turn:
+
+```
+./e2e/run.sh
+```
+
+It writes its findings to `e2e/REPORT.md` and generates a demo application in `example/`, which is not
+tracked in git. There is no checked-in example app to run; `coyote new myshop` gives you one.
 
 ## Status
 

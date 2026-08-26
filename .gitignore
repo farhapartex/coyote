@@ -7,10 +7,7 @@ phases
 .env
 
 /coyote
-/example/media
-/example/staticfiles
-/example/cache
-/example/mail/
+/example/
 /e2e/.bin/
 /e2e/.work/
 /e2e/REPORT.md

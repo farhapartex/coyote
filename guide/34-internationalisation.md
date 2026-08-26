@@ -487,20 +487,19 @@ Implement `Loader` to read translations from a database, an API, or JSON, and se
 `false` second return means "not translated here", which is what makes the fallback chain work — do not
 return an empty string instead.
 
-## In the example app
+## Seeing it work
 
-`example/` exercises all of it: `en`, `fr` and `ar` with embedded catalogs, a language picker in the
-nav, `{{.Locale.N}}` on the notes page, `{{.Locale.DateTime}}` on the profile, and `/about` under the
-page cache so you can watch `X-Cache` stay separate per language.
+The end-to-end harness builds a demo application into `example/` and exercises this page's claims
+against it — catalog loading, the language picker, plurals, `Accept-Language`, and a page cache keyed
+per locale:
 
 ```
-cd example && go run .
-curl -si -H "Accept-Language: fr" http://127.0.0.1:8081/about | grep -i x-cache
+./e2e/run.sh --only=19
 ```
 
-Arabic is worth a look for two reasons: the layout flips to right-to-left, and the notes count uses the
-**dual** form for exactly two — `ملاحظتان` rather than a plural — straight out of the six-form rule in
-`ar.po`.
+Arabic is worth a look for two reasons: the layout flips to right-to-left, and a count of exactly two
+uses the **dual** form — `ملاحظتان` rather than a plural — straight out of the six-form rule in the
+catalog.
 
 ## Not here yet
 

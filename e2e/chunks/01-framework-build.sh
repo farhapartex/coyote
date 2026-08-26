@@ -4,6 +4,10 @@
 
 chunk_begin "01" "Framework build"
 
+unformatted_framework_files() {
+	gofmt -l . | grep -v "^$EXAMPLE_NAME/" || true
+}
+
 check_the_race_detector() {
 	if [ -z "${E2E_RACE:-}" ]; then
 		check_skipped "the suite is clean under the race detector" \
@@ -29,7 +33,7 @@ check_the_binary_reports_a_version() {
 	assert_equal "the built binary reports the version in core/app" "$expected" "$reported"
 }
 
-assert_output_empty "gofmt reports nothing unformatted" gofmt -l .
+assert_output_empty "gofmt reports nothing unformatted" unformatted_framework_files
 assert_succeeds "go vet is clean" go vet ./...
 assert_succeeds "every package builds" go build ./...
 assert_succeeds "the framework's own suite passes" go test ./tests/ -count=1
