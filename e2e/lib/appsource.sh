@@ -31,6 +31,7 @@ GO
 app_write_shipment_model() {
 	local columns="${1:-1}"
 	local unique_reference="${2:-0}"
+	local reference_size="${3:-30}"
 
 	{
 		printf 'package main\n\n'
@@ -38,11 +39,11 @@ app_write_shipment_model() {
 		printf 'type Shipment struct {\n'
 		printf '\tID            string  `gorm:"primaryKey;size:36"`\n'
 		if [ "$unique_reference" = "2" ]; then
-			printf '\tReference     string  `gorm:"size:30;not null;uniqueIndex:uq_shipments_reference"`\n'
+			printf '\tReference     string  `gorm:"size:%s;not null;uniqueIndex:uq_shipments_reference"`\n' "$reference_size"
 		elif [ "$unique_reference" = "1" ]; then
-			printf '\tReference     string  `gorm:"size:30;not null;uniqueIndex"`\n'
+			printf '\tReference     string  `gorm:"size:%s;not null;uniqueIndex"`\n' "$reference_size"
 		else
-			printf '\tReference     string  `gorm:"size:30;not null;index"`\n'
+			printf '\tReference     string  `gorm:"size:%s;not null;index"`\n' "$reference_size"
 		fi
 		printf '\tCustomerID    *string `gorm:"size:36;index"`\n'
 		printf '\tCustomer      Customer\n'
@@ -259,6 +260,19 @@ app_restore_snapshot() {
 		cp "$E2E_WORK_DIR/snapshot.backup" "$(app_snapshot_path)"
 		rm -f "$E2E_WORK_DIR/snapshot.backup"
 	fi
+}
+
+app_add_missing_model_import() {
+	local file="$1"
+	if grep -q 'coyote/core/model' "$file" 2>/dev/null; then
+		return 1
+	fi
+	sed -i.bak 's|^import (|import (\
+	"github.com/farhapartex/coyote/core/model"\
+|' "$file"
+	rm -f "$file.bak"
+	app_gofmt
+	return 0
 }
 
 app_reset_migration_state() {
