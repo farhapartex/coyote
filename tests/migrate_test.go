@@ -556,3 +556,83 @@ func TestAnAlteredColumnGeneratesACompilableMigration(t *testing.T) {
 		t.Errorf("an AlterColumn migration needs the model import for its Kind constants:\n%s", source)
 	}
 }
+
+type widgetIndexedLabel struct {
+	ID    string `gorm:"primaryKey;size:64"`
+	Label string `gorm:"not null;size:120;index"`
+}
+
+func (widgetIndexedLabel) TableName() string { return "widgets" }
+
+type widgetUniqueLabel struct {
+	ID    string `gorm:"primaryKey;size:64"`
+	Label string `gorm:"not null;size:120;uniqueIndex"`
+}
+
+func (widgetUniqueLabel) TableName() string { return "widgets" }
+
+func TestMakingAnIndexUniqueIsDetected(t *testing.T) {
+	handle := newTestDB(t)
+
+	indexed := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetIndexedLabel{})})
+	unique := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+
+	change := migrate.Diff(indexed, unique)
+	if change.Empty() {
+		t.Fatal("changing an index to unique must produce a change; the index keeps its name, " +
+			"so comparing names alone would miss it")
+	}
+
+	var dropped, created int
+	var createdUnique bool
+	for _, op := range change.Ops {
+		switch typed := op.(type) {
+		case migrate.DropIndex:
+			dropped++
+		case migrate.CreateIndex:
+			created++
+			createdUnique = typed.Unique
+		}
+	}
+
+	if dropped != 1 || created != 1 {
+		t.Errorf("expected the index to be dropped and recreated, got %d drops and %d creates",
+			dropped, created)
+	}
+	if !createdUnique {
+		t.Error("the recreated index should be unique")
+	}
+
+	if _, isDrop := change.Ops[0].(migrate.DropIndex); !isDrop {
+		t.Errorf("the drop must come first, got %T", change.Ops[0])
+	}
+}
+
+func TestMakingAnIndexNonUniqueIsDetected(t *testing.T) {
+	handle := newTestDB(t)
+
+	unique := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+	indexed := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetIndexedLabel{})})
+
+	change := migrate.Diff(unique, indexed)
+	if change.Empty() {
+		t.Fatal("relaxing a unique index must produce a change")
+	}
+
+	for _, op := range change.Ops {
+		if created, ok := op.(migrate.CreateIndex); ok && created.Unique {
+			t.Error("the recreated index should no longer be unique")
+		}
+	}
+}
+
+func TestAnUnchangedIndexProducesNothing(t *testing.T) {
+	handle := newTestDB(t)
+
+	first := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+	second := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+
+	if change := migrate.Diff(first, second); !change.Empty() {
+		t.Errorf("an unchanged schema must not churn migrations, got %d op(s)", len(change.Ops))
+	}
+}

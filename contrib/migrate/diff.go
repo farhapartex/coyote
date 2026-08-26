@@ -130,11 +130,21 @@ func wideningKind(from, to model.Kind) bool {
 func diffIndexes(before, after Table) Change {
 	var change Change
 	for _, index := range after.Indexes {
-		if _, ok := before.Index(index.Name); !ok {
+		existing, ok := before.Index(index.Name)
+		if !ok {
 			change.Ops = append(change.Ops, CreateIndex{
 				Table: after.Name, Name: index.Name, Columns: index.Columns, Unique: index.Unique,
 			})
+			continue
 		}
+		if sameIndexDefinition(existing, index) {
+			continue
+		}
+		change.Ops = append(change.Ops,
+			DropIndex{Table: after.Name, Name: index.Name},
+			CreateIndex{
+				Table: after.Name, Name: index.Name, Columns: index.Columns, Unique: index.Unique,
+			})
 	}
 	for _, index := range before.Indexes {
 		if _, ok := after.Index(index.Name); !ok {
@@ -147,4 +157,16 @@ func diffIndexes(before, after Table) Change {
 		return first && !second
 	})
 	return change
+}
+
+func sameIndexDefinition(before, after Index) bool {
+	if before.Unique != after.Unique || len(before.Columns) != len(after.Columns) {
+		return false
+	}
+	for i := range before.Columns {
+		if before.Columns[i] != after.Columns[i] {
+			return false
+		}
+	}
+	return true
 }
