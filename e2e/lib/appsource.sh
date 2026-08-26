@@ -62,6 +62,37 @@ app_write_shipment_model() {
 	app_gofmt
 }
 
+app_write_container_models() {
+	cat >"$EXAMPLE_DIR/models_container.go" <<'GO'
+package main
+
+import "time"
+
+type Container struct {
+	ID         string  `gorm:"primaryKey;size:36"`
+	Number     string  `gorm:"size:11;not null;uniqueIndex"`
+	ShipmentID *string `gorm:"size:36;index"`
+	Shipment   Shipment
+	SizeFeet   int
+	Sealed     bool `gorm:"index"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type TrackingEvent struct {
+	ID          string  `gorm:"primaryKey;size:36"`
+	ShipmentID  *string `gorm:"size:36;index"`
+	Shipment    Shipment
+	ContainerID *string `gorm:"size:36;index"`
+	Container   Container
+	Kind        string    `gorm:"size:40;not null;index"`
+	Location    string    `gorm:"size:120"`
+	OccurredAt  time.Time `gorm:"index"`
+	CreatedAt   time.Time
+}
+GO
+}
+
 app_write_admin_resources() {
 	cat >"$EXAMPLE_DIR/admin_resources.go" <<'GO'
 package main
@@ -86,6 +117,26 @@ func (shipmentResource) ListColumns() []string {
 
 func (shipmentResource) SearchColumns() []string { return []string{"reference", "status"} }
 
+type containerResource struct{}
+
+func (containerResource) Entity() any { return Container{} }
+
+func (containerResource) ListColumns() []string {
+	return []string{"number", "shipment_id", "size_feet", "sealed"}
+}
+
+func (containerResource) SearchColumns() []string { return []string{"number"} }
+
+type trackingEventResource struct{}
+
+func (trackingEventResource) Entity() any { return TrackingEvent{} }
+
+func (trackingEventResource) ListColumns() []string {
+	return []string{"kind", "shipment_id", "container_id", "location", "occurred_at"}
+}
+
+func (trackingEventResource) SearchColumns() []string { return []string{"kind", "location"} }
+
 type portResource struct{}
 
 func (portResource) Entity() any { return Port{} }
@@ -100,7 +151,9 @@ GO
 
 app_managed_resources_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 7 ]; then
+	if [ "$stage" -ge 9 ]; then
+		printf 'customerResource{}, portResource{}, shipmentResource{}, containerResource{}, trackingEventResource{}'
+	elif [ "$stage" -ge 7 ]; then
 		printf 'customerResource{}, portResource{}, shipmentResource{}'
 	elif [ "$stage" -ge 6 ]; then
 		printf 'customerResource{}, portResource{}'
@@ -109,7 +162,9 @@ app_managed_resources_for_stage() {
 
 app_registered_models_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 7 ]; then
+	if [ "$stage" -ge 9 ]; then
+		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{}), model.Of(Container{}), model.Of(TrackingEvent{})'
+	elif [ "$stage" -ge 7 ]; then
 		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{})'
 	elif [ "$stage" -ge 5 ]; then
 		printf 'model.Of(Customer{}), model.Of(Port{})'

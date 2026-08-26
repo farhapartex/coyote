@@ -38,7 +38,7 @@ run_capturing() {
 	CAPTURED_OUTPUT=""
 	CAPTURED_STATUS=0
 	set +e
-	CAPTURED_OUTPUT="$("$@" 2>&1)"
+	CAPTURED_OUTPUT="$("$@" 2>&1 </dev/null)"
 	CAPTURED_STATUS=$?
 	set -e
 }
@@ -157,7 +157,7 @@ run_capturing_streams() {
 	error_file="$(mktemp "${TMPDIR:-/tmp}/coyote-e2e-stderr-XXXXXX")"
 
 	set +e
-	CAPTURED_STDOUT="$("$@" 2>"$error_file")"
+	CAPTURED_STDOUT="$("$@" 2>"$error_file" </dev/null)"
 	CAPTURED_STATUS=$?
 	set -e
 
