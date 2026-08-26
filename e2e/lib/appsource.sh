@@ -28,6 +28,28 @@ type Port struct {
 GO
 }
 
+app_write_shipment_model() {
+	cat >"$EXAMPLE_DIR/models_shipment.go" <<'GO'
+package main
+
+import "time"
+
+type Shipment struct {
+	ID            string  `gorm:"primaryKey;size:36"`
+	Reference     string  `gorm:"size:30;not null;index"`
+	CustomerID    *string `gorm:"size:36;index"`
+	Customer      Customer
+	OriginID      *string `gorm:"size:36;index"`
+	Origin        Port    `gorm:"foreignKey:OriginID"`
+	DestinationID *string `gorm:"size:36;index"`
+	Destination   Port    `gorm:"foreignKey:DestinationID"`
+	Status        string  `gorm:"size:20;not null;index"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+GO
+}
+
 app_write_admin_resources() {
 	cat >"$EXAMPLE_DIR/admin_resources.go" <<'GO'
 package main
@@ -41,6 +63,16 @@ func (customerResource) ListColumns() []string {
 }
 
 func (customerResource) SearchColumns() []string { return []string{"name", "code"} }
+
+type shipmentResource struct{}
+
+func (shipmentResource) Entity() any { return Shipment{} }
+
+func (shipmentResource) ListColumns() []string {
+	return []string{"reference", "customer_id", "origin_id", "destination_id", "status"}
+}
+
+func (shipmentResource) SearchColumns() []string { return []string{"reference", "status"} }
 
 type portResource struct{}
 
@@ -56,14 +88,18 @@ GO
 
 app_managed_resources_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 6 ]; then
+	if [ "$stage" -ge 7 ]; then
+		printf 'customerResource{}, portResource{}, shipmentResource{}'
+	elif [ "$stage" -ge 6 ]; then
 		printf 'customerResource{}, portResource{}'
 	fi
 }
 
 app_registered_models_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 5 ]; then
+	if [ "$stage" -ge 7 ]; then
+		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{})'
+	elif [ "$stage" -ge 5 ]; then
 		printf 'model.Of(Customer{}), model.Of(Port{})'
 	fi
 }
