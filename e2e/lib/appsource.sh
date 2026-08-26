@@ -29,25 +29,37 @@ GO
 }
 
 app_write_shipment_model() {
-	cat >"$EXAMPLE_DIR/models_shipment.go" <<'GO'
-package main
+	local columns="${1:-1}"
 
-import "time"
+	{
+		printf 'package main\n\n'
+		printf 'import "time"\n\n'
+		printf 'type Shipment struct {\n'
+		printf '\tID            string  `gorm:"primaryKey;size:36"`\n'
+		printf '\tReference     string  `gorm:"size:30;not null;index"`\n'
+		printf '\tCustomerID    *string `gorm:"size:36;index"`\n'
+		printf '\tCustomer      Customer\n'
+		printf '\tOriginID      *string `gorm:"size:36;index"`\n'
+		printf '\tOrigin        Port    `gorm:"foreignKey:OriginID"`\n'
+		printf '\tDestinationID *string `gorm:"size:36;index"`\n'
+		printf '\tDestination   Port    `gorm:"foreignKey:DestinationID"`\n'
+		printf '\tStatus        string  `gorm:"size:20;not null;index"`\n'
+		if [ "$columns" -ge 2 ]; then
+			printf '\tCustomsNotes  *string `gorm:"size:2000"`\n'
+			printf '\tDeclaredValue *float64\n'
+		fi
+		if [ "$columns" -ge 3 ]; then
+			printf '\tETA           *time.Time\n'
+		fi
+		if [ "$columns" -ge 4 ]; then
+			printf '\tCarrierName   string `gorm:"size:100;not null"`\n'
+		fi
+		printf '\tCreatedAt     time.Time\n'
+		printf '\tUpdatedAt     time.Time\n'
+		printf '}\n'
+	} >"$EXAMPLE_DIR/models_shipment.go"
 
-type Shipment struct {
-	ID            string  `gorm:"primaryKey;size:36"`
-	Reference     string  `gorm:"size:30;not null;index"`
-	CustomerID    *string `gorm:"size:36;index"`
-	Customer      Customer
-	OriginID      *string `gorm:"size:36;index"`
-	Origin        Port    `gorm:"foreignKey:OriginID"`
-	DestinationID *string `gorm:"size:36;index"`
-	Destination   Port    `gorm:"foreignKey:DestinationID"`
-	Status        string  `gorm:"size:20;not null;index"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-}
-GO
+	app_gofmt
 }
 
 app_write_admin_resources() {
@@ -160,10 +172,29 @@ app_run_command() {
 		grep -v 'level=DEBUG' | grep -v 'level=WARN' | grep -v 'level=INFO' || true)"
 }
 
+app_snapshot_path() {
+	printf '%s/migrations/snapshot.json' "$EXAMPLE_DIR"
+}
+
+app_backup_snapshot() {
+	cp "$(app_snapshot_path)" "$E2E_WORK_DIR/snapshot.backup" 2>/dev/null || true
+}
+
+app_restore_snapshot() {
+	if [ -f "$E2E_WORK_DIR/snapshot.backup" ]; then
+		cp "$E2E_WORK_DIR/snapshot.backup" "$(app_snapshot_path)"
+		rm -f "$E2E_WORK_DIR/snapshot.backup"
+	fi
+}
+
 app_reset_migration_state() {
 	rm -f "$EXAMPLE_DIR"/migrations/[0-9][0-9][0-9][0-9]_*.go
 	rm -f "$EXAMPLE_DIR/migrations/snapshot.json"
 	rm -f "$(app_database_path)" "$(app_database_path)-wal" "$(app_database_path)-shm"
+}
+
+app_migration_for_name() {
+	find "$EXAMPLE_DIR/migrations" -name "[0-9][0-9][0-9][0-9]_$1.go" -type f 2>/dev/null | head -1
 }
 
 app_migration_files() {
