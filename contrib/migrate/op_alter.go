@@ -21,7 +21,14 @@ func (o AlterColumn) Describe() string {
 }
 
 func (o AlterColumn) Statements(d dialect.Dialect) []string {
-	return d.AlterColumn(o.Table, o.dialectColumn(d, o.From), o.dialectColumn(d, o.To))
+	if !o.Rebuilds(d) {
+		return d.AlterColumn(o.Table, o.dialectColumn(d, o.From), o.dialectColumn(d, o.To))
+	}
+	statements, err := o.rebuildStatements(d)
+	if err != nil {
+		return []string{"-- " + o.Describe() + ": " + err.Error()}
+	}
+	return statements
 }
 
 func (o AlterColumn) dialectColumn(d dialect.Dialect, column Column) dialect.Column {
