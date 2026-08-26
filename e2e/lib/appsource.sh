@@ -28,6 +28,39 @@ type Port struct {
 GO
 }
 
+app_write_admin_resources() {
+	cat >"$EXAMPLE_DIR/admin_resources.go" <<'GO'
+package main
+
+type customerResource struct{}
+
+func (customerResource) Entity() any { return Customer{} }
+
+func (customerResource) ListColumns() []string {
+	return []string{"name", "code", "country"}
+}
+
+func (customerResource) SearchColumns() []string { return []string{"name", "code"} }
+
+type portResource struct{}
+
+func (portResource) Entity() any { return Port{} }
+
+func (portResource) ListColumns() []string {
+	return []string{"name", "code", "country"}
+}
+
+func (portResource) SearchColumns() []string { return []string{"name", "code"} }
+GO
+}
+
+app_managed_resources_for_stage() {
+	local stage="$1"
+	if [ "$stage" -ge 6 ]; then
+		printf 'customerResource{}, portResource{}'
+	fi
+}
+
 app_registered_models_for_stage() {
 	local stage="$1"
 	if [ "$stage" -ge 5 ]; then
@@ -37,8 +70,9 @@ app_registered_models_for_stage() {
 
 app_write_main() {
 	local stage="$1"
-	local models
+	local models resources
 	models="$(app_registered_models_for_stage "$stage")"
+	resources="$(app_managed_resources_for_stage "$stage")"
 
 	{
 		printf 'package main\n\n'
@@ -58,7 +92,12 @@ app_write_main() {
 		if [ -n "$models" ]; then
 			printf '\ta.RegisterModel(%s)\n\n' "$models"
 		fi
-		printf '\tadmin.Mount(a)\n\n'
+		if [ -n "$resources" ]; then
+			printf '\tportal := admin.Mount(a)\n'
+			printf '\tportal.MustManage(%s)\n\n' "$resources"
+		else
+			printf '\tadmin.Mount(a)\n\n'
+		fi
 		printf '\ta.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {\n'
 		printf '\t\ta.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})\n'
 		printf '\t}).Named("home")\n\n'
