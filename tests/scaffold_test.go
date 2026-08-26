@@ -181,3 +181,21 @@ func TestScaffoldIgnoresGeneratedDirectories(t *testing.T) {
 		}
 	}
 }
+
+func TestScaffoldedMainDoesNotFailOnACleanShutdown(t *testing.T) {
+	project := scaffolded(t, scaffold.Options{Name: "myshop"})
+
+	raw, err := os.ReadFile(filepath.Join(project.Dir, "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+
+	if strings.Contains(source, "log.Fatal(a.Run())") {
+		t.Errorf("Run returns nil after a graceful shutdown, so log.Fatal(a.Run()) prints <nil> "+
+			"and exits 1; the scaffolded project would report failure on success:\n%s", source)
+	}
+	if !strings.Contains(source, "if err := a.Run(); err != nil {") {
+		t.Errorf("main should only call log.Fatal when Run actually returns an error:\n%s", source)
+	}
+}
