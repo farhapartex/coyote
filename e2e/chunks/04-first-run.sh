@@ -114,13 +114,35 @@ check_the_app_shuts_down_gracefully() {
 	fi
 }
 
-check_a_clean_shutdown_exits_zero() {
+check_the_scaffold_returns_a_clean_exit_code() {
+	local template="$E2E_ROOT/contrib/scaffold/files/main.go.tmpl"
+
+	if grep -q 'log\.Fatal(a\.Run())' "$template"; then
+		check_failed "the scaffolded main.go exits zero on a clean shutdown" \
+			"contrib/scaffold/files/main.go.tmpl ends with log.Fatal(a.Run())
+Run() returns nil after a graceful shutdown, so log.Fatal(nil) prints <nil> and exits 1
+every scaffolded project therefore reports failure on success; it should read
+    if err := a.Run(); err != nil {
+        log.Fatal(err)
+    }"
+		return
+	fi
+	check_passed "the scaffolded main.go exits zero on a clean shutdown"
+}
+
+check_the_running_app_exits_zero() {
 	local binary="$E2E_WORK_DIR/example-binary" status=0
+
+	if ! grep -q 'log\.Fatal(a\.Run())' "$EXAMPLE_DIR/main.go" 2>/dev/null; then
+		check_skipped "the built application exits zero on a clean shutdown" \
+			"example/main.go is no longer the scaffolded one, so this would not test the template"
+		return
+	fi
 
 	cd "$EXAMPLE_DIR"
 	if ! go build -o "$binary" . >/dev/null 2>&1; then
 		cd "$E2E_ROOT"
-		check_failed "a clean shutdown exits zero" "the example did not build"
+		check_failed "the built application exits zero on a clean shutdown" "the example did not build"
 		return
 	fi
 	cd "$E2E_ROOT"
@@ -139,16 +161,14 @@ check_a_clean_shutdown_exits_zero() {
 	wait "$direct_pid"
 	status=$?
 	set -e
-
 	rm -f "$binary"
 
 	if [ "$status" -eq 0 ]; then
-		check_passed "a clean shutdown exits zero"
+		check_passed "the built application exits zero on a clean shutdown"
 		return
 	fi
-	check_failed "a clean shutdown exits zero" \
-		"the process exited $status after a graceful shutdown
-the scaffolded main.go calls log.Fatal(a.Run()), so a nil error still exits 1 and prints <nil>
+	check_failed "the built application exits zero on a clean shutdown" \
+		"the process exited $status after logging a graceful shutdown
 $(tail -2 "$E2E_WORK_DIR/direct.log")"
 }
 
@@ -204,7 +224,8 @@ else
 	force_free_the_port
 fi
 
-check_a_clean_shutdown_exits_zero
+check_the_scaffold_returns_a_clean_exit_code
+check_the_running_app_exits_zero
 check_coyote_start_does_not_orphan_the_server
 check_the_port_is_free_afterwards
 
