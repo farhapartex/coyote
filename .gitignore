@@ -11,5 +11,8 @@ phases
 /example/staticfiles
 /example/cache
 /example/mail/
+/e2e/.bin/
+/e2e/.work/
+/e2e/REPORT.md
 
 /CLAUDE.md
