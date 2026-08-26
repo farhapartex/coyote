@@ -41,26 +41,38 @@ check_making_an_index_unique_is_noticed() {
 	cd "$E2E_ROOT"
 
 	app_run_command makemigrations --name=reference_uniqueness
+	local generated
+	generated="$(app_migration_for_name reference_uniqueness)"
 
 	case "$APP_OUTPUT" in
 	*"no model changes detected"*)
 		check_failed "changing an index to unique produces a migration" \
 			"the tag changed from index to uniqueIndex and the project rebuilt, but makemigrations
 reported no model changes, so an existing index can never be made unique through a migration
-contrib/migrate/diff.go:130 matches indexes by name only: an index whose name is unchanged is
-treated as unchanged, so neither Unique nor Columns is ever compared
-snapshot.json does record \"unique\": true for other tables, so the information is present but unused"
-		note "index diffing" \
-			"the workaround is to give the index a new name, which the diff then sees as a drop and an add"
+contrib/migrate/diff.go matches indexes by name only when this fails: an index whose name is
+unchanged is treated as unchanged, so neither Unique nor Columns is ever compared"
 		;;
 	*)
 		check_passed "changing an index to unique produces a migration"
 		;;
 	esac
 
+	if [ -n "$generated" ]; then
+		assert_output_contains "the index is dropped before it is recreated" \
+			'migrate.DropIndex{Table: "shipments", Name: "idx_shipments_reference"}' cat "$generated"
+		assert_output_contains "the replacement index is unique" \
+			'Name: "idx_shipments_reference", Columns: []string{"reference"}, Unique: true' cat "$generated"
+	else
+		check_skipped "the index is dropped before it is recreated" "no migration was generated"
+	fi
+
+	rm -f "$generated"
 	app_write_shipment_model 3 0
 	app_restore_snapshot
 	app_gofmt
+
+	assert_equal "the exploratory step left the ladder alone" "$STEPS_BEFORE" \
+		"$(app_migration_files | wc -l | tr -d ' ')"
 }
 
 generate_the_renamed_unique_index() {
