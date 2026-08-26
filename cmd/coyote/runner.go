@@ -24,6 +24,7 @@ func invoke(env []string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.SysProcAttr = ownProcessGroup()
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
@@ -34,9 +35,7 @@ func invoke(env []string) error {
 	}
 	go func() {
 		for s := range signals {
-			if cmd.Process != nil {
-				_ = cmd.Process.Signal(s)
-			}
+			signalProcessTree(cmd.Process, s)
 		}
 	}()
 
