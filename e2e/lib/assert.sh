@@ -147,3 +147,79 @@ assert_command_exists() {
 last_check_passed() {
 	[ "${LAST_CHECK_OK:-0}" = "1" ]
 }
+
+run_capturing_streams() {
+	CAPTURED_STDOUT=""
+	CAPTURED_STDERR=""
+	CAPTURED_STATUS=0
+
+	local error_file
+	error_file="$(mktemp "${TMPDIR:-/tmp}/coyote-e2e-stderr-XXXXXX")"
+
+	set +e
+	CAPTURED_STDOUT="$("$@" 2>"$error_file")"
+	CAPTURED_STATUS=$?
+	set -e
+
+	CAPTURED_STDERR="$(cat "$error_file")"
+	rm -f "$error_file"
+}
+
+assert_exit_code() {
+	local description="$1" expected="$2"
+	shift 2
+	run_capturing_streams "$@"
+	if [ "$CAPTURED_STATUS" -eq "$expected" ]; then
+		check_passed "$description"
+		return 0
+	fi
+	check_failed "$description" "command: $*
+expected exit $expected, got $CAPTURED_STATUS
+$(truncated_output "$CAPTURED_STDERR")"
+	return 0
+}
+
+assert_stdout_contains() {
+	local description="$1" needle="$2"
+	shift 2
+	run_capturing_streams "$@"
+	case "$CAPTURED_STDOUT" in
+	*"$needle"*)
+		check_passed "$description"
+		return 0
+		;;
+	esac
+	check_failed "$description" "command: $*
+expected stdout to contain: $needle
+got: $(truncated_output "$CAPTURED_STDOUT")"
+	return 0
+}
+
+assert_stderr_contains() {
+	local description="$1" needle="$2"
+	shift 2
+	run_capturing_streams "$@"
+	case "$CAPTURED_STDERR" in
+	*"$needle"*)
+		check_passed "$description"
+		return 0
+		;;
+	esac
+	check_failed "$description" "command: $*
+expected stderr to contain: $needle
+got: $(truncated_output "$CAPTURED_STDERR")"
+	return 0
+}
+
+assert_stdout_empty() {
+	local description="$1"
+	shift
+	run_capturing_streams "$@"
+	if [ -z "$CAPTURED_STDOUT" ]; then
+		check_passed "$description"
+		return 0
+	fi
+	check_failed "$description" "command: $*
+expected nothing on stdout, got: $(truncated_output "$CAPTURED_STDOUT")"
+	return 0
+}
