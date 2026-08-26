@@ -30,13 +30,20 @@ GO
 
 app_write_shipment_model() {
 	local columns="${1:-1}"
+	local unique_reference="${2:-0}"
 
 	{
 		printf 'package main\n\n'
 		printf 'import "time"\n\n'
 		printf 'type Shipment struct {\n'
 		printf '\tID            string  `gorm:"primaryKey;size:36"`\n'
-		printf '\tReference     string  `gorm:"size:30;not null;index"`\n'
+		if [ "$unique_reference" = "2" ]; then
+			printf '\tReference     string  `gorm:"size:30;not null;uniqueIndex:uq_shipments_reference"`\n'
+		elif [ "$unique_reference" = "1" ]; then
+			printf '\tReference     string  `gorm:"size:30;not null;uniqueIndex"`\n'
+		else
+			printf '\tReference     string  `gorm:"size:30;not null;index"`\n'
+		fi
 		printf '\tCustomerID    *string `gorm:"size:36;index"`\n'
 		printf '\tCustomer      Customer\n'
 		printf '\tOriginID      *string `gorm:"size:36;index"`\n'
@@ -63,6 +70,7 @@ app_write_shipment_model() {
 }
 
 app_write_container_models() {
+	local unique_kind="${1:-0}"
 	cat >"$EXAMPLE_DIR/models_container.go" <<'GO'
 package main
 
@@ -91,6 +99,17 @@ type TrackingEvent struct {
 	CreatedAt   time.Time
 }
 GO
+
+	if [ "$unique_kind" = "2" ]; then
+		sed -i.bak 's/`gorm:"size:40;not null;index"`/`gorm:"size:40;not null;uniqueIndex:uq_tracking_events_kind"`/' \
+			"$EXAMPLE_DIR/models_container.go"
+		rm -f "$EXAMPLE_DIR/models_container.go.bak"
+	elif [ "$unique_kind" = "1" ]; then
+		sed -i.bak 's/`gorm:"size:40;not null;index"`/`gorm:"size:40;not null;uniqueIndex"`/' \
+			"$EXAMPLE_DIR/models_container.go"
+		rm -f "$EXAMPLE_DIR/models_container.go.bak"
+	fi
+	app_gofmt
 }
 
 app_write_admin_resources() {
