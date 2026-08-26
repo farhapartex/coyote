@@ -41,6 +41,7 @@ What you can replace, and the contract you implement:
 | Reset tokens | `auth.TokenStore` | registered when `Auth.ResetTokens` is on |
 | Cache storage | `cache.Cache` (+ `Namespacer`, `Counter`, `Multi`, `Pinger`) | `Caches[].Store` |
 | File storage | `storage.Storage` | `Uploads.Storage` |
+| Email delivery | `mail.Sender` | `Email.Sender` |
 | Password rules | `auth.PasswordRule` | `Auth.PasswordRules` |
 | Login limits | `auth.LoginLimiter` | supplied to the service |
 | Pagination | `view.Paginator` | `Pagination.Paginator` |

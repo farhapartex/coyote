@@ -10,5 +10,6 @@ phases
 /example/media
 /example/staticfiles
 /example/cache
+/example/mail/
 
 /CLAUDE.md

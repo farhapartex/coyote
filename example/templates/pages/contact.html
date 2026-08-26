@@ -1,0 +1,29 @@
+{{define "content"}}
+<h1>{{.Locale.T "Contact us"}}</h1>
+<p class="lead">{{.Locale.T "The framework contributes an interface and a configuration struct. Composing this message, choosing when to send it and deciding what to tell you afterwards is all application code."}}</p>
+
+<form method="post" action="/contact" class="card">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+  <label for="name">{{.Locale.T "Your name"}}</label>
+  <input type="text" id="name" name="name" required autofocus>
+
+  <label for="email">{{.Locale.T "Your email address"}}</label>
+  <input type="email" id="email" name="email" required>
+
+  <label for="message">{{.Locale.T "Your message"}}</label>
+  <textarea id="message" name="message" rows="5" required></textarea>
+
+  <label>
+    <input type="checkbox" name="background" value="yes">
+    {{.Locale.T "Hand the message to a goroutine instead of waiting for the server"}}
+  </label>
+
+  <button type="submit">{{.Locale.T "Send"}}</button>
+</form>
+
+<div class="card">
+  <p class="muted">{{.Locale.Tf "Delivering through %s." .Backend}}</p>
+  <p class="muted">{{.Locale.T "Sending synchronously reports a failure straight to you. Sending in a goroutine cannot, so it logs instead and uses a background context, because the request context is cancelled as soon as this page is returned. A real deployment wants a queue rather than a bare goroutine."}}</p>
+</div>
+{{end}}

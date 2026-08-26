@@ -218,10 +218,20 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Logging.Level` | `info` | `debug`, `info`, `warn`, `error` |
 | `Logging.Format` | `text` | `text` or `json` |
 | `Logging.Logger` | none | Supply your own `*slog.Logger` |
+| `Email.Backend` | none | `smtp`, `console`, `file`, `memory`; empty sends nothing |
+| `Email.Host` / `Email.Port` | none / by TLS mode | SMTP only; 587 starttls, 465 tls, 25 none |
+| `Email.Username` / `Email.Password` | none | SMTP only; refused with `Email.TLS` `none` |
+| `Email.TLS` | `starttls` | `none`, `starttls` or `tls` |
+| `Email.From` | none | The SMTP backend's default sender; other backends need `From` on the message, or `mail.WithDefaultFrom` |
+| `Email.Dir` | `mail` | File backend only; relative to `BaseDir` |
+| `Email.Timeout` | `10s` | Per send |
+| `Email.LocalName` | `localhost` | The name given in `EHLO` |
+| `Email.Sender` | none | Any `mail.Sender`; cannot be combined with `Email.Backend` |
 
 ## Next
 
 - [Internationalisation →](34-internationalisation.md) — the `I18N` group in detail
 - [Caching →](33-caching.md) — the `Caches` list in detail
+- [Email →](35-email.md) — the `Email` group in detail
 - [Databases →](11-database.md) — the `Databases` list in detail
 - [Routing →](05-routing.md)

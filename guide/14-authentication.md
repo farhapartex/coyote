@@ -243,6 +243,7 @@ s.Auth.ResetTokenLifetime = time.Hour
 ```go
 token, err := a.Auth.CreateResetToken(user.ID)
 // send it however you like: email, SMS, a support desk
+// see guide/35-email.md for the whole flow with a mail.Sender
 
 user, err := a.Auth.CheckResetToken(token)          // still valid?
 
