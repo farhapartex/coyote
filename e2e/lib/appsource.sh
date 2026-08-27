@@ -148,6 +148,252 @@ GO
 	app_gofmt
 }
 
+app_write_public_handlers() {
+	cat >"$EXAMPLE_DIR/handlers_public.go" <<'GO'
+package main
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/model"
+	"github.com/farhapartex/coyote/core/view"
+)
+
+type service struct {
+	Slug    string
+	Title   string
+	Summary string
+}
+
+var services = []service{
+	{Slug: "ocean-freight", Title: "Ocean freight", Summary: "Full and less than container loads on every major lane."},
+	{Slug: "air-freight", Title: "Air freight", Summary: "Time critical movements with customs handled end to end."},
+	{Slug: "customs-brokerage", Title: "Customs brokerage", Summary: "Declarations, duty deferment and compliance advice."},
+}
+
+func serviceBySlug(slug string) (service, bool) {
+	for _, entry := range services {
+		if entry.Slug == slug {
+			return entry, true
+		}
+	}
+	return service{}, false
+}
+
+func landingPage(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/landing.html", view.Data{
+			"Title":    "Meridian Freight",
+			"Services": services,
+		})
+	}
+}
+
+func servicesIndex(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/services.html", view.Data{
+			"Title":    "Services",
+			"Services": services,
+		})
+	}
+}
+
+func serviceDetail(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		entry, found := serviceBySlug(r.PathValue("slug"))
+		if !found {
+			renderNotFound(a, w, r)
+			return
+		}
+		a.Render(w, r, "pages/service_detail.html", view.Data{
+			"Title":   entry.Title,
+			"Service": entry,
+		})
+	}
+}
+
+func trackForm(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/track.html", view.Data{"Title": "Track a shipment"})
+	}
+}
+
+func trackResult(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		reference := strings.ToUpper(strings.TrimSpace(r.PathValue("reference")))
+
+		records, err := a.Store()
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		schema, err := a.Describe(Shipment{})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		found, err := records.First(r.Context(), schema, model.Query{
+			Filters: []model.Filter{{Column: "reference", Op: model.Eq, Value: reference}},
+			With:    []string{"origin_id", "destination_id"},
+		})
+		if err != nil {
+			a.Render(w, r, "pages/track_missing.html", view.Data{
+				"Title":     "Not found",
+				"Reference": reference,
+			})
+			return
+		}
+
+		a.Render(w, r, "pages/track_result.html", view.Data{
+			"Title":     reference,
+			"Reference": reference,
+			"Shipment":  found,
+		})
+	}
+}
+
+func portDetail(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		code := strings.ToUpper(strings.TrimSpace(r.PathValue("code")))
+
+		records, err := a.Store()
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		schema, err := a.Describe(Port{})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		found, err := records.First(r.Context(), schema, model.Query{
+			Filters: []model.Filter{{Column: "code", Op: model.Eq, Value: code}},
+		})
+		if err != nil {
+			renderNotFound(a, w, r)
+			return
+		}
+
+		a.Render(w, r, "pages/port.html", view.Data{
+			"Title": found.String("name"),
+			"Port":  found,
+		})
+	}
+}
+
+func renderNotFound(a *app.App, w http.ResponseWriter, r *http.Request) {
+	a.RenderStatus(w, r, http.StatusNotFound, "pages/notfound.html", view.Data{"Title": "Not found"})
+}
+
+func staticPage(a *app.App, template, title string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, template, view.Data{"Title": title})
+	}
+}
+GO
+	app_gofmt
+}
+
+app_write_public_templates() {
+	local pages="$EXAMPLE_DIR/templates/pages"
+	mkdir -p "$pages"
+
+	cat >"$pages/landing.html" <<'HTML'
+{{define "content"}}
+<h1>Meridian Freight</h1>
+<p class="lead">Ocean, air and customs, on one booking reference.</p>
+<ul>
+  {{range .Services}}<li><a href="/services/{{.Slug}}">{{.Title}}</a> — {{.Summary}}</li>{{end}}
+</ul>
+<p><a href="{{url "track"}}">Track a shipment</a> · <a href="{{url "quote"}}">Request a quote</a></p>
+{{end}}
+HTML
+
+	cat >"$pages/services.html" <<'HTML'
+{{define "content"}}
+<h1>Services</h1>
+{{range .Services}}
+<article><h2><a href="/services/{{.Slug}}">{{.Title}}</a></h2><p>{{.Summary}}</p></article>
+{{end}}
+{{end}}
+HTML
+
+	cat >"$pages/service_detail.html" <<'HTML'
+{{define "content"}}
+<h1>{{.Service.Title}}</h1>
+<p>{{.Service.Summary}}</p>
+<p><a href="{{url "services"}}">All services</a></p>
+{{end}}
+HTML
+
+	cat >"$pages/track.html" <<'HTML'
+{{define "content"}}
+<h1>Track a shipment</h1>
+<form method="get" action="/track" id="trackform">
+  <input type="text" name="reference" placeholder="MRF-000001" required>
+  <button type="submit">Track</button>
+</form>
+{{end}}
+HTML
+
+	cat >"$pages/track_result.html" <<'HTML'
+{{define "content"}}
+<h1>{{.Reference}}</h1>
+<dl>
+  <dt>Status</dt><dd>{{.Shipment.String "status"}}</dd>
+  <dt>Origin</dt><dd>{{.Shipment.String "origin_id__label"}}</dd>
+  <dt>Destination</dt><dd>{{.Shipment.String "destination_id__label"}}</dd>
+</dl>
+{{end}}
+HTML
+
+	cat >"$pages/track_missing.html" <<'HTML'
+{{define "content"}}
+<h1>Not found</h1>
+<p>No shipment matches {{.Reference}}.</p>
+{{end}}
+HTML
+
+	cat >"$pages/port.html" <<'HTML'
+{{define "content"}}
+<h1>{{.Port.String "name"}}</h1>
+<p>Code {{.Port.String "code"}} · {{.Port.String "country"}}</p>
+{{end}}
+HTML
+
+	cat >"$pages/notfound.html" <<'HTML'
+{{define "content"}}
+<h1>Page not found</h1>
+<p>Nothing lives at this address.</p>
+{{end}}
+HTML
+
+	cat >"$pages/about.html" <<'HTML'
+{{define "content"}}
+<h1>About Meridian</h1>
+<p>A freight forwarder built to exercise a framework.</p>
+{{end}}
+HTML
+
+	cat >"$pages/contact.html" <<'HTML'
+{{define "content"}}
+<h1>Contact</h1>
+<p>Rotterdam · Singapore · Shanghai</p>
+{{end}}
+HTML
+
+	cat >"$pages/quote.html" <<'HTML'
+{{define "content"}}
+<h1>Request a quote</h1>
+<p>Tell us what you are moving and we will come back with a rate.</p>
+{{end}}
+HTML
+}
+
 app_write_admin_resources() {
 	local stage="${1:-6}"
 
@@ -238,7 +484,10 @@ app_write_main() {
 		printf 'package main\n\n'
 		printf 'import (\n'
 		printf '\t"log"\n'
-		printf '\t"net/http"\n\n'
+		if [ "$stage" -lt 14 ]; then
+			printf '\t"net/http"\n'
+		fi
+		printf '\n'
 		printf '\t"github.com/farhapartex/coyote/contrib/admin"\n'
 		printf '\t"github.com/farhapartex/coyote/core/app"\n'
 		if [ -n "$models" ]; then
@@ -258,9 +507,21 @@ app_write_main() {
 		else
 			printf '\tadmin.Mount(a)\n\n'
 		fi
-		printf '\ta.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {\n'
-		printf '\t\ta.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})\n'
-		printf '\t}).Named("home")\n\n'
+		if [ "$stage" -ge 14 ]; then
+			printf '\ta.Get("/{$}", landingPage(a)).Named("home")\n'
+			printf '\ta.Get("/services", servicesIndex(a)).Named("services")\n'
+			printf '\ta.Get("/services/{slug}", serviceDetail(a)).Named("service.detail")\n'
+			printf '\ta.Get("/track", trackForm(a)).Named("track")\n'
+			printf '\ta.Get("/track/{reference}", trackResult(a)).Named("track.result")\n'
+			printf '\ta.Get("/ports/{code}", portDetail(a)).Named("port.detail")\n'
+			printf '\ta.Get("/quote", staticPage(a, "pages/quote.html", "Request a quote")).Named("quote")\n'
+			printf '\ta.Get("/about", staticPage(a, "pages/about.html", "About")).Named("about")\n'
+			printf '\ta.Get("/contact", staticPage(a, "pages/contact.html", "Contact")).Named("contact")\n\n'
+		else
+			printf '\ta.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {\n'
+			printf '\t\ta.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})\n'
+			printf '\t}).Named("home")\n\n'
+		fi
 		printf '\tif err := a.Run(); err != nil {\n'
 		printf '\t\tlog.Fatal(err)\n'
 		printf '\t}\n'
