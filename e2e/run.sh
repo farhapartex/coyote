@@ -84,31 +84,23 @@ prepare_workspace() {
 	mkdir -p "$E2E_BIN_DIR" "$E2E_WORK_DIR"
 	rm -f "$E2E_WORK_DIR"/chunk-*.result
 
-	if [ -n "$OPT_FRESH" ] && [ -d "$EXAMPLE_DIR" ]; then
-		printf '%sremoving %s%s\n' "$C_DIM" "$EXAMPLE_DIR" "$C_RESET"
-		rm -rf "$EXAMPLE_DIR"
-	fi
+	report_open
 
-	report_reset "$(run_scope_description)"
-}
-
-run_scope_description() {
-	if [ -n "$OPT_ONLY" ]; then
-		printf 'only chunk %s' "$OPT_ONLY"
-		return
+	if [ -n "$OPT_FRESH" ]; then
+		if [ -d "$EXAMPLE_DIR" ]; then
+			printf '%sremoving %s%s\n' "$C_DIM" "$EXAMPLE_DIR" "$C_RESET"
+			rm -rf "$EXAMPLE_DIR"
+		fi
+		printf '%sclearing every recorded chunk result%s\n' "$C_DIM" "$C_RESET"
+		report_clear_all
 	fi
-	if [ -n "$OPT_FROM" ]; then
-		printf 'chunk %s onwards' "$OPT_FROM"
-		return
-	fi
-	printf 'every chunk'
 }
 
 run_one_chunk() {
 	local chunk_script="$1" chunk_number chunk_status
 	chunk_number="$(chunk_id_of "$chunk_script")"
 
-	E2E_RESULTS="$E2E_WORK_DIR/chunk-$chunk_number.result"
+	E2E_RESULTS="$(report_results_path "$chunk_number")"
 	: >"$E2E_RESULTS"
 	export E2E_RESULTS
 
@@ -117,17 +109,23 @@ run_one_chunk() {
 		chunk_status="fail"
 	fi
 
-	report_add_chunk "$chunk_number" "$E2E_RESULTS" "$chunk_status"
+	report_stamp_chunk "$chunk_number" "$chunk_status"
 	report_render
 
 	[ "$chunk_status" = "pass" ]
 }
 
 block_remaining_chunks() {
-	local reason="$1" script
+	local reason="$1" script number
 	shift
 	for script in "$@"; do
-		report_add_blocked_chunk "$(chunk_id_of "$script")" "$(chunk_name_of "$script")" "$reason"
+		number="$(chunk_id_of "$script")"
+		E2E_RESULTS="$(report_results_path "$number")"
+		: >"$E2E_RESULTS"
+		export E2E_RESULTS
+		printf 'META%sname%s%s\n' "$E2E_SEP" "$E2E_SEP" "$(chunk_name_of "$script")" >>"$E2E_RESULTS"
+		printf 'NOTE%snot run%s%s\n' "$E2E_SEP" "$E2E_SEP" "$reason" >>"$E2E_RESULTS"
+		report_stamp_chunk "$number" "blocked"
 	done
 	report_render
 }
@@ -154,12 +152,6 @@ main() {
 		printf 'no chunks matched\n' >&2
 		exit 2
 	fi
-
-	for script in $(chunk_scripts); do
-		if ! chunk_is_selected "$(chunk_id_of "$script")"; then
-			report_add_unrun_chunk "$(chunk_id_of "$script")" "$(chunk_name_of "$script")"
-		fi
-	done
 
 	local index=0
 	local failures=0

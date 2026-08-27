@@ -42,7 +42,7 @@ generate_the_invoicing_migration() {
 	fi
 
 	app_write_invoice_models
-	app_write_admin_resources
+	app_write_admin_resources 12
 	app_write_main 12
 
 	assert_file_exists "the invoicing models are written" "$EXAMPLE_DIR/models_invoice.go"

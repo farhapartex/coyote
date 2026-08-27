@@ -40,7 +40,7 @@ generate_the_graph_migration() {
 	fi
 
 	app_write_container_models
-	app_write_admin_resources
+	app_write_admin_resources 9
 	app_write_main 9
 
 	assert_file_exists "the container models are written" "$EXAMPLE_DIR/models_container.go"

@@ -1,49 +1,162 @@
-report_reset() {
-	: >"$E2E_WORK_DIR/summary.tsv"
-	: >"$E2E_WORK_DIR/details.md"
-	REPORT_SCOPE="${1:-every chunk}"
+RESULTS_DIR="$E2E_WORK_DIR/results"
+
+report_open() {
+	mkdir -p "$RESULTS_DIR"
 	REPORT_STARTED="$(seconds_now)"
 }
 
-report_add_unrun_chunk() {
-	printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "--" "not run" "0" >>"$E2E_WORK_DIR/summary.tsv"
+report_clear_all() {
+	rm -rf "$RESULTS_DIR"
+	mkdir -p "$RESULTS_DIR"
+}
+
+report_results_path() {
+	printf '%s/%s.result' "$RESULTS_DIR" "$1"
+}
+
+report_stamp_chunk() {
+	local id="$1" status="$2" file
+	file="$(report_results_path "$id")"
+
+	printf 'META%sstatus%s%s\n' "$E2E_SEP" "$E2E_SEP" "$status" >>"$file"
+	printf 'META%swhen%s%s\n' "$E2E_SEP" "$E2E_SEP" "$(date '+%Y-%m-%d %H:%M')" >>"$file"
+	printf 'META%scommit%s%s\n' "$E2E_SEP" "$E2E_SEP" "$(repository_commit)" >>"$file"
 }
 
 report_meta_value() {
 	local file="$1" key="$2"
-	awk -F"$E2E_SEP" -v key="$key" '$1 == "META" && $2 == key {print $3}' "$file" | tail -1
+	awk -F"$E2E_SEP" -v key="$key" '$1 == "META" && $2 == key {print $3}' "$file" 2>/dev/null | tail -1
 }
 
-report_add_chunk() {
-	local id="$1" file="$2" status="$3"
-	local name totals duration
-
-	name="$(report_meta_value "$file" name)"
-	totals="$(report_meta_value "$file" totals)"
-	duration="$(report_meta_value "$file" duration)"
-
-	printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "${totals:---}" "$status" "${duration:-0}" \
-		>>"$E2E_WORK_DIR/summary.tsv"
-
-	report_render_chunk_section "$id" "$name" "$file" "$status" >>"$E2E_WORK_DIR/details.md"
+report_status_label() {
+	case "$1" in
+	pass) printf 'pass' ;;
+	fail) printf '**fail**' ;;
+	blocked) printf '_blocked_' ;;
+	none) printf '_never run_' ;;
+	*) printf '_incomplete_' ;;
+	esac
 }
 
-report_add_blocked_chunk() {
-	local id="$1" name="$2" reason="$3"
+report_recorded_commits() {
+	local file
+	for file in "$RESULTS_DIR"/*.result; do
+		[ -f "$file" ] || continue
+		report_meta_value "$file" commit
+	done | sort -u
+}
 
-	printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "--" "blocked" "0" >>"$E2E_WORK_DIR/summary.tsv"
+report_render() {
+	local elapsed dirty
+	elapsed="$(($(seconds_now) - REPORT_STARTED))"
+	dirty=""
+	if repository_is_dirty; then
+		dirty=" · working tree dirty"
+	fi
+
 	{
-		printf '\n## %s. %s — blocked\n\n' "$id" "$name"
-		printf 'Not run: %s\n' "$reason"
-	} >>"$E2E_WORK_DIR/details.md"
+		printf '# Coyote end-to-end run\n\n'
+		printf 'Last pass %s%s · go %s · %s · %ds\n\n' \
+			"$(date '+%Y-%m-%d %H:%M')" "$dirty" "$(go_version)" "$(platform_name)" "$elapsed"
+		printf 'Every chunk keeps its own findings here. A chunk section is rewritten only when that\n'
+		printf 'chunk runs again, so this stays a whole-suite report after `--only` or `--from`.\n\n'
+
+		report_render_summary
+		report_render_totals
+		report_render_consistency
+		report_render_sections
+	} >"$E2E_REPORT"
 }
 
-report_render_chunk_section() {
-	local id="$1" name="$2" file="$3" status="$4"
+report_render_summary() {
+	printf '| # | Chunk | Checks | Result | Recorded |\n'
+	printf '| --- | --- | --- | --- | --- |\n'
 
-	printf '\n## %s. %s — %s\n\n' "$id" "$name" "$status"
+	local script id name file status totals when
+	for script in $(chunk_scripts); do
+		id="$(chunk_id_of "$script")"
+		name="$(chunk_name_of "$script")"
+		file="$(report_results_path "$id")"
 
-	local kind description detail
+		if [ ! -f "$file" ]; then
+			printf '| %s | %s | -- | %s | -- |\n' "$id" "$name" "$(report_status_label none)"
+			continue
+		fi
+
+		status="$(report_meta_value "$file" status)"
+		totals="$(report_meta_value "$file" totals)"
+		when="$(report_meta_value "$file" when)"
+		printf '| %s | %s | %s | %s | %s |\n' \
+			"$id" "$name" "${totals:---}" "$(report_status_label "$status")" "${when:---}"
+	done
+	printf '\n'
+}
+
+report_render_totals() {
+	local script id file status chunks=0 passed=0 failed=0 missing=0
+
+	for script in $(chunk_scripts); do
+		chunks=$((chunks + 1))
+		id="$(chunk_id_of "$script")"
+		file="$(report_results_path "$id")"
+		if [ ! -f "$file" ]; then
+			missing=$((missing + 1))
+			continue
+		fi
+		status="$(report_meta_value "$file" status)"
+		case "$status" in
+		pass) passed=$((passed + 1)) ;;
+		fail) failed=$((failed + 1)) ;;
+		esac
+	done
+
+	printf '%s of %s chunks passing' "$passed" "$chunks"
+	if [ "$failed" -gt 0 ]; then
+		printf ', %s failing' "$failed"
+	fi
+	if [ "$missing" -gt 0 ]; then
+		printf ', %s never run' "$missing"
+	fi
+	printf '.\n'
+}
+
+report_render_consistency() {
+	local commits count
+	commits="$(report_recorded_commits | tr '\n' ' ' | sed 's/ $//')"
+	count="$(report_recorded_commits | wc -l | tr -d ' ')"
+
+	if [ "$count" -gt 1 ]; then
+		printf '\nThese results were recorded at more than one commit (%s), so they do not describe a\n' "$commits"
+		printf 'single state of the tree. Run `./e2e/run.sh` for one consistent picture.\n'
+	fi
+	printf '\n'
+}
+
+report_render_sections() {
+	local script id name file status
+
+	for script in $(chunk_scripts); do
+		id="$(chunk_id_of "$script")"
+		name="$(chunk_name_of "$script")"
+		file="$(report_results_path "$id")"
+
+		if [ ! -f "$file" ]; then
+			printf '\n## %s. %s — never run\n\n' "$id" "$name"
+			printf 'No results recorded yet.\n'
+			continue
+		fi
+
+		status="$(report_meta_value "$file" status)"
+		printf '\n## %s. %s — %s\n\n' "$id" "$name" "${status:-unknown}"
+		printf '_Recorded %s at commit %s._\n\n' \
+			"$(report_meta_value "$file" when)" "$(report_meta_value "$file" commit)"
+		report_render_checks "$file"
+	done
+}
+
+report_render_checks() {
+	local file="$1" kind description detail
+
 	while IFS="$E2E_SEP" read -r kind description detail; do
 		case "$kind" in
 		PASS)
@@ -63,66 +176,4 @@ report_render_chunk_section() {
 			;;
 		esac
 	done <"$file"
-}
-
-report_status_label() {
-	case "$1" in
-	pass) printf 'pass' ;;
-	fail) printf '**fail**' ;;
-	blocked) printf '_blocked_' ;;
-	"not run") printf '_not run_' ;;
-	*) printf '%s' "$1" ;;
-	esac
-}
-
-report_render() {
-	local elapsed dirty
-	local row_id row_name row_totals row_status row_duration
-	elapsed="$(($(seconds_now) - REPORT_STARTED))"
-	dirty=""
-	if repository_is_dirty; then
-		dirty=" · working tree dirty"
-	fi
-
-	{
-		printf '# Coyote end-to-end run\n\n'
-		printf '%s · commit `%s`%s · go %s · %s · %ds\n\n' \
-			"$(date '+%Y-%m-%d %H:%M')" "$(repository_commit)" "$dirty" \
-			"$(go_version)" "$(platform_name)" "$elapsed"
-
-		if [ "${REPORT_SCOPE:-every chunk}" != "every chunk" ]; then
-			printf '**Partial run: %s.** Chunks marked _not run_ were not executed, so their\n' \
-				"$REPORT_SCOPE"
-			printf 'results are absent rather than passing. Run `./e2e/run.sh` for the whole suite.\n\n'
-		fi
-
-		printf '| # | Chunk | Checks | Result |\n'
-		printf '| --- | --- | --- | --- |\n'
-		while IFS=$'\t' read -r row_id row_name row_totals row_status row_duration; do
-			printf '| %s | %s | %s | %s |\n' \
-				"$row_id" "$row_name" "$row_totals" "$(report_status_label "$row_status")"
-		done < <(sort -t"$(printf '\t')" -k1,1 "$E2E_WORK_DIR/summary.tsv")
-
-		report_render_totals
-		cat "$E2E_WORK_DIR/details.md"
-	} >"$E2E_REPORT"
-}
-
-report_render_totals() {
-	local chunks passed failed blocked
-	chunks="$(wc -l <"$E2E_WORK_DIR/summary.tsv" | tr -d ' ')"
-	passed="$(awk -F'\t' '$4 == "pass"' "$E2E_WORK_DIR/summary.tsv" | wc -l | tr -d ' ')"
-	failed="$(awk -F'\t' '$4 == "fail"' "$E2E_WORK_DIR/summary.tsv" | wc -l | tr -d ' ')"
-	blocked="$(awk -F'\t' '$4 == "blocked"' "$E2E_WORK_DIR/summary.tsv" | wc -l | tr -d ' ')"
-
-	local ran
-	ran="$(awk -F'\t' '$4 != "not run"' "$E2E_WORK_DIR/summary.tsv" | wc -l | tr -d ' ')"
-	printf '\n%s of %s chunks run passed' "$passed" "$ran"
-	if [ "$failed" -gt 0 ]; then
-		printf ', %s failed' "$failed"
-	fi
-	if [ "$blocked" -gt 0 ]; then
-		printf ', %s blocked' "$blocked"
-	fi
-	printf '.\n'
 }

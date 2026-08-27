@@ -21,7 +21,7 @@ check_the_schema_is_ready() {
 }
 
 register_the_admin_resources() {
-	app_write_admin_resources
+	app_write_admin_resources 6
 	app_write_main 6
 
 	assert_file_exists "admin resources are written" "$EXAMPLE_DIR/admin_resources.go"

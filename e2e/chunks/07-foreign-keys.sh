@@ -38,7 +38,7 @@ record_the_parent_rows() {
 
 write_the_shipment_model() {
 	app_write_shipment_model
-	app_write_admin_resources
+	app_write_admin_resources 7
 	app_write_main 7
 
 	assert_file_exists "the shipment model is written" "$EXAMPLE_DIR/models_shipment.go"

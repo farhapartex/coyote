@@ -149,79 +149,57 @@ GO
 }
 
 app_write_admin_resources() {
-	cat >"$EXAMPLE_DIR/admin_resources.go" <<'GO'
-package main
+	local stage="${1:-6}"
 
-type customerResource struct{}
+	{
+		printf 'package main\n\n'
+		printf 'type customerResource struct{}\n\n'
+		printf 'func (customerResource) Entity() any { return Customer{} }\n\n'
+		printf 'func (customerResource) ListColumns() []string {\n'
+		printf '\treturn []string{"name", "code", "country"}\n}\n\n'
+		printf 'func (customerResource) SearchColumns() []string { return []string{"name", "code"} }\n\n'
+		printf 'type portResource struct{}\n\n'
+		printf 'func (portResource) Entity() any { return Port{} }\n\n'
+		printf 'func (portResource) ListColumns() []string {\n'
+		printf '\treturn []string{"name", "code", "country"}\n}\n\n'
+		printf 'func (portResource) SearchColumns() []string { return []string{"name", "code"} }\n'
 
-func (customerResource) Entity() any { return Customer{} }
+		if [ "$stage" -ge 7 ]; then
+			printf '\ntype shipmentResource struct{}\n\n'
+			printf 'func (shipmentResource) Entity() any { return Shipment{} }\n\n'
+			printf 'func (shipmentResource) ListColumns() []string {\n'
+			printf '\treturn []string{"reference", "customer_id", "origin_id", "destination_id", "status"}\n}\n\n'
+			printf 'func (shipmentResource) SearchColumns() []string { return []string{"reference", "status"} }\n'
+		fi
 
-func (customerResource) ListColumns() []string {
-	return []string{"name", "code", "country"}
-}
+		if [ "$stage" -ge 9 ]; then
+			printf '\ntype containerResource struct{}\n\n'
+			printf 'func (containerResource) Entity() any { return Container{} }\n\n'
+			printf 'func (containerResource) ListColumns() []string {\n'
+			printf '\treturn []string{"number", "shipment_id", "size_feet", "sealed"}\n}\n\n'
+			printf 'func (containerResource) SearchColumns() []string { return []string{"number"} }\n\n'
+			printf 'type trackingEventResource struct{}\n\n'
+			printf 'func (trackingEventResource) Entity() any { return TrackingEvent{} }\n\n'
+			printf 'func (trackingEventResource) ListColumns() []string {\n'
+			printf '\treturn []string{"kind", "shipment_id", "container_id", "location", "occurred_at"}\n}\n\n'
+			printf 'func (trackingEventResource) SearchColumns() []string { return []string{"kind", "location"} }\n'
+		fi
 
-func (customerResource) SearchColumns() []string { return []string{"name", "code"} }
+		if [ "$stage" -ge 12 ]; then
+			printf '\ntype invoiceResource struct{}\n\n'
+			printf 'func (invoiceResource) Entity() any { return Invoice{} }\n\n'
+			printf 'func (invoiceResource) ListColumns() []string {\n'
+			printf '\treturn []string{"number", "customer_id", "currency", "total_cents", "status"}\n}\n\n'
+			printf 'func (invoiceResource) SearchColumns() []string { return []string{"number", "status"} }\n\n'
+			printf 'type invoiceLineResource struct{}\n\n'
+			printf 'func (invoiceLineResource) Entity() any { return InvoiceLine{} }\n\n'
+			printf 'func (invoiceLineResource) ListColumns() []string {\n'
+			printf '\treturn []string{"description", "invoice_id", "shipment_id", "quantity", "amount_cents"}\n}\n\n'
+			printf 'func (invoiceLineResource) SearchColumns() []string { return []string{"description"} }\n'
+		fi
+	} >"$EXAMPLE_DIR/admin_resources.go"
 
-type shipmentResource struct{}
-
-func (shipmentResource) Entity() any { return Shipment{} }
-
-func (shipmentResource) ListColumns() []string {
-	return []string{"reference", "customer_id", "origin_id", "destination_id", "status"}
-}
-
-func (shipmentResource) SearchColumns() []string { return []string{"reference", "status"} }
-
-type containerResource struct{}
-
-func (containerResource) Entity() any { return Container{} }
-
-func (containerResource) ListColumns() []string {
-	return []string{"number", "shipment_id", "size_feet", "sealed"}
-}
-
-func (containerResource) SearchColumns() []string { return []string{"number"} }
-
-type trackingEventResource struct{}
-
-func (trackingEventResource) Entity() any { return TrackingEvent{} }
-
-func (trackingEventResource) ListColumns() []string {
-	return []string{"kind", "shipment_id", "container_id", "location", "occurred_at"}
-}
-
-func (trackingEventResource) SearchColumns() []string { return []string{"kind", "location"} }
-
-type invoiceResource struct{}
-
-func (invoiceResource) Entity() any { return Invoice{} }
-
-func (invoiceResource) ListColumns() []string {
-	return []string{"number", "customer_id", "currency", "total_cents", "status"}
-}
-
-func (invoiceResource) SearchColumns() []string { return []string{"number", "status"} }
-
-type invoiceLineResource struct{}
-
-func (invoiceLineResource) Entity() any { return InvoiceLine{} }
-
-func (invoiceLineResource) ListColumns() []string {
-	return []string{"description", "invoice_id", "shipment_id", "quantity", "amount_cents"}
-}
-
-func (invoiceLineResource) SearchColumns() []string { return []string{"description"} }
-
-type portResource struct{}
-
-func (portResource) Entity() any { return Port{} }
-
-func (portResource) ListColumns() []string {
-	return []string{"name", "code", "country"}
-}
-
-func (portResource) SearchColumns() []string { return []string{"name", "code"} }
-GO
+	app_gofmt
 }
 
 app_managed_resources_for_stage() {
