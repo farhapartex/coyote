@@ -484,9 +484,7 @@ app_write_main() {
 		printf 'package main\n\n'
 		printf 'import (\n'
 		printf '\t"log"\n'
-		if [ "$stage" -lt 14 ]; then
-			printf '\t"net/http"\n'
-		fi
+		printf '\t"net/http"\n'
 		printf '\n'
 		printf '\t"github.com/farhapartex/coyote/contrib/admin"\n'
 		printf '\t"github.com/farhapartex/coyote/core/app"\n'
@@ -517,6 +515,9 @@ app_write_main() {
 			printf '\ta.Get("/quote", staticPage(a, "pages/quote.html", "Request a quote")).Named("quote")\n'
 			printf '\ta.Get("/about", staticPage(a, "pages/about.html", "About")).Named("about")\n'
 			printf '\ta.Get("/contact", staticPage(a, "pages/contact.html", "Contact")).Named("contact")\n\n'
+			printf '\ta.SetNotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n'
+			printf '\t\trenderNotFound(a, w, r)\n'
+			printf '\t}))\n\n'
 		else
 			printf '\ta.Get("/{$}", func(w http.ResponseWriter, r *http.Request) {\n'
 			printf '\t\ta.Render(w, r, "pages/home.html", app.Data{"Title": "Home"})\n'
