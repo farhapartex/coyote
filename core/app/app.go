@@ -175,3 +175,7 @@ func (a *App) Static(prefix string, fsys fs.FS) {
 func (a *App) Handler() http.Handler {
 	return router.Chain(a.Router, a.global...)
 }
+
+func (a *App) SetNotFound(handler http.Handler) {
+	a.Router.SetNotFound(handler)
+}

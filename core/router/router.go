@@ -5,15 +5,17 @@ import "net/http"
 type Middleware func(http.Handler) http.Handler
 
 type Router struct {
-	mux    *http.ServeMux
-	prefix string
-	chain  []Middleware
-	routes *[]*Route
+	mux      *http.ServeMux
+	prefix   string
+	chain    []Middleware
+	routes   *[]*Route
+	notFound *http.Handler
 }
 
 func New() *Router {
 	routes := make([]*Route, 0, 16)
-	return &Router{mux: http.NewServeMux(), routes: &routes}
+	var fallback http.Handler
+	return &Router{mux: http.NewServeMux(), routes: &routes, notFound: &fallback}
 }
 
 func (r *Router) Handle(method, pattern string, h http.Handler, mw ...Middleware) *Route {
@@ -35,5 +37,9 @@ func (r *Router) HandleFunc(method, pattern string, fn http.HandlerFunc, mw ...M
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if fallback := *r.notFound; fallback != nil {
+		r.serveWithFallback(w, req, fallback)
+		return
+	}
 	r.mux.ServeHTTP(w, req)
 }

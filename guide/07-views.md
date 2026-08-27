@@ -36,6 +36,25 @@ a.RenderStatus(w, r, http.StatusNotFound, "pages/404.html", app.Data{"Title": "N
 a.RenderStatus(w, r, http.StatusUnprocessableEntity, "pages/form.html", app.Data{"Errors": errs})
 ```
 
+## The page for an address you never routed
+
+`RenderStatus` covers a handler that decides a record is missing. A URL that matches no route at
+all never reaches a handler, so give the application its own page for that once, at startup:
+
+```go
+a.SetNotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	a.RenderStatus(w, r, http.StatusNotFound, "pages/404.html", app.Data{"Title": "Not found"})
+}))
+```
+
+Without it, an unrouted path falls through to the standard library's plain `404 page not found`.
+
+Two things it deliberately does **not** touch:
+
+- a **method mismatch** still answers 405, because asking for the wrong verb on a real route is not
+  a missing page
+- a handler that renders **its own** 404 keeps it; the fallback only runs when no route matched
+
 ## What every template receives
 
 On top of your own data, each render is given:
