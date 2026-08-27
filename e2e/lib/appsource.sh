@@ -113,6 +113,41 @@ GO
 	app_gofmt
 }
 
+app_write_invoice_models() {
+	cat >"$EXAMPLE_DIR/models_invoice.go" <<'GO'
+package main
+
+import "time"
+
+type Invoice struct {
+	ID         string  `gorm:"primaryKey;size:36"`
+	Number     string  `gorm:"size:20;not null;uniqueIndex"`
+	CustomerID *string `gorm:"size:36;index"`
+	Customer   Customer
+	Currency   string    `gorm:"size:3;not null"`
+	TotalCents int64     `gorm:"not null"`
+	Status     string    `gorm:"size:20;not null;index"`
+	IssuedAt   time.Time `gorm:"index"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type InvoiceLine struct {
+	ID          string  `gorm:"primaryKey;size:36"`
+	InvoiceID   *string `gorm:"size:36;index"`
+	Invoice     Invoice
+	ShipmentID  *string `gorm:"size:36;index"`
+	Shipment    Shipment
+	Description string `gorm:"size:200;not null"`
+	Quantity    int    `gorm:"not null"`
+	UnitCents   int64  `gorm:"not null"`
+	AmountCents int64  `gorm:"not null"`
+	CreatedAt   time.Time
+}
+GO
+	app_gofmt
+}
+
 app_write_admin_resources() {
 	cat >"$EXAMPLE_DIR/admin_resources.go" <<'GO'
 package main
@@ -157,6 +192,26 @@ func (trackingEventResource) ListColumns() []string {
 
 func (trackingEventResource) SearchColumns() []string { return []string{"kind", "location"} }
 
+type invoiceResource struct{}
+
+func (invoiceResource) Entity() any { return Invoice{} }
+
+func (invoiceResource) ListColumns() []string {
+	return []string{"number", "customer_id", "currency", "total_cents", "status"}
+}
+
+func (invoiceResource) SearchColumns() []string { return []string{"number", "status"} }
+
+type invoiceLineResource struct{}
+
+func (invoiceLineResource) Entity() any { return InvoiceLine{} }
+
+func (invoiceLineResource) ListColumns() []string {
+	return []string{"description", "invoice_id", "shipment_id", "quantity", "amount_cents"}
+}
+
+func (invoiceLineResource) SearchColumns() []string { return []string{"description"} }
+
 type portResource struct{}
 
 func (portResource) Entity() any { return Port{} }
@@ -171,7 +226,9 @@ GO
 
 app_managed_resources_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 9 ]; then
+	if [ "$stage" -ge 12 ]; then
+		printf 'customerResource{}, portResource{}, shipmentResource{}, containerResource{}, trackingEventResource{}, invoiceResource{}, invoiceLineResource{}'
+	elif [ "$stage" -ge 9 ]; then
 		printf 'customerResource{}, portResource{}, shipmentResource{}, containerResource{}, trackingEventResource{}'
 	elif [ "$stage" -ge 7 ]; then
 		printf 'customerResource{}, portResource{}, shipmentResource{}'
@@ -182,7 +239,9 @@ app_managed_resources_for_stage() {
 
 app_registered_models_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 9 ]; then
+	if [ "$stage" -ge 12 ]; then
+		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{}), model.Of(Container{}), model.Of(TrackingEvent{}), model.Of(Invoice{}), model.Of(InvoiceLine{})'
+	elif [ "$stage" -ge 9 ]; then
 		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{}), model.Of(Container{}), model.Of(TrackingEvent{})'
 	elif [ "$stage" -ge 7 ]; then
 		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{})'
