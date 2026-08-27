@@ -89,7 +89,19 @@ prepare_workspace() {
 		rm -rf "$EXAMPLE_DIR"
 	fi
 
-	report_reset
+	report_reset "$(run_scope_description)"
+}
+
+run_scope_description() {
+	if [ -n "$OPT_ONLY" ]; then
+		printf 'only chunk %s' "$OPT_ONLY"
+		return
+	fi
+	if [ -n "$OPT_FROM" ]; then
+		printf 'chunk %s onwards' "$OPT_FROM"
+		return
+	fi
+	printf 'every chunk'
 }
 
 run_one_chunk() {
@@ -142,6 +154,12 @@ main() {
 		printf 'no chunks matched\n' >&2
 		exit 2
 	fi
+
+	for script in $(chunk_scripts); do
+		if ! chunk_is_selected "$(chunk_id_of "$script")"; then
+			report_add_unrun_chunk "$(chunk_id_of "$script")" "$(chunk_name_of "$script")"
+		fi
+	done
 
 	local index=0
 	local failures=0

@@ -1,7 +1,12 @@
 report_reset() {
 	: >"$E2E_WORK_DIR/summary.tsv"
 	: >"$E2E_WORK_DIR/details.md"
+	REPORT_SCOPE="${1:-every chunk}"
 	REPORT_STARTED="$(seconds_now)"
+}
+
+report_add_unrun_chunk() {
+	printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "--" "not run" "0" >>"$E2E_WORK_DIR/summary.tsv"
 }
 
 report_meta_value() {
@@ -65,6 +70,7 @@ report_status_label() {
 	pass) printf 'pass' ;;
 	fail) printf '**fail**' ;;
 	blocked) printf '_blocked_' ;;
+	"not run") printf '_not run_' ;;
 	*) printf '%s' "$1" ;;
 	esac
 }
@@ -84,12 +90,18 @@ report_render() {
 			"$(date '+%Y-%m-%d %H:%M')" "$(repository_commit)" "$dirty" \
 			"$(go_version)" "$(platform_name)" "$elapsed"
 
+		if [ "${REPORT_SCOPE:-every chunk}" != "every chunk" ]; then
+			printf '**Partial run: %s.** Chunks marked _not run_ were not executed, so their\n' \
+				"$REPORT_SCOPE"
+			printf 'results are absent rather than passing. Run `./e2e/run.sh` for the whole suite.\n\n'
+		fi
+
 		printf '| # | Chunk | Checks | Result |\n'
 		printf '| --- | --- | --- | --- |\n'
 		while IFS=$'\t' read -r row_id row_name row_totals row_status row_duration; do
 			printf '| %s | %s | %s | %s |\n' \
 				"$row_id" "$row_name" "$row_totals" "$(report_status_label "$row_status")"
-		done <"$E2E_WORK_DIR/summary.tsv"
+		done < <(sort -t"$(printf '\t')" -k1,1 "$E2E_WORK_DIR/summary.tsv")
 
 		report_render_totals
 		cat "$E2E_WORK_DIR/details.md"
@@ -103,7 +115,9 @@ report_render_totals() {
 	failed="$(awk -F'\t' '$4 == "fail"' "$E2E_WORK_DIR/summary.tsv" | wc -l | tr -d ' ')"
 	blocked="$(awk -F'\t' '$4 == "blocked"' "$E2E_WORK_DIR/summary.tsv" | wc -l | tr -d ' ')"
 
-	printf '\n%s of %s chunks passed' "$passed" "$chunks"
+	local ran
+	ran="$(awk -F'\t' '$4 != "not run"' "$E2E_WORK_DIR/summary.tsv" | wc -l | tr -d ' ')"
+	printf '\n%s of %s chunks run passed' "$passed" "$ran"
 	if [ "$failed" -gt 0 ]; then
 		printf ', %s failed' "$failed"
 	fi
