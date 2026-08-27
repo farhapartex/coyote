@@ -19,7 +19,7 @@ check_the_data_is_there() {
 
 write_the_public_site() {
 	app_write_public_handlers
-	app_write_public_templates
+	app_write_public_templates 14
 	app_write_admin_resources 12
 	app_write_main 14
 

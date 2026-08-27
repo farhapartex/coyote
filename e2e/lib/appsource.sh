@@ -148,6 +148,111 @@ GO
 	app_gofmt
 }
 
+app_write_quote_model() {
+	cat >"$EXAMPLE_DIR/models_quote.go" <<'GO'
+package main
+
+import "time"
+
+type QuoteRequest struct {
+	ID          string `gorm:"primaryKey;size:36"`
+	Company     string `gorm:"size:120;not null"`
+	Email       string `gorm:"size:320;not null;index"`
+	OriginCode  string `gorm:"size:5;not null"`
+	Service     string `gorm:"size:30;not null;index"`
+	Containers  int    `gorm:"not null"`
+	Notes       string `gorm:"size:2000"`
+	SubmittedAt time.Time
+	CreatedAt   time.Time
+}
+GO
+	app_gofmt
+}
+
+app_write_quote_handlers() {
+	cat >"$EXAMPLE_DIR/handlers_quote.go" <<'GO'
+package main
+
+import (
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/form"
+	"github.com/farhapartex/coyote/core/model"
+	"github.com/farhapartex/coyote/core/view"
+)
+
+type quoteForm struct {
+	Company    string `form:"company" validate:"required,max=120"`
+	Email      string `form:"email" validate:"required,email"`
+	OriginCode string `form:"origin_code" validate:"required,len=5,alphanum"`
+	Service    string `form:"service" validate:"required,oneof=ocean|air|customs"`
+	Containers int    `form:"containers" validate:"required,min=1,max=500"`
+	Notes      string `form:"notes" validate:"max=2000"`
+}
+
+func quotePage(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a.Render(w, r, "pages/quote.html", view.Data{
+			"Title": "Request a quote",
+			"Form":  quoteForm{Containers: 1},
+		})
+	}
+}
+
+func quoteSubmit(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var in quoteForm
+		problems, err := form.Bind(r, &in)
+		if err != nil {
+			http.Error(w, "400 bad request", http.StatusBadRequest)
+			return
+		}
+
+		if problems.Any() {
+			a.RenderStatus(w, r, http.StatusUnprocessableEntity, "pages/quote.html", view.Data{
+				"Title":    "Request a quote",
+				"Problems": problems,
+				"Form":     in,
+			})
+			return
+		}
+
+		records, err := a.Store()
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		schema, err := a.Describe(QuoteRequest{})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		record := model.Record{
+			"company":      in.Company,
+			"email":        strings.ToLower(in.Email),
+			"origin_code":  strings.ToUpper(in.OriginCode),
+			"service":      in.Service,
+			"containers":   in.Containers,
+			"notes":        in.Notes,
+			"submitted_at": time.Now(),
+		}
+		if _, err := records.Insert(r.Context(), schema, record); err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		view.Flash(r, "success", "Thank you, we will come back with a rate.")
+		view.Redirect(w, r, "/quote")
+	}
+}
+GO
+	app_gofmt
+}
+
 app_write_public_handlers() {
 	cat >"$EXAMPLE_DIR/handlers_public.go" <<'GO'
 package main
@@ -299,6 +404,7 @@ GO
 }
 
 app_write_public_templates() {
+	local stage="${1:-14}"
 	local pages="$EXAMPLE_DIR/templates/pages"
 	mkdir -p "$pages"
 
@@ -386,12 +492,35 @@ HTML
 {{end}}
 HTML
 
-	cat >"$pages/quote.html" <<'HTML'
+	if [ "$stage" -ge 15 ]; then
+		cat >"$pages/quote.html" <<'HTML'
+{{define "content"}}
+<h1>Request a quote</h1>
+{{with .Problems}}
+<ul class="problems">
+  {{range $field, $messages := .}}{{range $messages}}<li data-field="{{$field}}">{{$field}}: {{.}}</li>{{end}}{{end}}
+</ul>
+{{end}}
+<form method="post" action="/quote">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <input type="text" name="company" value="{{.Form.Company}}" placeholder="Company">
+  <input type="text" name="email" value="{{.Form.Email}}" placeholder="Email">
+  <input type="text" name="origin_code" value="{{.Form.OriginCode}}" placeholder="NLRTM">
+  <input type="text" name="service" value="{{.Form.Service}}" placeholder="ocean">
+  <input type="number" name="containers" value="{{.Form.Containers}}">
+  <textarea name="notes">{{.Form.Notes}}</textarea>
+  <button type="submit">Request a quote</button>
+</form>
+{{end}}
+HTML
+	else
+		cat >"$pages/quote.html" <<'HTML'
 {{define "content"}}
 <h1>Request a quote</h1>
 <p>Tell us what you are moving and we will come back with a rate.</p>
 {{end}}
 HTML
+	fi
 }
 
 app_write_admin_resources() {
@@ -463,7 +592,9 @@ app_managed_resources_for_stage() {
 
 app_registered_models_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 12 ]; then
+	if [ "$stage" -ge 15 ]; then
+		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{}), model.Of(Container{}), model.Of(TrackingEvent{}), model.Of(Invoice{}), model.Of(InvoiceLine{}), model.Of(QuoteRequest{})'
+	elif [ "$stage" -ge 12 ]; then
 		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{}), model.Of(Container{}), model.Of(TrackingEvent{}), model.Of(Invoice{}), model.Of(InvoiceLine{})'
 	elif [ "$stage" -ge 9 ]; then
 		printf 'model.Of(Customer{}), model.Of(Port{}), model.Of(Shipment{}), model.Of(Container{}), model.Of(TrackingEvent{})'
@@ -512,7 +643,12 @@ app_write_main() {
 			printf '\ta.Get("/track", trackForm(a)).Named("track")\n'
 			printf '\ta.Get("/track/{reference}", trackResult(a)).Named("track.result")\n'
 			printf '\ta.Get("/ports/{code}", portDetail(a)).Named("port.detail")\n'
-			printf '\ta.Get("/quote", staticPage(a, "pages/quote.html", "Request a quote")).Named("quote")\n'
+			if [ "$stage" -ge 15 ]; then
+				printf '\ta.Get("/quote", quotePage(a), a.CSRF).Named("quote")\n'
+				printf '\ta.Post("/quote", quoteSubmit(a), a.CSRF)\n'
+			else
+				printf '\ta.Get("/quote", staticPage(a, "pages/quote.html", "Request a quote")).Named("quote")\n'
+			fi
 			printf '\ta.Get("/about", staticPage(a, "pages/about.html", "About")).Named("about")\n'
 			printf '\ta.Get("/contact", staticPage(a, "pages/contact.html", "Contact")).Named("contact")\n\n'
 			printf '\ta.SetNotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n'
