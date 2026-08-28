@@ -19,7 +19,7 @@ http_get() {
 	set -e
 
 	HTTP_HEADERS="$(cat "$header_file")"
-	HTTP_STATUS="$(printf '%s' "$HTTP_HEADERS" | awk 'NR==1{print $2}')"
+	HTTP_STATUS="$(printf '%s' "$HTTP_HEADERS" | awk '/^HTTP\//{code=$2} END{print code}')"
 	rm -f "$header_file"
 }
 
@@ -40,7 +40,7 @@ http_post() {
 	set -e
 
 	HTTP_HEADERS="$(cat "$header_file")"
-	HTTP_STATUS="$(printf '%s' "$HTTP_HEADERS" | awk 'NR==1{print $2}')"
+	HTTP_STATUS="$(printf '%s' "$HTTP_HEADERS" | awk '/^HTTP\//{code=$2} END{print code}')"
 	rm -f "$header_file"
 }
 

@@ -32,10 +32,15 @@ app_write_shipment_model() {
 	local columns="${1:-1}"
 	local unique_reference="${2:-0}"
 	local reference_size="${3:-30}"
+	local with_document="${4:-0}"
 
 	{
 		printf 'package main\n\n'
-		printf 'import "time"\n\n'
+		if [ "$with_document" = "1" ]; then
+			printf 'import (\n\t"time"\n\n\t"github.com/farhapartex/coyote/core/upload"\n)\n\n'
+		else
+			printf 'import "time"\n\n'
+		fi
 		printf 'type Shipment struct {\n'
 		printf '\tID            string  `gorm:"primaryKey;size:36"`\n'
 		if [ "$unique_reference" = "2" ]; then
@@ -61,6 +66,9 @@ app_write_shipment_model() {
 		fi
 		if [ "$columns" -ge 4 ]; then
 			printf '\tCarrierName   string `gorm:"size:100;not null"`\n'
+		fi
+		if [ "$with_document" = "1" ]; then
+			printf '\tDocument      upload.Ref `gorm:"size:200" coyote:"path=shipments/documents,accept=application/pdf"`\n'
 		fi
 		printf '\tCreatedAt     time.Time\n'
 		printf '\tUpdatedAt     time.Time\n'
@@ -145,6 +153,58 @@ type InvoiceLine struct {
 	CreatedAt   time.Time
 }
 GO
+	app_gofmt
+}
+
+app_write_settings() {
+	local uploads="${1:-0}"
+	local private="${2:-0}"
+
+	{
+		printf 'package main\n\n'
+		printf 'import (\n'
+		printf '\t"embed"\n'
+		printf '\t"io/fs"\n\n'
+		printf '\t"github.com/farhapartex/coyote/core/settings"\n'
+		printf ')\n\n'
+		printf '//go:embed templates\n'
+		printf 'var templateFS embed.FS\n\n'
+		printf '//go:embed static\n'
+		printf 'var staticFS embed.FS\n\n'
+		printf 'func init() {\n'
+		printf '\ttemplates, _ := fs.Sub(templateFS, "templates")\n'
+		printf '\tstatic, _ := fs.Sub(staticFS, "static")\n\n'
+		printf '\tsettings.MustLoadDotEnv(".env")\n\n'
+		printf '\tsettings.Configure(\n'
+		printf '\t\tsettings.Preset(settings.Env("APP_ENV", "development")),\n'
+		printf '\t\tfunc(s *settings.Settings) {\n'
+		printf '\t\t\ts.SecretKey = settings.Env("SECRET_KEY", "")\n'
+		printf '\t\t\ts.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", []string{"127.0.0.1", "localhost"})\n\n'
+		printf '\t\t\ts.Server.Host = settings.Env("HOST", "127.0.0.1")\n'
+		printf '\t\t\ts.Server.Port = settings.EnvInt("PORT", 8000)\n\n'
+		printf '\t\t\ts.Databases = []settings.Database{\n'
+		printf '\t\t\t\tsettings.SQLiteDatabase("default", settings.Env("DB_NAME", "example.db")),\n'
+		printf '\t\t\t}\n\n'
+		if [ "$uploads" = "1" ]; then
+			printf '\t\t\ts.Uploads.Enabled = true\n'
+			printf '\t\t\ts.Uploads.Dir = "media"\n'
+			printf '\t\t\ts.Uploads.MaxSize = 1 << 20\n'
+			printf '\t\t\ts.Uploads.Allowed = []string{"application/pdf", "image/png", "image/jpeg"}\n'
+			printf '\t\t\ts.Uploads.Serve = true\n'
+			printf '\t\t\ts.Uploads.URL = "/media/"\n'
+			if [ "$private" = "1" ]; then
+				printf '\t\t\ts.Uploads.Private = true\n'
+			fi
+			printf '\n'
+		fi
+		printf '\t\t\ts.Templates.FS = templates\n'
+		printf '\t\t\ts.Static.FS = static\n\n'
+		printf '\t\t\ts.Admin.SiteName = "Example administration"\n'
+		printf '\t\t},\n'
+		printf '\t)\n'
+		printf '}\n'
+	} >"$EXAMPLE_DIR/settings.go"
+
 	app_gofmt
 }
 
