@@ -160,12 +160,18 @@ app_write_settings() {
 	local uploads="${1:-0}"
 	local private="${2:-0}"
 	local per_page="${3:-0}"
+	local caches="${4:-0}"
+	local page_ttl="${5:-3}"
 
 	{
 		printf 'package main\n\n'
 		printf 'import (\n'
 		printf '\t"embed"\n'
-		printf '\t"io/fs"\n\n'
+		printf '\t"io/fs"\n'
+		if [ "$caches" = "1" ]; then
+			printf '\t"time"\n'
+		fi
+		printf '\n'
 		printf '\t"github.com/farhapartex/coyote/core/settings"\n'
 		printf ')\n\n'
 		printf '//go:embed templates\n'
@@ -200,6 +206,23 @@ app_write_settings() {
 		fi
 		printf '\t\t\ts.Templates.FS = templates\n'
 		printf '\t\t\ts.Static.FS = static\n\n'
+		if [ "$caches" = "1" ]; then
+			printf '\t\t\ts.Caches = []settings.Cache{\n'
+			printf '\t\t\t\tsettings.MemoryCache("default"),\n'
+			printf '\t\t\t\t{Alias: "pages", Backend: settings.CacheInFile, Dir: "cache/pages", TTL: time.Hour},\n'
+			printf '\t\t\t}\n\n'
+			printf '\t\t\ts.PageCache = settings.PageCache{\n'
+			printf '\t\t\t\tEnabled: true,\n'
+			printf '\t\t\t\tAlias:   "pages",\n'
+			printf '\t\t\t\tTTL:     %s * time.Second,\n' "$page_ttl"
+			printf '\t\t\t\tPaths:   []string{"/about", "/quote", "/report"},\n'
+			printf '\t\t\t}\n\n'
+		fi
+		if [ "$caches" = "redis" ]; then
+			printf '\t\t\ts.Caches = []settings.Cache{\n'
+			printf '\t\t\t\tsettings.RedisCache("default", "127.0.0.1:6399"),\n'
+			printf '\t\t\t}\n\n'
+		fi
 		if [ "$per_page" != "0" ]; then
 			printf '\t\t\ts.Pagination.PerPage = %s\n\n' "$per_page"
 		fi
@@ -209,6 +232,82 @@ app_write_settings() {
 		printf '}\n'
 	} >"$EXAMPLE_DIR/settings.go"
 
+	app_gofmt
+}
+
+app_write_report_handler() {
+	cat >"$EXAMPLE_DIR/handlers_report.go" <<'GO'
+package main
+
+import (
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/cache"
+	"github.com/farhapartex/coyote/core/model"
+	"github.com/farhapartex/coyote/core/view"
+)
+
+type laneRow struct {
+	Status string
+	Count  int64
+}
+
+type laneReport struct {
+	Rows  []laneRow
+	Built time.Time
+	Runs  int
+}
+
+var reportRuns = 0
+
+func buildLaneReport(ctx context.Context, a *app.App) (laneReport, error) {
+	records, err := a.Store()
+	if err != nil {
+		return laneReport{}, err
+	}
+	schema, err := a.Describe(Shipment{})
+	if err != nil {
+		return laneReport{}, err
+	}
+
+	report := laneReport{Built: time.Now()}
+	for _, status := range []string{"booked", "in_transit", "draft"} {
+		total, err := records.Count(ctx, schema, model.Query{
+			Filters: []model.Filter{{Column: "status", Op: model.Eq, Value: status}},
+		})
+		if err != nil {
+			return laneReport{}, err
+		}
+		report.Rows = append(report.Rows, laneRow{Status: status, Count: total})
+	}
+
+	reportRuns++
+	report.Runs = reportRuns
+	return report, nil
+}
+
+func laneReportPage(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		report, err := cache.Remember(r.Context(), a.Cache(), "reports:lanes", 30*time.Second,
+			func(ctx context.Context) (laneReport, error) {
+				return buildLaneReport(ctx, a)
+			})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		a.Render(w, r, "pages/report.html", view.Data{
+			"Title":  "Lane report",
+			"Report": report,
+			"Age":    time.Since(report.Built).Round(time.Second).String(),
+		})
+	}
+}
+GO
 	app_gofmt
 }
 
@@ -597,6 +696,16 @@ HTML
 {{end}}
 HTML
 
+	cat >"$pages/report.html" <<'HTML'
+{{define "content"}}
+<h1>Lane report</h1>
+<p data-builds="{{.Report.Runs}}">Built by run {{.Report.Runs}}</p>
+<table>
+  {{range .Report.Rows}}<tr data-status="{{.Status}}"><td>{{.Status}}</td><td>{{.Count}}</td></tr>{{end}}
+</table>
+{{end}}
+HTML
+
 	cat >"$pages/shipments.html" <<'HTML'
 {{define "content"}}
 <h1>Shipments</h1>
@@ -798,6 +907,9 @@ app_write_main() {
 			printf '\ta.Get("/ports/{code}", portDetail(a)).Named("port.detail")\n'
 			if [ "$stage" -ge 17 ]; then
 				printf '\ta.Get("/shipments", shipmentList(a)).Named("shipments")\n'
+			fi
+			if [ "$stage" -ge 18 ]; then
+				printf '\ta.Get("/report", laneReportPage(a)).Named("report")\n'
 			fi
 			if [ "$stage" -ge 15 ]; then
 				printf '\ta.Get("/quote", quotePage(a), a.CSRF).Named("quote")\n'
