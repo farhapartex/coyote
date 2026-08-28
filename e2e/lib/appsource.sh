@@ -159,6 +159,7 @@ GO
 app_write_settings() {
 	local uploads="${1:-0}"
 	local private="${2:-0}"
+	local per_page="${3:-0}"
 
 	{
 		printf 'package main\n\n'
@@ -199,12 +200,77 @@ app_write_settings() {
 		fi
 		printf '\t\t\ts.Templates.FS = templates\n'
 		printf '\t\t\ts.Static.FS = static\n\n'
+		if [ "$per_page" != "0" ]; then
+			printf '\t\t\ts.Pagination.PerPage = %s\n\n' "$per_page"
+		fi
 		printf '\t\t\ts.Admin.SiteName = "Example administration"\n'
 		printf '\t\t},\n'
 		printf '\t)\n'
 		printf '}\n'
 	} >"$EXAMPLE_DIR/settings.go"
 
+	app_gofmt
+}
+
+app_write_shipment_list_handler() {
+	cat >"$EXAMPLE_DIR/handlers_list.go" <<'GO'
+package main
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/model"
+	"github.com/farhapartex/coyote/core/view"
+)
+
+func shipmentList(a *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		records, err := a.Store()
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+		schema, err := a.Describe(Shipment{})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		total, err := records.Count(r.Context(), schema, model.Query{})
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		number, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		page := view.Paginate(a.Settings.Pagination.Paginator, total, number,
+			a.Settings.Pagination.PerPage)
+
+		query := model.Query{
+			Limit:  page.Limit,
+			Offset: page.Offset,
+			Order:  "reference",
+			Sort:   r.URL.Query().Get("sort"),
+			With:   []string{"origin_id", "destination_id"},
+		}
+
+		result, err := records.List(r.Context(), schema, query)
+		if err != nil {
+			http.Error(w, "500 internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		a.Render(w, r, "pages/shipments.html", view.Data{
+			"Title":     "Shipments",
+			"Shipments": result.Records,
+			"Page":      page,
+			"Sort":      r.URL.Query().Get("sort"),
+		})
+	}
+}
+GO
 	app_gofmt
 }
 
@@ -531,6 +597,33 @@ HTML
 {{end}}
 HTML
 
+	cat >"$pages/shipments.html" <<'HTML'
+{{define "content"}}
+<h1>Shipments</h1>
+<table>
+  <tbody>
+  {{range .Shipments}}
+  <tr data-reference="{{.String "reference"}}">
+    <td>{{.String "reference"}}</td>
+    <td>{{.String "status"}}</td>
+    <td>{{.String "origin_id__label"}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{with .Page}}
+{{if and .Enabled (not .Single)}}
+<nav class="pager">
+  {{if .HasPrev}}<a href="?page={{.Prev}}" rel="prev">Previous</a>{{end}}
+  {{range .Numbers}}<a href="?page={{.}}">{{.}}</a>{{end}}
+  {{if .HasNext}}<a href="?page={{.Next}}" rel="next">Next</a>{{end}}
+</nav>
+<p class="counts">Page {{.Number}} of {{.Pages}} · {{.Total}} total · {{.PerPage}} per page</p>
+{{end}}
+{{end}}
+{{end}}
+HTML
+
 	cat >"$pages/notfound.html" <<'HTML'
 {{define "content"}}
 <h1>Page not found</h1>
@@ -703,6 +796,9 @@ app_write_main() {
 			printf '\ta.Get("/track", trackForm(a)).Named("track")\n'
 			printf '\ta.Get("/track/{reference}", trackResult(a)).Named("track.result")\n'
 			printf '\ta.Get("/ports/{code}", portDetail(a)).Named("port.detail")\n'
+			if [ "$stage" -ge 17 ]; then
+				printf '\ta.Get("/shipments", shipmentList(a)).Named("shipments")\n'
+			fi
 			if [ "$stage" -ge 15 ]; then
 				printf '\ta.Get("/quote", quotePage(a), a.CSRF).Named("quote")\n'
 				printf '\ta.Post("/quote", quoteSubmit(a), a.CSRF)\n'
