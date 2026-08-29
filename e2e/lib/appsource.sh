@@ -163,6 +163,7 @@ app_write_settings() {
 	local caches="${4:-0}"
 	local page_ttl="${5:-3}"
 	local locales="${6:-0}"
+	local email="${7:-0}"
 
 	{
 		printf 'package main\n\n'
@@ -239,6 +240,13 @@ app_write_settings() {
 			printf '\t\t\t\tDefault:   "en",\n'
 			printf '\t\t\t\tSupported: []string{"en", "fr", "ar"},\n'
 			printf '\t\t\t\tFS:        locales,\n'
+			printf '\t\t\t}\n\n'
+		fi
+		if [ "$email" = "1" ]; then
+			printf '\t\t\ts.Email = settings.Email{\n'
+			printf '\t\t\t\tBackend: settings.EmailToFile,\n'
+			printf '\t\t\t\tDir:     "mail",\n'
+			printf '\t\t\t\tFrom:    "quotes@meridian.test",\n'
 			printf '\t\t\t}\n\n'
 		fi
 		fi
@@ -474,6 +482,7 @@ GO
 }
 
 app_write_quote_handlers() {
+	local with_email="${1:-0}"
 	cat >"$EXAMPLE_DIR/handlers_quote.go" <<'GO'
 package main
 
@@ -549,11 +558,80 @@ func quoteSubmit(a *app.App) http.HandlerFunc {
 			return
 		}
 
+		confirmQuote(a, in)
+
 		view.Flash(r, "success", "Thank you, we will come back with a rate.")
 		view.Redirect(w, r, "/quote")
 	}
 }
 GO
+
+	if [ "$with_email" = "1" ]; then
+		cat >"$EXAMPLE_DIR/mailer.go" <<'GO'
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/lib/mail"
+)
+
+var quoteSender mail.Sender
+
+func openMailer(a *app.App) error {
+	sender, err := a.Settings.Email.Open()
+	if err != nil {
+		return err
+	}
+	quoteSender = sender
+	return nil
+}
+
+func confirmQuote(a *app.App, in quoteForm) {
+	if quoteSender == nil {
+		return
+	}
+
+	message := mail.Message{
+		From:    a.Settings.Email.From,
+		To:      []string{strings.ToLower(in.Email)},
+		ReplyTo: a.Settings.Email.From,
+		Subject: "Quote request from " + in.Company,
+		Text: fmt.Sprintf("Thank you %s.\n\nWe have your request for %d container(s) by %s from %s.\n",
+			in.Company, in.Containers, in.Service, in.OriginCode),
+		HTML: fmt.Sprintf("<p>Thank you %s.</p><p>%d container(s) by %s from %s.</p>",
+			in.Company, in.Containers, in.Service, in.OriginCode),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := quoteSender.Send(ctx, message); err != nil {
+		log.Printf("quote confirmation to %s failed: %v", in.Email, err)
+	}
+}
+GO
+	else
+		cat >"$EXAMPLE_DIR/mailer.go" <<'GO'
+package main
+
+func confirmQuote(a *appHolder, in quoteForm) {}
+GO
+		rm -f "$EXAMPLE_DIR/mailer.go"
+		cat >"$EXAMPLE_DIR/mailer.go" <<'GO'
+package main
+
+import "github.com/farhapartex/coyote/core/app"
+
+func confirmQuote(a *app.App, in quoteForm) {}
+GO
+	fi
+
 	app_gofmt
 }
 
@@ -1012,6 +1090,11 @@ app_write_main() {
 			fi
 			if [ "$stage" -ge 19 ]; then
 				printf '\ta.Get("/locale", a.Locales().SwitchHandler("/")).Named("locale")\n'
+			fi
+			if [ "$stage" -ge 20 ]; then
+				printf '\n\tif err := openMailer(a); err != nil {\n'
+				printf '\t\tlog.Fatal(err)\n'
+				printf '\t}\n\n'
 			fi
 			if [ "$stage" -ge 15 ]; then
 				printf '\ta.Get("/quote", quotePage(a), a.CSRF).Named("quote")\n'

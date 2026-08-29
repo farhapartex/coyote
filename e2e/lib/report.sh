@@ -33,6 +33,7 @@ report_status_label() {
 	pass) printf 'pass' ;;
 	fail) printf '**fail**' ;;
 	blocked) printf '_blocked_' ;;
+	aborted) printf '**stopped early**' ;;
 	none) printf '_never run_' ;;
 	*) printf '_incomplete_' ;;
 	esac
@@ -86,6 +87,9 @@ report_render_summary() {
 		status="$(report_meta_value "$file" status)"
 		totals="$(report_meta_value "$file" totals)"
 		when="$(report_meta_value "$file" when)"
+		if [ -z "$totals" ]; then
+			status="aborted"
+		fi
 		printf '| %s | %s | %s | %s | %s |\n' \
 			"$id" "$name" "${totals:---}" "$(report_status_label "$status")" "${when:---}"
 	done
