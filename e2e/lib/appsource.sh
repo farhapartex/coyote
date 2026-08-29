@@ -341,6 +341,50 @@ msgstr[5] "%d شحنة على هذا الخط"
 PO
 }
 
+app_write_custom_command() {
+	cat >"$EXAMPLE_DIR/command_lanes.go" <<'GO'
+package main
+
+import (
+	"fmt"
+
+	"github.com/farhapartex/coyote/contrib/cli"
+)
+
+type lanesCommand struct{}
+
+func (lanesCommand) Name() string { return "lanes" }
+
+func (lanesCommand) Summary() string { return "count shipments by status" }
+
+func (lanesCommand) Run(ctx cli.Context) error {
+	handle, err := ctx.App.DB()
+	if err != nil {
+		return err
+	}
+
+	wanted := cli.Args()
+	if len(wanted) == 0 {
+		wanted = []string{"booked", "in_transit", "draft"}
+	}
+
+	for _, status := range wanted {
+		var total int64
+		if err := handle.Table("shipments").Where("status = ?", status).Count(&total).Error; err != nil {
+			return err
+		}
+		fmt.Fprintf(ctx.Out, "%s %d\n", status, total)
+	}
+	return nil
+}
+
+func init() {
+	cli.Register(lanesCommand{})
+}
+GO
+	app_gofmt
+}
+
 app_write_admin_action() {
 	cat >"$EXAMPLE_DIR/admin_actions.go" <<'GO'
 package main
