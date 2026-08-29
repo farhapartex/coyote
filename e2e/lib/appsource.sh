@@ -162,6 +162,7 @@ app_write_settings() {
 	local per_page="${3:-0}"
 	local caches="${4:-0}"
 	local page_ttl="${5:-3}"
+	local locales="${6:-0}"
 
 	{
 		printf 'package main\n\n'
@@ -178,9 +179,17 @@ app_write_settings() {
 		printf 'var templateFS embed.FS\n\n'
 		printf '//go:embed static\n'
 		printf 'var staticFS embed.FS\n\n'
+		if [ "$locales" = "1" ]; then
+			printf '//go:embed locales\n'
+			printf 'var localeFS embed.FS\n\n'
+		fi
 		printf 'func init() {\n'
 		printf '\ttemplates, _ := fs.Sub(templateFS, "templates")\n'
-		printf '\tstatic, _ := fs.Sub(staticFS, "static")\n\n'
+		printf '\tstatic, _ := fs.Sub(staticFS, "static")\n'
+		if [ "$locales" = "1" ]; then
+			printf '\tlocales, _ := fs.Sub(localeFS, "locales")\n'
+		fi
+		printf '\n'
 		printf '\tsettings.MustLoadDotEnv(".env")\n\n'
 		printf '\tsettings.Configure(\n'
 		printf '\t\tsettings.Preset(settings.Env("APP_ENV", "development")),\n'
@@ -225,6 +234,13 @@ app_write_settings() {
 		fi
 		if [ "$per_page" != "0" ]; then
 			printf '\t\t\ts.Pagination.PerPage = %s\n\n' "$per_page"
+		if [ "$locales" = "1" ]; then
+			printf '\t\t\ts.I18N = settings.I18N{\n'
+			printf '\t\t\t\tDefault:   "en",\n'
+			printf '\t\t\t\tSupported: []string{"en", "fr", "ar"},\n'
+			printf '\t\t\t\tFS:        locales,\n'
+			printf '\t\t\t}\n\n'
+		fi
 		fi
 		printf '\t\t\ts.Admin.SiteName = "Example administration"\n'
 		printf '\t\t},\n'
@@ -233,6 +249,69 @@ app_write_settings() {
 	} >"$EXAMPLE_DIR/settings.go"
 
 	app_gofmt
+}
+
+app_write_locales() {
+	local dir="$EXAMPLE_DIR/locales"
+	mkdir -p "$dir"
+
+	cat >"$dir/fr.po" <<'PO'
+msgid ""
+msgstr ""
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Services"
+msgstr "Services proposés"
+
+msgid "Track a shipment"
+msgstr "Suivre un envoi"
+
+msgid "Request a quote"
+msgstr "Demander un tarif"
+
+msgid "About Meridian"
+msgstr "À propos de Meridian"
+
+msgid "%d shipment on this lane"
+msgid_plural "%d shipments on this lane"
+msgstr[0] "%d envoi sur cette ligne"
+msgstr[1] "%d envois sur cette ligne"
+PO
+
+	cat >"$dir/ar.po" <<'PO'
+msgid ""
+msgstr ""
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+msgid "Services"
+msgstr "الخدمات"
+
+msgid "Track a shipment"
+msgstr "تتبع الشحنة"
+
+msgid "Request a quote"
+msgstr "اطلب عرض سعر"
+
+msgid "About Meridian"
+msgstr "عن ميريديان"
+
+msgid "%d shipment on this lane"
+msgid_plural "%d shipments on this lane"
+msgstr[0] "لا شحنات على هذا الخط"
+msgstr[1] "شحنة واحدة على هذا الخط"
+msgstr[2] "شحنتان على هذا الخط"
+msgstr[3] "%d شحنات على هذا الخط"
+msgstr[4] "%d شحنة على هذا الخط"
+msgstr[5] "%d شحنة على هذا الخط"
+PO
 }
 
 app_write_report_handler() {
@@ -740,12 +819,32 @@ HTML
 {{end}}
 HTML
 
-	cat >"$pages/about.html" <<'HTML'
+	if [ "$stage" -ge 19 ]; then
+		cat >"$pages/about.html" <<'HTML'
+{{define "content"}}
+<h1 data-i18n="about">{{.Locale.T "About Meridian"}}</h1>
+<p data-i18n="services">{{.Locale.T "Services"}}</p>
+<p data-i18n="track">{{.Locale.T "Track a shipment"}}</p>
+<p data-i18n="quote">{{.Locale.T "Request a quote"}}</p>
+<p data-plural="0">{{.Locale.N "%d shipment on this lane" "%d shipments on this lane" 0}}</p>
+<p data-plural="1">{{.Locale.N "%d shipment on this lane" "%d shipments on this lane" 1}}</p>
+<p data-plural="2">{{.Locale.N "%d shipment on this lane" "%d shipments on this lane" 2}}</p>
+<p data-plural="7">{{.Locale.N "%d shipment on this lane" "%d shipments on this lane" 7}}</p>
+<p data-tag="{{.Locale.Tag}}" data-dir="{{.Locale.Direction}}">locale</p>
+<nav class="langs">
+  {{$path := .Path}}
+  {{range .Locale.Available}}<a href="/locale?locale={{.Tag}}&next={{$path}}" data-locale="{{.Tag}}">{{.Name}}</a>{{end}}
+</nav>
+{{end}}
+HTML
+	else
+		cat >"$pages/about.html" <<'HTML'
 {{define "content"}}
 <h1>About Meridian</h1>
 <p>A freight forwarder built to exercise a framework.</p>
 {{end}}
 HTML
+	fi
 
 	cat >"$pages/contact.html" <<'HTML'
 {{define "content"}}
@@ -910,6 +1009,9 @@ app_write_main() {
 			fi
 			if [ "$stage" -ge 18 ]; then
 				printf '\ta.Get("/report", laneReportPage(a)).Named("report")\n'
+			fi
+			if [ "$stage" -ge 19 ]; then
+				printf '\ta.Get("/locale", a.Locales().SwitchHandler("/")).Named("locale")\n'
 			fi
 			if [ "$stage" -ge 15 ]; then
 				printf '\ta.Get("/quote", quotePage(a), a.CSRF).Named("quote")\n'
