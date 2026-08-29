@@ -125,13 +125,10 @@ func (d *Detector) SwitchHandler(fallback string) http.HandlerFunc {
 			return
 		}
 
-		chosen := strings.TrimSpace(r.PostForm.Get("locale"))
-		if chosen == "" {
-			chosen = strings.TrimSpace(r.URL.Query().Get("locale"))
-		}
+		chosen := strings.TrimSpace(r.Form.Get("locale"))
 		d.Choose(w, chosen)
 
-		target := safePath(r.PostForm.Get("next"), fallback)
+		target := safePath(r.Form.Get("next"), fallback)
 		if locale := d.bundle.Locale(Normalise(chosen)); locale != nil && d.prefix {
 			target = locale.Switch(target, Normalise(chosen))
 		}

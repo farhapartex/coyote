@@ -217,7 +217,8 @@ store, err := a.Store()
 schema, err := a.Describe(Product{})
 
 page, err := store.List(r.Context(), schema, model.Query{
-	Limit: 20, Offset: 0, Order: "name asc", Search: "kettle",
+	Limit: 20, Offset: 0, Sort: "-name",
+	Filters: []model.Filter{{Column: "is_published", Op: model.Eq, Value: true}},
 })
 for _, record := range page.Records {
 	fmt.Println(record.String("name"), record.Get("price"))

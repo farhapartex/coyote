@@ -467,3 +467,172 @@ func TestSingleColumnKeysStayInlineOnSQLite(t *testing.T) {
 		t.Errorf("a single key should not be repeated at table level:\n%s", sql)
 	}
 }
+
+type widgetWiderLabel struct {
+	ID       string `gorm:"primaryKey;size:64"`
+	Label    string `gorm:"not null;size:200"`
+	Quantity int
+}
+
+func (widgetWiderLabel) TableName() string { return "widgets" }
+
+func TestGeneratedMigrationsImportEverythingTheyReference(t *testing.T) {
+	handle := newTestDB(t)
+	dir := t.TempDir()
+
+	const modelImport = `"github.com/farhapartex/coyote/core/model"`
+
+	base := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widget{})})
+	withColumn := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetV2{})})
+	withWiderColumn := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetWiderLabel{})})
+
+	steps := []struct {
+		name   string
+		change migrate.Change
+	}{
+		{"create widgets", migrate.Diff(migrate.Snapshot{}, base)},
+		{"add quantity", migrate.Diff(base, withColumn)},
+		{"widen label", migrate.Diff(withColumn, withWiderColumn)},
+		{"drop widgets", migrate.Diff(withWiderColumn, migrate.Snapshot{})},
+	}
+
+	for _, step := range steps {
+		if step.change.Empty() {
+			t.Fatalf("%s should produce a change", step.name)
+		}
+
+		generated, err := migrate.Generate(dir, step.name, step.change)
+		if err != nil {
+			t.Fatalf("%s: %v", step.name, err)
+		}
+
+		raw, err := os.ReadFile(generated.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		source := string(raw)
+
+		uses := strings.Contains(source, "model.")
+		imports := strings.Contains(source, modelImport)
+
+		if uses && !imports {
+			t.Errorf("%s references model.* but does not import core/model, so it will not compile:\n%s",
+				step.name, source)
+		}
+		if !uses && imports {
+			t.Errorf("%s imports core/model without using it, which is a compile error:\n%s",
+				step.name, source)
+		}
+	}
+}
+
+func TestAnAlteredColumnGeneratesACompilableMigration(t *testing.T) {
+	handle := newTestDB(t)
+	dir := t.TempDir()
+
+	before := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetV2{})})
+	after := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetWiderLabel{})})
+
+	change := migrate.Diff(before, after)
+	if change.Empty() {
+		t.Fatal("widening a column should produce a change")
+	}
+
+	generated, err := migrate.Generate(dir, "widen label", change)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(generated.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+
+	if !strings.Contains(source, "migrate.AlterColumn{") {
+		t.Fatalf("expected an AlterColumn op:\n%s", source)
+	}
+	if !strings.Contains(source, `"github.com/farhapartex/coyote/core/model"`) {
+		t.Errorf("an AlterColumn migration needs the model import for its Kind constants:\n%s", source)
+	}
+}
+
+type widgetIndexedLabel struct {
+	ID    string `gorm:"primaryKey;size:64"`
+	Label string `gorm:"not null;size:120;index"`
+}
+
+func (widgetIndexedLabel) TableName() string { return "widgets" }
+
+type widgetUniqueLabel struct {
+	ID    string `gorm:"primaryKey;size:64"`
+	Label string `gorm:"not null;size:120;uniqueIndex"`
+}
+
+func (widgetUniqueLabel) TableName() string { return "widgets" }
+
+func TestMakingAnIndexUniqueIsDetected(t *testing.T) {
+	handle := newTestDB(t)
+
+	indexed := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetIndexedLabel{})})
+	unique := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+
+	change := migrate.Diff(indexed, unique)
+	if change.Empty() {
+		t.Fatal("changing an index to unique must produce a change; the index keeps its name, " +
+			"so comparing names alone would miss it")
+	}
+
+	var dropped, created int
+	var createdUnique bool
+	for _, op := range change.Ops {
+		switch typed := op.(type) {
+		case migrate.DropIndex:
+			dropped++
+		case migrate.CreateIndex:
+			created++
+			createdUnique = typed.Unique
+		}
+	}
+
+	if dropped != 1 || created != 1 {
+		t.Errorf("expected the index to be dropped and recreated, got %d drops and %d creates",
+			dropped, created)
+	}
+	if !createdUnique {
+		t.Error("the recreated index should be unique")
+	}
+
+	if _, isDrop := change.Ops[0].(migrate.DropIndex); !isDrop {
+		t.Errorf("the drop must come first, got %T", change.Ops[0])
+	}
+}
+
+func TestMakingAnIndexNonUniqueIsDetected(t *testing.T) {
+	handle := newTestDB(t)
+
+	unique := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+	indexed := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetIndexedLabel{})})
+
+	change := migrate.Diff(unique, indexed)
+	if change.Empty() {
+		t.Fatal("relaxing a unique index must produce a change")
+	}
+
+	for _, op := range change.Ops {
+		if created, ok := op.(migrate.CreateIndex); ok && created.Unique {
+			t.Error("the recreated index should no longer be unique")
+		}
+	}
+}
+
+func TestAnUnchangedIndexProducesNothing(t *testing.T) {
+	handle := newTestDB(t)
+
+	first := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+	second := migrate.SnapshotOf([]*model.Schema{schemaFor(t, handle, widgetUniqueLabel{})})
+
+	if change := migrate.Diff(first, second); !change.Empty() {
+		t.Errorf("an unchanged schema must not churn migrations, got %d op(s)", len(change.Ops))
+	}
+}

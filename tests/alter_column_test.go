@@ -188,3 +188,31 @@ func TestAutoIncrementReachesEachDialect(t *testing.T) {
 		t.Errorf("sqlite should use the rowid form:\n%s", sql)
 	}
 }
+
+func TestSQLiteRebuildIsPreviewable(t *testing.T) {
+	from := migrate.Column{Name: "label", Kind: model.KindString, Size: 120, NotNull: true}
+	to := migrate.Column{Name: "label", Kind: model.KindString, Size: 200, NotNull: true}
+
+	op := migrate.AlterColumn{
+		Table: "widgets",
+		From:  from,
+		To:    to,
+		Columns: []migrate.Column{
+			{Name: "id", Kind: model.KindString, Size: 64, NotNull: true, PrimaryKey: true},
+			to,
+		},
+		Indexes: []migrate.Index{{Name: "uq_widgets_label", Columns: []string{"label"}, Unique: true}},
+	}
+
+	statements := op.Statements(dialect.SQLite{})
+	if len(statements) == 0 {
+		t.Fatal("a rebuild must be previewable; sqlmigrate has nothing to print otherwise")
+	}
+
+	joined := strings.Join(statements, "\n")
+	for _, expected := range []string{"CREATE TABLE", "INSERT INTO", "DROP TABLE", "uq_widgets_label"} {
+		if !strings.Contains(joined, expected) {
+			t.Errorf("the preview should mention %q:\n%s", expected, joined)
+		}
+	}
+}
