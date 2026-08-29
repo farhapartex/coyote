@@ -166,6 +166,7 @@ app_write_settings() {
 	local email="${7:-0}"
 	local security="${8:-0}"
 	local rate_limit="${9:-5}"
+	local force_debug="${10:-0}"
 
 	{
 		printf 'package main\n\n'
@@ -263,6 +264,9 @@ app_write_settings() {
 			printf '\t\t\t\tRequests: %s,\n' "$rate_limit"
 			printf '\t\t\t\tWindow:   time.Minute,\n'
 			printf '\t\t\t}\n\n'
+		fi
+		if [ "$force_debug" = "1" ]; then
+			printf '\t\t\ts.Debug = true\n\n'
 		fi
 		fi
 		printf '\t\t\ts.Admin.SiteName = "Example administration"\n'
