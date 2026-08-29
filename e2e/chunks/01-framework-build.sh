@@ -4,6 +4,21 @@
 
 chunk_begin "01" "Framework build"
 
+check_the_framework_suite() {
+	run_capturing go test ./tests/ -count=1
+
+	if [ "$CAPTURED_STATUS" -eq 0 ]; then
+		check_passed "the framework's own suite passes"
+		return
+	fi
+
+	local failures
+	failures="$(printf '%s' "$CAPTURED_OUTPUT" | grep -E '^(---|    ---) FAIL|^\s+[a-z_]+_test\.go:[0-9]+' | head -20 || true)"
+	check_failed "the framework's own suite passes" \
+		"go test ./tests/ -count=1 exited $CAPTURED_STATUS
+${failures:-no FAIL lines were found in the output, which suggests the run was interrupted}"
+}
+
 unformatted_framework_files() {
 	gofmt -l . | grep -v "^$EXAMPLE_NAME/" || true
 }
@@ -36,7 +51,7 @@ check_the_binary_reports_a_version() {
 assert_output_empty "gofmt reports nothing unformatted" unformatted_framework_files
 assert_succeeds "go vet is clean" go vet ./...
 assert_succeeds "every package builds" go build ./...
-assert_succeeds "the framework's own suite passes" go test ./tests/ -count=1
+check_the_framework_suite
 check_the_race_detector
 
 rm -f "$COYOTE_BIN"

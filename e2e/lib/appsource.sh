@@ -322,6 +322,41 @@ msgstr[5] "%d شحنة على هذا الخط"
 PO
 }
 
+app_write_admin_action() {
+	cat >"$EXAMPLE_DIR/admin_actions.go" <<'GO'
+package main
+
+import (
+	"net/http"
+
+	"github.com/farhapartex/coyote/core/app"
+)
+
+var actionApp *app.App
+
+func registerActionApp(a *app.App) { actionApp = a }
+
+func sealContainers(r *http.Request, ids []string) (int, error) {
+	handle, err := actionApp.DB()
+	if err != nil {
+		return 0, err
+	}
+
+	sealed := 0
+	for _, id := range ids {
+		result := handle.WithContext(r.Context()).
+			Exec("UPDATE containers SET sealed = 1 WHERE id = ?", id)
+		if result.Error != nil {
+			return sealed, result.Error
+		}
+		sealed += int(result.RowsAffected)
+	}
+	return sealed, nil
+}
+GO
+	app_gofmt
+}
+
 app_write_report_handler() {
 	cat >"$EXAMPLE_DIR/handlers_report.go" <<'GO'
 package main
@@ -967,6 +1002,9 @@ app_write_admin_resources() {
 
 	{
 		printf 'package main\n\n'
+		if [ "$stage" -ge 21 ]; then
+			printf 'import "github.com/farhapartex/coyote/contrib/admin"\n\n'
+		fi
 		printf 'type customerResource struct{}\n\n'
 		printf 'func (customerResource) Entity() any { return Customer{} }\n\n'
 		printf 'func (customerResource) ListColumns() []string {\n'
@@ -992,11 +1030,28 @@ app_write_admin_resources() {
 			printf 'func (containerResource) ListColumns() []string {\n'
 			printf '\treturn []string{"number", "shipment_id", "size_feet", "sealed"}\n}\n\n'
 			printf 'func (containerResource) SearchColumns() []string { return []string{"number"} }\n\n'
+			if [ "$stage" -ge 21 ]; then
+				printf 'func (containerResource) FilterColumns() []string { return []string{"sealed"} }\n\n'
+				printf 'func (containerResource) Actions() []admin.Action {\n'
+				printf '\treturn []admin.Action{{\n'
+				printf '\t\tName:  "seal",\n'
+				printf '\t\tLabel: "Mark as sealed",\n'
+				printf '\t\tRun:   sealContainers,\n'
+				printf '\t}}\n}\n\n'
+			fi
 			printf 'type trackingEventResource struct{}\n\n'
 			printf 'func (trackingEventResource) Entity() any { return TrackingEvent{} }\n\n'
 			printf 'func (trackingEventResource) ListColumns() []string {\n'
 			printf '\treturn []string{"kind", "shipment_id", "container_id", "location", "occurred_at"}\n}\n\n'
 			printf 'func (trackingEventResource) SearchColumns() []string { return []string{"kind", "location"} }\n'
+		fi
+
+		if [ "$stage" -ge 21 ]; then
+			printf '\ntype quoteRequestResource struct{}\n\n'
+			printf 'func (quoteRequestResource) Entity() any { return QuoteRequest{} }\n\n'
+			printf 'func (quoteRequestResource) ListColumns() []string {\n'
+			printf '\treturn []string{"company", "email", "origin_code", "service", "containers"}\n}\n\n'
+			printf 'func (quoteRequestResource) SearchColumns() []string { return []string{"company", "email"} }\n'
 		fi
 
 		if [ "$stage" -ge 12 ]; then
@@ -1018,7 +1073,9 @@ app_write_admin_resources() {
 
 app_managed_resources_for_stage() {
 	local stage="$1"
-	if [ "$stage" -ge 12 ]; then
+	if [ "$stage" -ge 21 ]; then
+		printf 'customerResource{}, portResource{}, shipmentResource{}, containerResource{}, trackingEventResource{}, invoiceResource{}, invoiceLineResource{}, quoteRequestResource{}'
+	elif [ "$stage" -ge 12 ]; then
 		printf 'customerResource{}, portResource{}, shipmentResource{}, containerResource{}, trackingEventResource{}, invoiceResource{}, invoiceLineResource{}'
 	elif [ "$stage" -ge 9 ]; then
 		printf 'customerResource{}, portResource{}, shipmentResource{}, containerResource{}, trackingEventResource{}'
@@ -1090,6 +1147,9 @@ app_write_main() {
 			fi
 			if [ "$stage" -ge 19 ]; then
 				printf '\ta.Get("/locale", a.Locales().SwitchHandler("/")).Named("locale")\n'
+			fi
+			if [ "$stage" -ge 21 ]; then
+				printf '\tregisterActionApp(a)\n\n'
 			fi
 			if [ "$stage" -ge 20 ]; then
 				printf '\n\tif err := openMailer(a); err != nil {\n'
