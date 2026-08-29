@@ -253,7 +253,7 @@ check_a_valid_submission_persists() {
 	esac
 
 	assert_equal "the flash appears exactly once" "1" \
-		"$(printf '%s' "$HTTP_BODY" | grep -c 'flash flash-success')"
+		"$(printf '%s' "$HTTP_BODY" | grep -c 'flash flash-success' || true)"
 
 	http_get "/quote"
 	case "$HTTP_BODY" in

@@ -164,13 +164,15 @@ app_write_settings() {
 	local page_ttl="${5:-3}"
 	local locales="${6:-0}"
 	local email="${7:-0}"
+	local security="${8:-0}"
+	local rate_limit="${9:-5}"
 
 	{
 		printf 'package main\n\n'
 		printf 'import (\n'
 		printf '\t"embed"\n'
 		printf '\t"io/fs"\n'
-		if [ "$caches" = "1" ]; then
+		if [ "$caches" = "1" ] || [ "$security" = "1" ]; then
 			printf '\t"time"\n'
 		fi
 		printf '\n'
@@ -247,6 +249,19 @@ app_write_settings() {
 			printf '\t\t\t\tBackend: settings.EmailToFile,\n'
 			printf '\t\t\t\tDir:     "mail",\n'
 			printf '\t\t\t\tFrom:    "quotes@meridian.test",\n'
+			printf '\t\t\t}\n\n'
+		fi
+		if [ "$security" = "1" ]; then
+			printf '\t\t\ts.Security.CSP = settings.DefaultCSP\n'
+			printf '\t\t\ts.Security.Compress = true\n'
+			printf '\t\t\ts.Security.CORS = settings.CORS{\n'
+			printf '\t\t\t\tOrigins: []string{"https://partner.example"},\n'
+			printf '\t\t\t\tMethods: []string{"GET", "POST"},\n'
+			printf '\t\t\t\tHeaders: []string{"Content-Type"},\n'
+			printf '\t\t\t}\n'
+			printf '\t\t\ts.Security.RateLimit = settings.RateLimit{\n'
+			printf '\t\t\t\tRequests: %s,\n' "$rate_limit"
+			printf '\t\t\t\tWindow:   time.Minute,\n'
 			printf '\t\t\t}\n\n'
 		fi
 		fi
