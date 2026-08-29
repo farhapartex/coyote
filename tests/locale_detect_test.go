@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -335,6 +336,64 @@ func TestMatchPrefersAnExactTagThenTheBase(t *testing.T) {
 	} {
 		if got := i18n.Match([]string{header}, supported); got != want {
 			t.Errorf("Match(%q) = %q, want %q", header, got, want)
+		}
+	}
+}
+
+func TestLocaleSwitchHandlerReadsNextFromTheQueryToo(t *testing.T) {
+	a := newLocaleApp(t)
+	a.Get("/locale", a.Locales().SwitchHandler("/"))
+
+	req := httptest.NewRequest(http.MethodGet, "/locale?locale=fr&next=/about", nil)
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	if location := rec.Header().Get("Location"); location != "/about" {
+		t.Errorf("Location = %q; a picker rendered as a link carries next in the query, and a "+
+			"cacheable page cannot use a form, so the link form has to honour it", location)
+	}
+
+	found := false
+	for _, cookie := range rec.Result().Cookies() {
+		if cookie.Name == "coyote_locale" && cookie.Value == "fr" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no locale cookie was set: %+v", rec.Result().Cookies())
+	}
+}
+
+func TestLocaleSwitchHandlerPrefersThePostedNext(t *testing.T) {
+	a := newLocaleApp(t)
+	a.Post("/locale", a.Locales().SwitchHandler("/"))
+
+	form := strings.NewReader("locale=fr&next=/from-the-form")
+	req := httptest.NewRequest(http.MethodPost, "/locale?next=/from-the-query", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+
+	if location := rec.Header().Get("Location"); location != "/from-the-form" {
+		t.Errorf("Location = %q, want the posted value to win over the query", location)
+	}
+}
+
+func TestLocaleSwitchHandlerStillRefusesAnOffsiteQueryNext(t *testing.T) {
+	a := newLocaleApp(t)
+	a.Get("/locale", a.Locales().SwitchHandler("/safe"))
+
+	for _, next := range []string{"//evil.test/x", "https://evil.test/x", "evil"} {
+		req := httptest.NewRequest(http.MethodGet,
+			"/locale?locale=fr&next="+url.QueryEscape(next), nil)
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, req)
+
+		if location := rec.Header().Get("Location"); location != "/safe" {
+			t.Errorf("next=%q redirected to %q, want the fallback", next, location)
 		}
 	}
 }
