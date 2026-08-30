@@ -44,6 +44,8 @@ flags for rollback:
 
 flags for makemigrations:
   --name=NAME       name the generated migration instead of guessing one
+  --undo            delete the newest migration if it was never applied, and rewind the snapshot
+  --no-input        do not ask before deleting it
 
 flags for makemessages and checkmessages:
   --locale=TAG      work on one locale instead of every supported one

@@ -102,6 +102,50 @@ review before applying:
 
 Silently destroying a column of data is worse than asking.
 
+## Backing out a migration you never applied
+
+`makemigrations` writes the snapshot when it generates the file, so the snapshot describes the
+migrations on disk rather than the state of any database. That is what lets it run with nothing
+connected — but it means a migration that `migrate` refuses still counts. Add a `NOT NULL` column to
+a populated table and the sequence goes:
+
+```
+$ coyote makemigrations --name=add_carrier_name
+created migrations/0005_add_carrier_name.go
+$ coyote migrate
+      failed
+coyote/migrate: NOT NULL constraint failed: shipments.carrier_name
+```
+
+The database is untouched and `0005` is not in the ledger, but the snapshot already lists
+`carrier_name`. Fix the model and regenerate, and the next diff is measured against a snapshot that
+claims a column the database never got.
+
+`--undo` puts the ladder back:
+
+```
+$ coyote makemigrations --undo
+undo 0005_add_carrier_name
+
+    add column shipments.carrier_name
+
+this deletes migrations/0005_add_carrier_name.go and rewinds snapshot.json
+
+type yes to continue: yes
+
+removed 0005_add_carrier_name.go and rewound snapshot.json
+```
+
+It only ever touches the newest migration, and it refuses one that has been applied:
+
+```
+coyote/cli: 0004_add_eta has already been applied; roll it back first with: coyote rollback
+```
+
+Pass `--no-input` to skip the confirmation in a script. A migration carrying `migrate.RunSQL` cannot
+be rewound this way — the framework has no way to know what the SQL did to the shape of the schema —
+so `--undo` refuses rather than guessing.
+
 ## Applying
 
 `migrate` reports the plan, then applies it:

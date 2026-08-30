@@ -93,12 +93,20 @@ func collectStatic(args []string) error {
 func makeMigrations(args []string) error {
 	fs := flag.NewFlagSet("makemigrations", flag.ContinueOnError)
 	name := fs.String("name", "", "name for the generated migration")
+	undo := fs.Bool("undo", false, "delete the most recent migration if it has not been applied, and rewind the snapshot")
+	noInput := fs.Bool("no-input", false, "do not ask for confirmation")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameMakeMigrations)
 	if *name != "" {
 		env = append(env, cli.EnvName+"="+*name)
+	}
+	if *undo {
+		env = append(env, cli.EnvUndo+"=1")
+	}
+	if *noInput {
+		env = append(env, cli.EnvNoInput+"=1")
 	}
 	return invoke(env)
 }

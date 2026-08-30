@@ -18,6 +18,7 @@ const (
 	EnvArgs     = "COYOTE_ARGS"
 	EnvLocale   = "COYOTE_LOCALE"
 	EnvStrict   = "COYOTE_STRICT"
+	EnvUndo     = "COYOTE_MIGRATION_UNDO"
 )
 
 const (
