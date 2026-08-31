@@ -47,12 +47,12 @@ coyote createsuperadmin
 coyote start
 ```
 
-`migrate` refuses unless the server is already listening on the configured address, so start it
-first in another terminal:
+`migrate` needs a database it can reach, but not a running server, so the order above works in one
+terminal. If the database is unreachable it says so plainly:
 
 ```
 $ coyote migrate
-coyote/cli: server is not running at 127.0.0.1:8000; start it first with: coyote start
+coyote/cli: no connection to sqlite /path/to/app/coyote.db
 ```
 
 ## createsuperadmin

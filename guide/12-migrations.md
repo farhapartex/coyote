@@ -152,19 +152,19 @@ so `--undo` refuses rather than guessing.
 
 ```
 $ coyote migrate
-server    running on 127.0.0.1:8000
 database  sqlite /path/to/app/coyote.db
-models    3 registered
+migrations 3 found, 1 pending
 
-  create table products ... ok
+  0003_create_products
+      create table products
+      applied
 
-applied 1 change(s)
+applied 1 migration(s)
 ```
 
-Running it again reports `schema is up to date, nothing to apply`.
+Running it again reports `database is up to date, nothing to apply`.
 
-> `migrate` currently refuses unless the server is already listening on the configured address:
-> `coyote/cli: server is not running at 127.0.0.1:8000; start it first with: coyote start`
+`migrate` needs a database it can reach, but not a running server — it works with nothing listening.
 
 ## Prototyping without files
 
