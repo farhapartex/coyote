@@ -11,7 +11,7 @@ import (
 func appWithACustomNotFound(t *testing.T) *app.App {
 	t.Helper()
 
-	a := newTestApp(t)
+	a := newTestApp(t, withoutCSRF)
 	a.Get("/about", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("about page"))
 	})
@@ -88,7 +88,7 @@ func TestACustomNotFoundDoesNotSwallowAHandlersOwn404(t *testing.T) {
 }
 
 func TestWithoutACustomNotFoundNothingChanges(t *testing.T) {
-	a := newTestApp(t)
+	a := newTestApp(t, withoutCSRF)
 	a.Get("/about", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("about page"))
 	})

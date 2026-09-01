@@ -213,7 +213,7 @@ Build prefixed links with `Path`, which leaves the default locale alone:
 ### Letting the visitor choose
 
 ```go
-a.Post("/locale", a.Locales().SwitchHandler("/"), a.CSRF)
+a.Post("/locale", a.Locales().SwitchHandler("/"))
 ```
 
 ```html

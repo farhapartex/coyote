@@ -156,7 +156,8 @@ Users, sessions and roles remain **superadmin-only** regardless of permissions.
 
 ## Your own backend
 
-`auth.PermissionStore` is an interface. Implement it and set `s.Auth.PermissionStore` to keep
+`auth.PermissionStore` is an interface, and every method takes a `context.Context`. Implement
+it and set `s.Auth.PermissionStore` to keep
 permissions somewhere other than the default tables.
 
 ## Next

@@ -53,3 +53,11 @@ func For(engine settings.Engine) Dialect {
 type Rebuilder interface {
 	NeedsRebuild() bool
 }
+
+type Locker interface {
+	AdvisoryLock() (acquire, release string)
+}
+
+type Atomic interface {
+	TransactionalDDL() bool
+}

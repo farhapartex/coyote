@@ -65,7 +65,7 @@ func TestRulesReportEveryProblemAtOnce(t *testing.T) {
 func TestPasswordCannotResembleTheAccount(t *testing.T) {
 	service := ruleService(t, nil)
 
-	_, err := service.CreateUser(auth.NewUser{
+	_, err := service.CreateUser(t.Context(), auth.NewUser{
 		Username: "jane.doe",
 		Email:    "jane@example.com",
 		Password: "jane.doe.jane.doe",
@@ -74,7 +74,7 @@ func TestPasswordCannotResembleTheAccount(t *testing.T) {
 		t.Errorf("error = %v, want ErrPasswordSimilar", err)
 	}
 
-	if _, err := service.CreateUser(auth.NewUser{
+	if _, err := service.CreateUser(t.Context(), auth.NewUser{
 		Username: "jane.doe",
 		Email:    "jane@example.com",
 		Password: "unrelated-and-long",
@@ -86,18 +86,18 @@ func TestPasswordCannotResembleTheAccount(t *testing.T) {
 func TestRulesAlsoGuardSetPassword(t *testing.T) {
 	service := ruleService(t, nil)
 
-	user, err := service.CreateUser(auth.NewUser{Username: "jane", Password: "unrelated-and-long"})
+	user, err := service.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "unrelated-and-long"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := service.SetPassword(user.ID, "password"); !errors.Is(err, auth.ErrPasswordCommon) {
+	if err := service.SetPassword(t.Context(), user.ID, "password"); !errors.Is(err, auth.ErrPasswordCommon) {
 		t.Errorf("SetPassword error = %v, want ErrPasswordCommon", err)
 	}
-	if err := service.SetPassword(user.ID, "jane-is-my-name"); !errors.Is(err, auth.ErrPasswordSimilar) {
+	if err := service.SetPassword(t.Context(), user.ID, "jane-is-my-name"); !errors.Is(err, auth.ErrPasswordSimilar) {
 		t.Errorf("SetPassword should compare against the stored account, got %v", err)
 	}
-	if err := service.SetPassword(user.ID, "a-different-secret"); err != nil {
+	if err := service.SetPassword(t.Context(), user.ID, "a-different-secret"); err != nil {
 		t.Errorf("a good password was rejected: %v", err)
 	}
 }

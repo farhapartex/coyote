@@ -73,17 +73,29 @@ func (m Migrate) Run(ctx Context) error {
 		return m.fake(ctx, runner, pending)
 	}
 
-	for _, entry := range pending {
-		fmt.Fprintf(ctx.Out, "  %s\n", entry.Title())
-		for _, step := range entry.Describe() {
-			fmt.Fprintf(ctx.Out, "      %s\n", step)
-		}
-		if err := runner.Apply(background, entry); err != nil {
-			fmt.Fprintln(ctx.Out, "      failed")
-			return err
-		}
-		fmt.Fprintln(ctx.Out, "      applied")
+	if !runner.TransactionalDDL() {
+		fmt.Fprintf(ctx.Out, "%s does not roll back schema changes, so a migration that fails "+
+			"part way leaves what it already applied in place\n\n", database.Engine)
 	}
+
+	err = runner.WithLock(background, func() error {
+		for _, entry := range pending {
+			fmt.Fprintf(ctx.Out, "  %s\n", entry.Title())
+			for _, step := range entry.Describe() {
+				fmt.Fprintf(ctx.Out, "      %s\n", step)
+			}
+			if err := runner.Apply(background, entry); err != nil {
+				fmt.Fprintln(ctx.Out, "      failed")
+				return err
+			}
+			fmt.Fprintln(ctx.Out, "      applied")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	fmt.Fprintf(ctx.Out, "\napplied %d migration(s)\n", len(pending))
 	afterMigrate(ctx)
 	return nil

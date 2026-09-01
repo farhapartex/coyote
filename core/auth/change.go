@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -33,7 +34,7 @@ func (s *Service) ChangePassword(r *http.Request, in PasswordChange) error {
 		return ErrPasswordMismatch
 	}
 
-	key := loginKey(user.Username, s.clientIP(r))
+	key := loginKey(user.Username, s.clientBucket(r))
 	if s.limiter != nil && !s.limiter.Allow(key) {
 		return ErrTooManyAttempts
 	}
@@ -45,25 +46,42 @@ func (s *Service) ChangePassword(r *http.Request, in PasswordChange) error {
 		s.limiter.Reset(key)
 	}
 
-	if err := s.SetPassword(user.ID, in.New); err != nil {
+	if err := s.SetPassword(r.Context(), user.ID, in.New); err != nil {
 		return err
 	}
 	return s.Login(r, user)
 }
 
-func (s *Service) ResetPassword(userID string, in PasswordChange) error {
+func (s *Service) ResetPassword(ctx context.Context, userID string, in PasswordChange) error {
 	if in.New != in.Confirm {
 		return ErrPasswordMismatch
 	}
-	return s.SetPassword(userID, in.New)
+	return s.SetPassword(ctx, userID, in.New)
+}
+
+func (s *Service) manageableSessions() (session.ManageableStore, bool) {
+	if s.sessions == nil {
+		return nil, false
+	}
+	store, ok := s.sessions.Store().(session.ManageableStore)
+	return store, ok
+}
+
+func (s *Service) revokeSessions(ctx context.Context, userID string) {
+	if userID == "" {
+		return
+	}
+	if store, ok := s.manageableSessions(); ok {
+		_, _ = store.DeleteByUserID(ctx, userID)
+	}
 }
 
 func (s *Service) RevokeOtherSessions(r *http.Request) int {
 	current := session.FromRequest(r)
-	if current == nil || s.sessions == nil {
+	if current == nil {
 		return 0
 	}
-	store, ok := s.sessions.Store().(session.ManageableStore)
+	store, ok := s.manageableSessions()
 	if !ok {
 		return 0
 	}
@@ -72,14 +90,16 @@ func (s *Service) RevokeOtherSessions(r *http.Request) int {
 	if userID == "" {
 		return 0
 	}
-	removed := 0
-	for _, other := range store.All() {
-		if other.UserID() != userID || other.ID() == current.ID() {
-			continue
-		}
-		if err := store.Delete(other.ID()); err == nil {
-			removed++
-		}
+	ctx := r.Context()
+	removed, err := store.DeleteByUserID(ctx, userID)
+	if err != nil {
+		return 0
+	}
+	if err := store.Save(ctx, current); err != nil {
+		return 0
+	}
+	if removed > 0 {
+		removed--
 	}
 	return removed
 }

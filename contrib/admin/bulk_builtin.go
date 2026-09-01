@@ -3,24 +3,9 @@ package admin
 import (
 	"net/http"
 
-	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
-
-func (a *Admin) selected(w http.ResponseWriter, r *http.Request, back string) ([]string, bool) {
-	if err := form.Parse(r, uploadMemory); err != nil {
-		http.Error(w, "400 bad request", http.StatusBadRequest)
-		return nil, false
-	}
-	ids := r.PostForm["ids"]
-	if len(ids) == 0 {
-		view.Flash(r, "error", i18n.T(r.Context(), "Nothing was selected."))
-		view.Redirect(w, r, back)
-		return nil, false
-	}
-	return ids, true
-}
 
 func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 	back := a.prefix + "/users"
@@ -41,12 +26,12 @@ func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 			skipped++
 			continue
 		}
-		if err := a.app.Auth.Users().Delete(id); err != nil {
+		if err := a.app.Auth.Users().Delete(r.Context(), id); err != nil {
 			view.Flash(r, "error", i18n.Tf(r.Context(), "Deleted %d, then stopped: %s", deleted, humanize(r.Context(), err)))
 			view.Redirect(w, r, back)
 			return
 		}
-		a.revokeUserSessions(id)
+		a.revokeUserSessions(r.Context(), id)
 		deleted++
 	}
 
@@ -76,7 +61,7 @@ func (a *Admin) roleBulk(w http.ResponseWriter, r *http.Request) {
 
 	deleted := 0
 	for _, id := range ids {
-		if err := store.DeleteRole(id); err != nil {
+		if err := store.DeleteRole(r.Context(), id); err != nil {
 			view.Flash(r, "error", i18n.Tf(r.Context(), "Deleted %d, then stopped: %s", deleted, humanize(r.Context(), err)))
 			view.Redirect(w, r, back)
 			return
@@ -101,7 +86,7 @@ func (a *Admin) sessionBulk(w http.ResponseWriter, r *http.Request) {
 
 	revoked := 0
 	for _, id := range ids {
-		if err := sessions.Delete(id); err == nil {
+		if err := sessions.Delete(r.Context(), id); err == nil {
 			revoked++
 		}
 	}

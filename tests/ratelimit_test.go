@@ -13,9 +13,25 @@ import (
 )
 
 func limited(policy settings.RateLimit) http.Handler {
-	return middleware.RateLimit(policy)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return limitedBehind(policy, 0)
+}
+
+func limitedBehind(policy settings.RateLimit, proxies int) http.Handler {
+	return middleware.RateLimit(policy, proxies)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))
 	}))
+}
+
+func forwardedTo(t *testing.T, handler http.Handler, remote string, forwarded string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = remote + ":1234"
+	if forwarded != "" {
+		req.Header.Set("X-Forwarded-For", forwarded)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
 }
 
 func from(t *testing.T, handler http.Handler, ip string) *httptest.ResponseRecorder {
@@ -111,29 +127,47 @@ func TestRateLimitHeadersCountDown(t *testing.T) {
 	}
 }
 
-func TestRateLimitTrustsProxyOnlyWhenAsked(t *testing.T) {
-	untrusted := limited(settings.RateLimit{Requests: 1, Window: time.Minute})
-	for _, forwarded := range []string{"1.1.1.1", "2.2.2.2"} {
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.RemoteAddr = "10.0.0.6:1234"
-		req.Header.Set("X-Forwarded-For", forwarded)
-		rec := httptest.NewRecorder()
-		untrusted.ServeHTTP(rec, req)
-		if forwarded == "2.2.2.2" && rec.Code != http.StatusTooManyRequests {
-			t.Error("spoofed forwarding headers must not reset the limit")
+func TestRateLimitIgnoresForwardingWithNoProxyDeclared(t *testing.T) {
+	handler := limited(settings.RateLimit{Requests: 1, Window: time.Minute})
+
+	forwardedTo(t, handler, "10.0.0.6", "1.1.1.1")
+	if rec := forwardedTo(t, handler, "10.0.0.6", "2.2.2.2"); rec.Code != http.StatusTooManyRequests {
+		t.Errorf("status = %d, want 429; forwarding headers mean nothing until a proxy is declared", rec.Code)
+	}
+}
+
+func TestRateLimitCannotBeResetByForgingTheLeftOfTheChain(t *testing.T) {
+	handler := limitedBehind(settings.RateLimit{Requests: 1, Window: time.Minute}, 1)
+
+	forwardedTo(t, handler, "10.0.0.7", "9.9.9.9, 203.0.113.7")
+	for _, forged := range []string{"8.8.8.8", "7.7.7.7", "6.6.6.6"} {
+		rec := forwardedTo(t, handler, "10.0.0.7", forged+", 203.0.113.7")
+		if rec.Code != http.StatusTooManyRequests {
+			t.Errorf("a forged %s answered %d, want 429; only the hop the proxy appended counts",
+				forged, rec.Code)
 		}
 	}
+}
 
-	trusted := limited(settings.RateLimit{Requests: 1, Window: time.Minute, TrustProxy: true})
-	for _, forwarded := range []string{"1.1.1.1", "2.2.2.2"} {
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.RemoteAddr = "10.0.0.7:1234"
-		req.Header.Set("X-Forwarded-For", forwarded+", 10.0.0.7")
-		rec := httptest.NewRecorder()
-		trusted.ServeHTTP(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Errorf("distinct forwarded clients should each get their own budget, got %d", rec.Code)
+func TestRateLimitGivesEachRealClientBehindAProxyItsOwnBudget(t *testing.T) {
+	handler := limitedBehind(settings.RateLimit{Requests: 1, Window: time.Minute}, 1)
+
+	for _, client := range []string{"203.0.113.7", "203.0.113.8"} {
+		if rec := forwardedTo(t, handler, "10.0.0.7", client); rec.Code != http.StatusOK {
+			t.Errorf("client %s answered %d, want 200", client, rec.Code)
 		}
+	}
+	if rec := forwardedTo(t, handler, "10.0.0.7", "203.0.113.7"); rec.Code != http.StatusTooManyRequests {
+		t.Errorf("the returning client answered %d, want 429", rec.Code)
+	}
+}
+
+func TestRateLimitFallsBackWhenTheChainIsShorterThanDeclared(t *testing.T) {
+	handler := limitedBehind(settings.RateLimit{Requests: 1, Window: time.Minute}, 2)
+
+	forwardedTo(t, handler, "10.0.0.9", "203.0.113.7")
+	if rec := forwardedTo(t, handler, "10.0.0.9", "203.0.113.8"); rec.Code != http.StatusTooManyRequests {
+		t.Errorf("status = %d, want 429; too few hops falls back to the peer address", rec.Code)
 	}
 }
 
@@ -243,5 +277,78 @@ func TestRateLimitValidation(t *testing.T) {
 			continue
 		}
 		mustContain(t, problemsOf(t, err), want)
+	}
+}
+
+func TestRateLimitPoolsAnIPv6NetworkIntoOneBudget(t *testing.T) {
+	handler := limited(settings.RateLimit{Requests: 2, Window: time.Minute})
+
+	for _, address := range []string{"[2001:db8:1:2::1]", "[2001:db8:1:2::2]"} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = address + ":1234"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s answered %d, want 200", address, rec.Code)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "[2001:db8:1:2::ffff]:1234"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("a third address in the same /64 answered %d, want 429; one allocation is one client",
+			rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "[2001:db8:1:3::1]:1234"
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("a different /64 answered %d, want its own budget", rec.Code)
+	}
+}
+
+func TestRateLimitKeepsIPv4AddressesApart(t *testing.T) {
+	handler := limited(settings.RateLimit{Requests: 1, Window: time.Minute})
+
+	if rec := from(t, handler, "203.0.113.7"); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if rec := from(t, handler, "203.0.113.8"); rec.Code != http.StatusOK {
+		t.Errorf("a neighbouring IPv4 address answered %d, want its own budget", rec.Code)
+	}
+	if rec := from(t, handler, "203.0.113.7"); rec.Code != http.StatusTooManyRequests {
+		t.Errorf("the returning address answered %d, want 429", rec.Code)
+	}
+}
+
+func TestRateLimitStillWorksAfterMoreClientsThanItTracks(t *testing.T) {
+	handler := middleware.RateLimitBy(
+		settings.RateLimit{Requests: 1, Window: time.Minute},
+		func(r *http.Request) string { return r.Header.Get("X-Tenant") },
+	)(http.HandlerFunc(noop))
+
+	flood := httptest.NewRequest(http.MethodGet, "/", nil)
+	discard := httptest.NewRecorder()
+	for i := range 120_000 {
+		flood.Header.Set("X-Tenant", strconv.Itoa(i))
+		handler.ServeHTTP(discard, flood)
+	}
+
+	fresh := httptest.NewRequest(http.MethodGet, "/", nil)
+	fresh.Header.Set("X-Tenant", "arrives-late")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, fresh)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a new client answered %d, want 200", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, fresh)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("status = %d, want 429; the limiter must keep working once it is full", rec.Code)
 	}
 }

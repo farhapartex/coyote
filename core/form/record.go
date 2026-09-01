@@ -27,30 +27,38 @@ func (b Bound) Errors() map[string]string {
 }
 
 func Record(values url.Values, schema *model.Schema, creating bool) Bound {
+	return RecordOf(values, schema, schema.FormFields(), creating)
+}
+
+func RecordOf(values url.Values, schema *model.Schema, fields []model.Field, creating bool) Bound {
 	out := Bound{Record: model.Record{}, Problems: Problems{}}
 
-	for _, f := range schema.FormFields() {
-		if f.PrimaryKey && !creating {
-			continue
-		}
+	for _, f := range fields {
 		if f.Kind == model.KindFile {
 			continue
 		}
-		raw := strings.TrimSpace(values.Get(f.Column))
-
-		if f.Kind == model.KindBool {
-			out.Record[f.Column] = raw != ""
+		submitted, present := values[f.Column]
+		if !present {
+			if f.Sensitive && !creating {
+				continue
+			}
+			if !f.Nullable {
+				out.Problems.Add(f.Column, f.Label+" was not submitted")
+			}
 			continue
 		}
+
+		if f.Kind == model.KindBool {
+			out.Record[f.Column] = anyTruthy(submitted)
+			continue
+		}
+		raw := strings.TrimSpace(values.Get(f.Column))
 		if raw == "" {
 			if f.Sensitive && !creating {
 				continue
 			}
 			if f.Required {
 				out.Problems.Add(f.Column, f.Label+" is required")
-				continue
-			}
-			if f.PrimaryKey {
 				continue
 			}
 			out.Record[f.Column] = zeroFor(f)
@@ -64,6 +72,15 @@ func Record(values url.Values, schema *model.Schema, creating bool) Bound {
 		out.Record[f.Column] = value
 	}
 	return out
+}
+
+func anyTruthy(submitted []string) bool {
+	for _, value := range submitted {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func coerce(f model.Field, raw string) (any, string) {

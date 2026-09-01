@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/gob"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,6 +14,11 @@ import (
 var hopByHop = []string{
 	"Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization",
 	"Te", "Trailer", "Transfer-Encoding", "Upgrade", "Set-Cookie",
+}
+
+var perRequest = []string{
+	CacheStatusHeader, "Content-Security-Policy", "Content-Security-Policy-Report-Only",
+	"X-Request-Id", "RateLimit-Limit", "RateLimit-Remaining", "Retry-After",
 }
 
 type pageEntry struct {
@@ -40,7 +47,11 @@ func decodePageEntry(raw []byte) (pageEntry, error) {
 func (e pageEntry) writeTo(w http.ResponseWriter) {
 	target := w.Header()
 	for name, values := range e.Header {
-		for _, value := range values {
+		for index, value := range values {
+			if index == 0 {
+				target.Set(name, value)
+				continue
+			}
 			target.Add(name, value)
 		}
 	}
@@ -82,10 +93,14 @@ func (p *pageRecorder) Flush() {
 
 func (p *pageRecorder) Unwrap() http.ResponseWriter { return p.ResponseWriter }
 
+func (p *pageRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(p.ResponseWriter).Hijack()
+}
+
 func (p *pageRecorder) entry() pageEntry {
 	header := http.Header{}
 	for name, values := range p.Header() {
-		if slicesContainsFold(hopByHop, name) {
+		if slicesContainsFold(hopByHop, name) || slicesContainsFold(perRequest, name) {
 			continue
 		}
 		header[name] = append([]string(nil), values...)
@@ -94,18 +109,21 @@ func (p *pageRecorder) entry() pageEntry {
 		Status: p.status,
 		Header: header,
 		Body:   bytes.Clone(p.body.Bytes()),
-		Vary:   varyNames(p.Header().Get("Vary")),
+		Vary:   keyedVaryNames(p.Header().Values("Vary")),
 	}
 }
 
-func varyNames(value string) []string {
-	if strings.TrimSpace(value) == "" {
-		return nil
-	}
+func keyedVaryNames(values []string) []string {
 	out := []string{}
-	for _, name := range strings.Split(value, ",") {
-		if trimmed := strings.TrimSpace(name); trimmed != "" {
-			out = append(out, http.CanonicalHeaderKey(trimmed))
+	seen := map[string]bool{}
+	for _, value := range values {
+		for _, name := range strings.Split(value, ",") {
+			canonical := http.CanonicalHeaderKey(strings.TrimSpace(name))
+			if canonical == "" || canonical == "Cookie" || seen[canonical] {
+				continue
+			}
+			seen[canonical] = true
+			out = append(out, canonical)
 		}
 	}
 	return out

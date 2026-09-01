@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"bufio"
 	"crypto/tls"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -256,7 +258,7 @@ func TestSchemeAndBaseURL(t *testing.T) {
 }
 
 func TestHSTSOnlyOverSecureConnections(t *testing.T) {
-	handler := middleware.HSTS(48 * time.Hour)(http.HandlerFunc(noop))
+	handler := middleware.HSTS(48*time.Hour, 1)(http.HandlerFunc(noop))
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -282,7 +284,7 @@ func TestHSTSOnlyOverSecureConnections(t *testing.T) {
 }
 
 func TestRequireHTTPS(t *testing.T) {
-	handler := middleware.RequireHTTPS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := middleware.RequireHTTPS(1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("secure"))
 	}))
 
@@ -325,8 +327,7 @@ func TestServerConfigureHook(t *testing.T) {
 func autocertSettings(t *testing.T, fns ...func(*settings.Settings)) []func(*settings.Settings) {
 	t.Helper()
 	base := func(s *settings.Settings) {
-		s.Environment = settings.Production
-		s.Debug = false
+		settings.Production.Apply(s)
 		s.SecretKey = strings.Repeat("k", 48)
 		s.AllowedHosts = []string{"example.com", "www.example.com"}
 		s.Server.Port = 443
@@ -444,5 +445,76 @@ func TestUnmanagedTLSConfigIsUnchanged(t *testing.T) {
 	}
 	if config.GetCertificate != nil {
 		t.Error("a cert/key pair should not install a certificate fetcher")
+	}
+}
+
+func TestForwardedProtoIsIgnoredWithNoProxyDeclared(t *testing.T) {
+	handler := middleware.RequireHTTPS(0)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("secure"))
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/pay", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMovedPermanently {
+		t.Errorf("status = %d, want a redirect; a claim of https means nothing with no proxy in front", rec.Code)
+	}
+	if rec.Body.String() == "secure" {
+		t.Error("the handler ran over plain HTTP on the strength of a header the client wrote")
+	}
+}
+
+func TestHSTSIsNotSentOnAForgedForwardedProto(t *testing.T) {
+	handler := middleware.HSTS(48*time.Hour, 0)(http.HandlerFunc(noop))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
+		t.Errorf("HSTS = %q; a forged header must not pin a browser to https", got)
+	}
+}
+
+type hijackable struct {
+	*httptest.ResponseRecorder
+	taken bool
+}
+
+func (h *hijackable) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h.taken = true
+	server, client := net.Pipe()
+	client.Close()
+	return server, bufio.NewReadWriter(bufio.NewReader(server), bufio.NewWriter(server)), nil
+}
+
+func TestTheMiddlewareChainCanBeHijackedForAnUpgrade(t *testing.T) {
+	a := newTestApp(t, withoutCSRF, func(s *settings.Settings) {
+		s.Security.Compress = true
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}}
+	})
+
+	var hijackErr error
+	a.Get("/upgrade", func(w http.ResponseWriter, r *http.Request) {
+		conn, _, err := w.(http.Hijacker).Hijack()
+		hijackErr = err
+		if conn != nil {
+			conn.Close()
+		}
+	})
+
+	rec := &hijackable{ResponseRecorder: httptest.NewRecorder()}
+	req := httptest.NewRequest(http.MethodGet, "/upgrade", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	a.Handler().ServeHTTP(rec, req)
+
+	if !rec.taken {
+		t.Error("the handler could not reach the underlying connection through the chain")
+	}
+	if hijackErr != nil {
+		t.Errorf("Hijack: %v", hijackErr)
 	}
 }

@@ -239,3 +239,64 @@ func TestRecordBinderIsSharedWithTheAdmin(t *testing.T) {
 		t.Error("a required column left blank should be reported")
 	}
 }
+
+func TestNarrowNumbersRefuseWhatTheyCannotHold(t *testing.T) {
+	type stock struct {
+		Small  int8    `form:"small"`
+		Tiny   uint8   `form:"tiny"`
+		Single float32 `form:"single"`
+	}
+
+	var in stock
+	problems, err := form.Values(url.Values{
+		"small":  {"200"},
+		"tiny":   {"256"},
+		"single": {"1e40"},
+	}, &in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, field := range []string{"small", "tiny", "single"} {
+		if problems.First(field) != "is out of range" {
+			t.Errorf("%s problem = %q, want it refused rather than truncated", field, problems.First(field))
+		}
+	}
+	if in.Small != 0 || in.Tiny != 0 || in.Single != 0 {
+		t.Errorf("values = %d, %d, %v; nothing out of range should have been assigned",
+			in.Small, in.Tiny, in.Single)
+	}
+}
+
+func TestARangeErrorIsNotConfusedWithBadDigits(t *testing.T) {
+	type counts struct {
+		N int8 `form:"n"`
+	}
+
+	var in counts
+	problems, err := form.Values(url.Values{"n": {"banana"}}, &in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := problems.First("n"); got != "must be a whole number" {
+		t.Errorf("problem = %q, want the malformed message rather than the range one", got)
+	}
+}
+
+func TestValidationSeesTheValueThatWasStored(t *testing.T) {
+	type order struct {
+		Quantity int8 `form:"quantity" validate:"min=1"`
+	}
+
+	var in order
+	problems, err := form.Values(url.Values{"quantity": {"200"}}, &in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !problems.Any() {
+		t.Fatal("200 does not fit an int8; it must not pass as a valid quantity")
+	}
+	if in.Quantity < 0 {
+		t.Errorf("Quantity = %d; a wrapped negative would pass min=1 while meaning the opposite", in.Quantity)
+	}
+}

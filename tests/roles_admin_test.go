@@ -19,10 +19,10 @@ func rolePortal(t *testing.T, fns ...func(*settings.Settings)) (*app.App, *clien
 	t.Helper()
 	base := func(s *settings.Settings) { s.Admin.SiteName = "Test admin" }
 	a := permissionApp(t, append([]func(*settings.Settings){base}, fns...)...)
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)
@@ -54,7 +54,7 @@ func (c *client) createRole(t *testing.T, name string, permissionIDs ...string) 
 
 func permissionID(t *testing.T, a *app.App, codename string) string {
 	t.Helper()
-	all, err := a.Auth.Permissions().AllPermissions()
+	all, err := a.Auth.Permissions().AllPermissions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestRolesAreListedAndCreatedFromTheAdmin(t *testing.T) {
 		t.Error("the list should show how many permissions the role carries")
 	}
 
-	granted, err := a.Auth.Permissions().RolePermissions(roleID)
+	granted, err := a.Auth.Permissions().RolePermissions(t.Context(), roleID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestEditingARoleReplacesItsPermissions(t *testing.T) {
 		t.Fatalf("saving: %d", rec.Code)
 	}
 
-	granted, err := a.Auth.Permissions().RolePermissions(roleID)
+	granted, err := a.Auth.Permissions().RolePermissions(t.Context(), roleID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,15 +157,15 @@ func TestDeletingARoleRevokesItFromUsers(t *testing.T) {
 	read := permissionID(t, a, "widgets.read")
 	roleID := c.createRole(t, "Widget viewer", read)
 
-	helper, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
+	helper, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Auth.Permissions().SetUserRoles(helper.ID, []string{roleID}); err != nil {
+	if err := a.Auth.Permissions().SetUserRoles(t.Context(), helper.ID, []string{roleID}); err != nil {
 		t.Fatal(err)
 	}
 
-	codenames, err := a.Auth.GrantedTo(helper.ID)
+	codenames, err := a.Auth.GrantedTo(t.Context(), helper.ID)
 	if err != nil || len(codenames) != 1 {
 		t.Fatalf("codenames = %v, err = %v", codenames, err)
 	}
@@ -177,7 +177,7 @@ func TestDeletingARoleRevokesItFromUsers(t *testing.T) {
 		t.Fatalf("deleting: %d", rec.Code)
 	}
 
-	codenames, err = a.Auth.GrantedTo(helper.ID)
+	codenames, err = a.Auth.GrantedTo(t.Context(), helper.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,11 +203,11 @@ func TestRolesAreAssignedFromTheUserForm(t *testing.T) {
 		t.Fatalf("creating a user: %d", rec.Code)
 	}
 
-	helper, err := a.Auth.Users().ByUsername("helper")
+	helper, err := a.Auth.Users().ByUsername(t.Context(), "helper")
 	if err != nil {
 		t.Fatal(err)
 	}
-	codenames, err := a.Auth.GrantedTo(helper.ID)
+	codenames, err := a.Auth.GrantedTo(t.Context(), helper.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestRolesSectionIsHiddenWhenPermissionsAreOff(t *testing.T) {
 		s.Admin.SiteName = "Test admin"
 		s.Auth.Permissions = false
 	})
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	admin.Mount(a)

@@ -18,12 +18,48 @@ and `RateLimit-Remaining`.
 
 ## Identifying clients
 
-By IP, by default. `X-Forwarded-For` is **ignored unless `TrustProxy` is set**, because without a
-proxy in front, anyone can send that header and mint themselves a fresh budget on every request.
+By IP, by default, and that IP is the connection's peer address. `X-Forwarded-For` is **ignored until
+you say how many proxies sit in front of the app**:
 
 ```go
-s.Security.RateLimit.TrustProxy = true   // only with a proxy you control
+s.Security.TrustedProxyCount = 1   // one nginx, one ALB, one anything
 ```
+
+Count the hops, do not name them. A conforming proxy *appends* the address it received from, so with
+one proxy in front the last entry is the one your proxy wrote and everything to its left came from
+the client. Reading the header from the right by that many hops is the only way to tell the two
+apart:
+
+```
+X-Forwarded-For: 9.9.9.9, 203.0.113.7
+                 ^ the client typed this
+                             ^ your proxy appended this
+TrustedProxyCount = 1  ->  the client is 203.0.113.7
+```
+
+Get the count wrong and you trust one hop too many or too few, so it is worth checking against a
+real request. If the chain is shorter than the count — someone stripped the header, or the count is
+too high — the peer address is used instead, which is always safe and never forgeable.
+
+`X-Real-Ip` is not read. It carries a single value with no hop structure, so nothing distinguishes
+one your proxy set from one a client invented.
+
+**IPv6 clients are bucketed by their /64**, because a single allocation hands one visitor more
+addresses than there are limits worth counting. An IPv4 address is its own bucket, as before. That
+means two households behind one /64 share an allowance, which is the same trade IPv4 already makes
+behind NAT. If you want per-address keying, say so explicitly:
+
+```go
+a.Use(middleware.RateLimitBy(policy, func(r *http.Request) string {
+	return clientip.From(r, s.Security.TrustedProxyCount)
+}))
+```
+
+Both maps hold a bounded number of clients and evict the least recently seen when full, so neither
+one grows without limit.
+
+The same setting feeds [login throttling](14-authentication.md) and
+[`RequireHTTPS`](22-https.md) — request trust is one decision, made once.
 
 For anything other than an IP — an API key, a tenant, an account — supply your own key function:
 

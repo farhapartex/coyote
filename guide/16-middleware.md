@@ -14,14 +14,16 @@ Recoverer          panics become a logged 500 instead of a dropped connection
 RequestID          every request gets an id, returned as X-Request-Id
 RequestLogger      one structured access-log line per request
 AllowedHosts       an unlisted Host header gets a 400
+LimitBody          a body over Server.MaxBodyBytes gets a 413
 SecureHeaders      X-Content-Type-Options, X-Frame-Options, Referrer-Policy
 HSTS               only when Server.TLS.HSTS is set
 CSP                only when Security.CSP is set
 CORS               only when Security.CORS has origins
 Compress           only when Security.Compress is on
 RateLimit          only when Security.RateLimit is set
-PageCache          only when PageCache.Enabled; inside Compress, outside Session
+PageCache          only when PageCache.Enabled; skips any request carrying the session cookie
 Session            loads the session, writes the cookie on the way out
+CSRF               unless Security.CSRF is off; an unsafe method needs a valid token
 Auth               resolves the current user
   ↓
 your a.Use(…) middleware
@@ -58,7 +60,7 @@ Order is the order you add them.
 
 | Middleware | Purpose |
 | --- | --- |
-| `a.CSRF` | reject unsafe methods without a valid token — [CSRF](18-csrf.md) |
+| `a.CSRF` | the per-group form of the global guard, for when it is off — [CSRF](18-csrf.md) |
 | `middleware.RequireHTTPS` | redirect plain HTTP to HTTPS |
 | `middleware.StripTrailingSlash` | normalise `/path/` to `/path` |
 | `middleware.RateLimitBy(policy, key)` | rate limit on something other than IP |
@@ -103,3 +105,14 @@ process stays up.
 ## Next
 
 [Security headers and CSP →](17-security-headers.md)
+
+## Writing your own
+
+Wrap the `http.ResponseWriter` if you must, and give the wrapper an `Unwrap() http.ResponseWriter`
+so `http.ResponseController` can find what is underneath. The framework's own wrappers do, and each
+also forwards `Hijack`, so a WebSocket library that type-asserts `w.(http.Hijacker)` reaches the
+connection through the whole chain rather than stopping at the first wrapper.
+
+A hijacked response has no headers left to set, so a session cookie minted during that request never
+reaches the client. The session itself is written before the handover, so server-side state stays
+consistent — but do not sign someone in and upgrade in the same request.

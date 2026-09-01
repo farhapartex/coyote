@@ -34,11 +34,11 @@ func Describe(handle *gorm.DB, entity any) (*Schema, error) {
 			kind = KindText
 		}
 
-		file := ParseFileTag(field.Tag.Get(FileTag))
+		options := ParseTag(field.Tag.Get(Tag))
 		if looksLikeFile(field.FieldType) {
-			file.IsFile = true
+			options.IsFile = true
 		}
-		if file.IsFile {
+		if options.IsFile {
 			kind = KindFile
 		}
 		described := Field{
@@ -52,10 +52,10 @@ func Describe(handle *gorm.DB, entity any) (*Schema, error) {
 			PrimaryKey:    field.PrimaryKey,
 			AutoIncrement: field.AutoIncrement,
 			Generated:     field.AutoIncrement || isTimestamp(field.DBName),
-			Sensitive:     isSensitive(field.DBName),
+			Sensitive:     options.Sensitive || (!options.Public && isSensitive(field.DBName)),
 			Default:       field.DefaultValue,
-			UploadPath:    file.Path,
-			Accept:        file.Accept,
+			UploadPath:    options.Path,
+			Accept:        options.Accept,
 		}
 		if described.PrimaryKey {
 			described.Required = false

@@ -158,7 +158,7 @@ func TestCreateSuperadminStillTakesAPipedPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := a.Auth.Authenticate("piped", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "piped", "unrelated-and-long"); err != nil {
 		t.Errorf("a piped password should still work when stdin is not a terminal: %v", err)
 	}
 }

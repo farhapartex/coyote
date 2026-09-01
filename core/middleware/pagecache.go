@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/farhapartex/coyote/core/cache"
@@ -18,19 +19,20 @@ const (
 	varyPrefix = "page:vary:"
 )
 
-func PageCache(c cache.Cache, policy settings.PageCache) Middleware {
+func PageCache(c cache.Cache, policy settings.PageCache, sessionCookie string) Middleware {
 	if c == nil || policy.TTL <= 0 {
 		return func(next http.Handler) http.Handler { return next }
 	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !cacheableRequest(r, policy) {
+			if !cacheableRequest(r, policy, sessionCookie) {
 				next.ServeHTTP(w, r)
 				return
 			}
+			w.Header().Add("Vary", "Cookie")
 
-			base := baseKey(r)
+			base := baseKey(r, policy.Vary)
 			if entry, found := lookupPage(r, c, base); found {
 				entry.writeTo(w)
 				return
@@ -44,41 +46,59 @@ func PageCache(c cache.Cache, policy settings.PageCache) Middleware {
 	}
 }
 
-func cacheableRequest(r *http.Request, policy settings.PageCache) bool {
+func cacheableRequest(r *http.Request, policy settings.PageCache, sessionCookie string) bool {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return false
 	}
 	if r.Header.Get("Authorization") != "" {
 		return false
 	}
+	if carriesSession(r, sessionCookie) {
+		return false
+	}
 	if hasDirective(r.Header, "no-store", "no-cache") {
 		return false
 	}
-	for _, prefix := range policy.Skip {
-		if strings.HasPrefix(r.URL.Path, prefix) {
-			return false
-		}
+	if matchesAnyPrefix(r.URL.Path, policy.Skip) {
+		return false
 	}
-	if len(policy.Paths) == 0 {
-		return true
-	}
-	for _, prefix := range policy.Paths {
-		if strings.HasPrefix(r.URL.Path, prefix) {
-			return true
-		}
-	}
-	return false
+	return len(policy.Paths) == 0 || matchesAnyPrefix(r.URL.Path, policy.Paths)
 }
 
-func baseKey(r *http.Request) string {
+func carriesSession(r *http.Request, cookieName string) bool {
+	if cookieName == "" {
+		return false
+	}
+	_, err := r.Cookie(cookieName)
+	return err == nil
+}
+
+func baseKey(r *http.Request, vary []string) string {
 	key := pagePrefix + r.Method + ":" + r.Host + r.URL.Path
-	if r.URL.RawQuery != "" {
-		key += "?" + r.URL.RawQuery
+	if query := keyedQuery(r, vary); query != "" {
+		key += "?" + query
 	}
 	if locale := i18n.From(r.Context()); locale != nil {
 		key += "#" + locale.Tag()
 	}
 	return key
+}
+
+func keyedQuery(r *http.Request, vary []string) string {
+	if r.URL.RawQuery == "" {
+		return ""
+	}
+	if len(vary) == 0 {
+		return r.URL.RawQuery
+	}
+	asked := r.URL.Query()
+	kept := url.Values{}
+	for _, name := range vary {
+		if values, found := asked[name]; found {
+			kept[name] = values
+		}
+	}
+	return kept.Encode()
 }
 
 func variantKey(r *http.Request, base string, names []string) string {
@@ -95,7 +115,7 @@ func variantKey(r *http.Request, base string, names []string) string {
 func lookupPage(r *http.Request, c cache.Cache, base string) (pageEntry, bool) {
 	names := []string{}
 	if raw, found, err := c.Get(r.Context(), varyPrefix+base); err == nil && found {
-		names = varyNames(string(raw))
+		names = keyedVaryNames([]string{string(raw)})
 	}
 
 	raw, found, err := c.Get(r.Context(), variantKey(r, base, names))

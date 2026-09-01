@@ -78,12 +78,24 @@ ledger guarantees it runs exactly once.
 
 ## Guarantees
 
-Each migration applies **inside a transaction** — a failure rolls back the schema change *and* the
-ledger row together, so a half-applied migration cannot be recorded.
+Each migration applies **inside a transaction on an engine that has transactional DDL** — SQLite and
+Postgres — so a failure rolls back the schema change *and* the ledger row together and a half-applied
+migration cannot be recorded.
 
-The one exception is a SQLite table rebuild (`AlterColumn`), because `PRAGMA foreign_keys` is a no-op
-inside a transaction. Those run outside one and finish with a `PRAGMA foreign_key_check`; a rebuild
-that leaves a dangling row fails and is not recorded. See
+**MySQL is not one of those engines.** It commits each DDL statement as it runs, whatever transaction
+it is nominally inside, so a migration that fails on its third `ALTER` leaves the first two in place
+with nothing recorded in the ledger. `coyote migrate` says so before it starts, and the repair is
+manual: undo what applied, or fake the migration and carry on. Per-statement progress is planned and
+is not here yet.
+
+Only one process migrates at a time. Postgres and MySQL take a session-level advisory lock for the
+whole run, so two instances deploying together serialise instead of racing; the second gets
+`another process is migrating this database` and exits. SQLite needs nothing, its writer lock already
+does it.
+
+The other exception is a SQLite table rebuild (`AlterColumn`), because `PRAGMA foreign_keys` is a
+no-op inside a transaction. Those run outside one and finish with a `PRAGMA foreign_key_check`; a
+rebuild that leaves a dangling row fails and is not recorded. See
 [Referential integrity](11-database.md#referential-integrity).
 
 The ledger (`coyote_migrations`) stores a checksum of every migration, so editing one that already

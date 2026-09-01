@@ -37,6 +37,10 @@ Supported field types: `string`, every `int`/`uint`/`float` width, `bool` (`1`, 
 `checked`), `time.Time`, and pointers to any of them — a pointer stays nil when the field is absent,
 which is how you tell "empty" from "not sent".
 
+**A number is parsed at its own width.** `200` into an `int8` is `is out of range`, not `-56`. That
+matters beyond tidiness: `validate` rules read the submitted text, so a value that had silently
+wrapped would have been checked as the number the visitor typed and stored as a different one.
+
 ## Problems
 
 ```go

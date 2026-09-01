@@ -68,7 +68,6 @@ func Mount(application *app.App, opts Options) *Accounts {
 	}
 
 	group := application.Group(prefix)
-	group.Use(application.CSRF)
 	a.router = group
 
 	group.Get("/login", a.loginForm)

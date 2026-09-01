@@ -2,6 +2,7 @@ package dialect
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/farhapartex/coyote/core/model"
 )
@@ -10,7 +11,9 @@ type MySQL struct{}
 
 func (MySQL) Name() string { return "mysql" }
 
-func (MySQL) Quote(identifier string) string { return "`" + identifier + "`" }
+func (MySQL) Quote(identifier string) string {
+	return "`" + strings.ReplaceAll(identifier, "`", "``") + "`"
+}
 
 func (d MySQL) CreateTable(table string, columns []Column) string {
 	return createTable(d, table, columns, false)
@@ -29,6 +32,14 @@ func (d MySQL) DropColumn(table, column string) string {
 func (d MySQL) RenameColumn(table, from, to string) string {
 	return fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", d.Quote(table), d.Quote(from), d.Quote(to))
 }
+
+const mysqlLockName = "coyote_migrate"
+
+func (MySQL) AdvisoryLock() (string, string) {
+	return "SELECT GET_LOCK('" + mysqlLockName + "', 0)", "SELECT RELEASE_LOCK('" + mysqlLockName + "')"
+}
+
+func (MySQL) TransactionalDDL() bool { return false }
 
 func (d MySQL) CreateIndex(index Index) string { return createIndex(d, index) }
 

@@ -54,6 +54,9 @@ func (s Settings) validateUploads(add func(string)) {
 		if s.Uploads.Private && s.SecretKey == "" {
 			add("Uploads.Private needs a SecretKey to sign URLs with")
 		}
+		if s.Uploads.Private && s.Uploads.SignedURLTTL <= 0 {
+			add("Uploads.Private needs Uploads.SignedURLTTL; a signed link with no lifetime never expires")
+		}
 	}
 	if s.Uploads.StageTTL < 0 || s.Uploads.TrashTTL < 0 {
 		add("Uploads.StageTTL and Uploads.TrashTTL cannot be negative")
@@ -94,6 +97,23 @@ func (s Settings) validateAdmin(add func(string)) {
 }
 
 func (s Settings) validateSecurity(add func(string)) {
+	if !s.Security.CSRF && s.Environment.Deployed() {
+		add("Security.CSRF is off while Environment is " + string(s.Environment) +
+			"; every form and every unsafe request would be forgeable from another site")
+	}
+	if s.Security.TrustedProxyCount < 0 {
+		add("Security.TrustedProxyCount cannot be negative; it counts the proxies in front of this app")
+	}
+	for _, prefix := range s.Security.CSRFExempt {
+		if !strings.HasPrefix(prefix, "/") {
+			add("Security.CSRFExempt paths must start with \"/\"; " + strconv.Quote(prefix) + " does not")
+		}
+	}
+	switch strings.ToUpper(strings.TrimSpace(s.Security.FrameOptions)) {
+	case "", "DENY", "SAMEORIGIN":
+	default:
+		add("Security.FrameOptions must be \"DENY\", \"SAMEORIGIN\", or empty to omit the header")
+	}
 	if s.Security.CSPReportOnly && s.Security.CSP == "" {
 		add("Security.CSPReportOnly is set but Security.CSP is empty, so no policy would be reported")
 	}

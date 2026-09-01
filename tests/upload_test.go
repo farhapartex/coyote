@@ -6,6 +6,7 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"mime/multipart"
 	"net/http"
@@ -515,5 +516,116 @@ func TestStoreToPlacesFilesUnderThePath(t *testing.T) {
 	}
 	if !strings.HasPrefix(string(ref), "posters/images/") {
 		t.Errorf("committed ref = %q, the path should survive the promotion", ref)
+	}
+}
+
+func jpegBehindPadding(t *testing.T, width, height, padding int) []byte {
+	t.Helper()
+	var plain bytes.Buffer
+	if err := jpeg.Encode(&plain, image.NewRGBA(image.Rect(0, 0, width, height)), nil); err != nil {
+		t.Fatal(err)
+	}
+	body := plain.Bytes()
+
+	comment := make([]byte, padding)
+	for i := range comment {
+		comment[i] = ' '
+	}
+	segment := append([]byte{0xFF, 0xFE, byte((padding + 2) >> 8), byte((padding + 2) & 0xFF)}, comment...)
+
+	out := make([]byte, 0, len(body)+len(segment))
+	out = append(out, body[:2]...)
+	out = append(out, segment...)
+	out = append(out, body[2:]...)
+	return out
+}
+
+func TestAnOversizedImageIsCaughtBehindALargeHeader(t *testing.T) {
+	service, ctx := uploads(t, upload.Rules{Allowed: []string{"image/jpeg"}, MaxPixels: 16}, 0)
+	body := jpegBehindPadding(t, 100, 100, 4096)
+
+	_, err := service.Store(ctx, bytes.NewReader(body), "huge.jpg", "image/jpeg", int64(len(body)))
+	if !errors.Is(err, upload.ErrTooManyPixel) {
+		t.Errorf("error = %v, want ErrTooManyPixel; the dimensions sit past the sniff window", err)
+	}
+}
+
+func TestSomethingThatSniffsAsAnImageMustDecode(t *testing.T) {
+	service, ctx := uploads(t, upload.Rules{Allowed: []string{"image/png"}, MaxPixels: 1_000_000}, 0)
+	truncated := pngBytes(t, 10, 10)[:20]
+
+	_, err := service.Store(ctx, bytes.NewReader(truncated), "broken.png", "image/png", int64(len(truncated)))
+	if err == nil {
+		t.Error("a file that sniffs as a png but will not decode should be refused, not stored")
+	}
+}
+
+func TestASignedURLIsRefusedOnceItOutlivesTheConfiguredWindow(t *testing.T) {
+	service, _, ref := servedUploads(t)
+	const secret = "a-test-secret-key-long-enough-for-hmac"
+
+	handler := service.Handler(upload.HandlerOptions{
+		Prefix: "/media/", Private: true, Secret: secret, MaxAge: 15 * time.Minute,
+	})
+
+	within := service.SignedURL("/media/", secret, ref, 10*time.Minute)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, within, nil))
+	if rec.Code != http.StatusOK {
+		t.Errorf("a link inside the window should pass: %d", rec.Code)
+	}
+
+	beyond := service.SignedURL("/media/", secret, ref, 24*time.Hour)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, beyond, nil))
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d; a link signed for longer than MaxAge must be refused", rec.Code)
+	}
+}
+
+func TestASignatureCannotBeMovedBetweenKeyAndExpiry(t *testing.T) {
+	const secret = "a-test-secret-key-long-enough-for-hmac"
+
+	shifted := upload.Sign(secret, "a/b/c1", time.Unix(800000000, 0))
+	original := upload.Sign(secret, "a/b/c", time.Unix(1800000000, 0))
+	if shifted == original {
+		t.Error("a digit moved from the expiry into the key produced the same signature")
+	}
+}
+
+func TestOnlyImagesAreServedInline(t *testing.T) {
+	service, ctx := uploads(t, upload.Rules{Allowed: []string{"application/pdf", "image/png"}}, 0)
+	handler := service.Handler(upload.HandlerOptions{Prefix: "/media/"})
+
+	stored := func(body []byte, name, declared string) upload.Ref {
+		t.Helper()
+		file, err := service.Store(ctx, bytes.NewReader(body), name, declared, int64(len(body)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ref := file.Ref
+		if err := service.Commit(ctx, &ref); err != nil {
+			t.Fatal(err)
+		}
+		return ref
+	}
+
+	disposition := func(ref upload.Ref) string {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/media/"+string(ref), nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d for %s", rec.Code, ref)
+		}
+		return rec.Header().Get("Content-Disposition")
+	}
+
+	pdf := stored([]byte("%PDF-1.4\ntrailer\n%%EOF\n"), "receipt.pdf", "application/pdf")
+	if got := disposition(pdf); got != "attachment" {
+		t.Errorf("PDF Content-Disposition = %q; it must download rather than render in the tab", got)
+	}
+
+	png := stored(pngBytes(t, 2, 2), "a.png", "image/png")
+	if got := disposition(png); got != "" {
+		t.Errorf("image Content-Disposition = %q, want it served inline", got)
 	}
 }

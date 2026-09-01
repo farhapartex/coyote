@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -22,7 +23,7 @@ func LazyPermissions(resolve Resolver) auth.PermissionStore {
 	return &permissionStore{resolve: resolve}
 }
 
-func (s *permissionStore) handle() (*gorm.DB, error) {
+func (s *permissionStore) handle(ctx context.Context) (*gorm.DB, error) {
 	if s.resolve == nil {
 		return nil, errors.New("coyote/store: no database resolver configured")
 	}
@@ -36,13 +37,13 @@ func (s *permissionStore) handle() (*gorm.DB, error) {
 	return handle, nil
 }
 
-func (s *permissionStore) SyncPermissions(resources []string) (auth.SyncReport, error) {
-	handle, err := s.handle()
+func (s *permissionStore) SyncPermissions(ctx context.Context, resources []string) (auth.SyncReport, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return auth.SyncReport{}, err
 	}
 
-	existing, err := s.AllPermissions()
+	existing, err := s.AllPermissions(ctx)
 	if err != nil {
 		return auth.SyncReport{}, err
 	}
@@ -83,8 +84,8 @@ func (s *permissionStore) SyncPermissions(resources []string) (auth.SyncReport, 
 	return report, nil
 }
 
-func (s *permissionStore) AllPermissions() ([]auth.Permission, error) {
-	handle, err := s.handle()
+func (s *permissionStore) AllPermissions(ctx context.Context) ([]auth.Permission, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +96,8 @@ func (s *permissionStore) AllPermissions() ([]auth.Permission, error) {
 	return rows, nil
 }
 
-func (s *permissionStore) CodenamesForUser(userID string) ([]string, error) {
-	handle, err := s.handle()
+func (s *permissionStore) CodenamesForUser(ctx context.Context, userID string) ([]string, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +118,8 @@ func (s *permissionStore) CodenamesForUser(userID string) ([]string, error) {
 	return out, nil
 }
 
-func (s *permissionStore) AllRoles() ([]auth.Role, error) {
-	handle, err := s.handle()
+func (s *permissionStore) AllRoles(ctx context.Context) ([]auth.Role, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +130,8 @@ func (s *permissionStore) AllRoles() ([]auth.Role, error) {
 	return rows, nil
 }
 
-func (s *permissionStore) RoleByID(roleID string) (*auth.Role, error) {
-	handle, err := s.handle()
+func (s *permissionStore) RoleByID(ctx context.Context, roleID string) (*auth.Role, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +145,8 @@ func (s *permissionStore) RoleByID(roleID string) (*auth.Role, error) {
 	return &rows[0], nil
 }
 
-func (s *permissionStore) CreateRole(role *auth.Role) error {
-	handle, err := s.handle()
+func (s *permissionStore) CreateRole(ctx context.Context, role *auth.Role) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -157,8 +158,8 @@ func (s *permissionStore) CreateRole(role *auth.Role) error {
 	return handle.Create(role).Error
 }
 
-func (s *permissionStore) UpdateRole(role *auth.Role) error {
-	handle, err := s.handle()
+func (s *permissionStore) UpdateRole(ctx context.Context, role *auth.Role) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -166,8 +167,8 @@ func (s *permissionStore) UpdateRole(role *auth.Role) error {
 	return handle.Save(role).Error
 }
 
-func (s *permissionStore) DeleteRole(roleID string) error {
-	handle, err := s.handle()
+func (s *permissionStore) DeleteRole(ctx context.Context, roleID string) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -182,8 +183,8 @@ func (s *permissionStore) DeleteRole(roleID string) error {
 	})
 }
 
-func (s *permissionStore) RolePermissions(roleID string) ([]string, error) {
-	handle, err := s.handle()
+func (s *permissionStore) RolePermissions(ctx context.Context, roleID string) ([]string, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -198,8 +199,8 @@ func (s *permissionStore) RolePermissions(roleID string) ([]string, error) {
 	return out, nil
 }
 
-func (s *permissionStore) SetRolePermissions(roleID string, permissionIDs []string) error {
-	handle, err := s.handle()
+func (s *permissionStore) SetRolePermissions(ctx context.Context, roleID string, permissionIDs []string) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -218,8 +219,8 @@ func (s *permissionStore) SetRolePermissions(roleID string, permissionIDs []stri
 	})
 }
 
-func (s *permissionStore) RolesForUser(userID string) ([]string, error) {
-	handle, err := s.handle()
+func (s *permissionStore) RolesForUser(ctx context.Context, userID string) ([]string, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -234,8 +235,8 @@ func (s *permissionStore) RolesForUser(userID string) ([]string, error) {
 	return out, nil
 }
 
-func (s *permissionStore) SetUserRoles(userID string, roleIDs []string) error {
-	handle, err := s.handle()
+func (s *permissionStore) SetUserRoles(ctx context.Context, userID string, roleIDs []string) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}

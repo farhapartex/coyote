@@ -1,12 +1,15 @@
 package tests
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/settings"
 )
 
 func TestPasswordRoundTrip(t *testing.T) {
@@ -62,7 +65,7 @@ func TestHasherFallsBackOnUnsafeCost(t *testing.T) {
 
 func TestCreateAndAuthenticate(t *testing.T) {
 	s, _ := newTestAuth()
-	created, err := s.CreateUser(auth.NewUser{
+	created, err := s.CreateUser(t.Context(), auth.NewUser{
 		Username:  "jane",
 		Email:     "jane@example.com",
 		FirstName: "Jane",
@@ -97,24 +100,24 @@ func TestCreateAndAuthenticate(t *testing.T) {
 		t.Error("timestamps should be set on create")
 	}
 
-	user, err := s.Authenticate("JANE", "supersecret")
+	user, err := s.Authenticate(t.Context(), "JANE", "supersecret")
 	if err != nil {
 		t.Fatalf("case-insensitive login failed: %v", err)
 	}
 	if user.ID != created.ID {
 		t.Error("Authenticate returned a different user")
 	}
-	if _, err := s.Authenticate("jane", "nope"); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.Authenticate(t.Context(), "jane", "nope"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("got %v, want ErrInvalidCredentials", err)
 	}
-	if _, err := s.Authenticate("ghost", "supersecret"); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.Authenticate(t.Context(), "ghost", "supersecret"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("unknown user should give ErrInvalidCredentials, got %v", err)
 	}
 }
 
 func TestCreateSuperadmin(t *testing.T) {
 	s, _ := newTestAuth()
-	user, err := s.CreateSuperadmin("root", "root@example.com", "supersecret")
+	user, err := s.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,44 +134,44 @@ func TestCreateSuperadmin(t *testing.T) {
 
 func TestUserLookupByEmail(t *testing.T) {
 	s, _ := newTestAuth()
-	created, err := s.CreateUser(auth.NewUser{Username: "jane", Email: "Jane@Example.com", Password: "supersecret"})
+	created, err := s.CreateUser(t.Context(), auth.NewUser{Username: "jane", Email: "Jane@Example.com", Password: "supersecret"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	found, err := s.Users().ByEmail("jane@example.com")
+	found, err := s.Users().ByEmail(t.Context(), "jane@example.com")
 	if err != nil {
 		t.Fatalf("ByEmail should be case-insensitive: %v", err)
 	}
 	if found.ID != created.ID {
 		t.Error("ByEmail returned the wrong user")
 	}
-	if _, err := s.Users().ByEmail("nobody@example.com"); !errors.Is(err, auth.ErrUserNotFound) {
+	if _, err := s.Users().ByEmail(t.Context(), "nobody@example.com"); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Errorf("got %v, want ErrUserNotFound", err)
 	}
 }
 
 func TestEmailMustBeUniqueAndWellFormed(t *testing.T) {
 	s, _ := newTestAuth()
-	if _, err := s.CreateUser(auth.NewUser{Username: "jane", Email: "jane@example.com", Password: "supersecret"}); err != nil {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "jane", Email: "jane@example.com", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateUser(auth.NewUser{Username: "other", Email: "JANE@example.com", Password: "supersecret"}); !errors.Is(err, auth.ErrEmailExists) {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "other", Email: "JANE@example.com", Password: "supersecret"}); !errors.Is(err, auth.ErrEmailExists) {
 		t.Errorf("got %v, want ErrEmailExists", err)
 	}
-	if _, err := s.CreateUser(auth.NewUser{Username: "third", Email: "not-an-email", Password: "supersecret"}); !errors.Is(err, auth.ErrInvalidEmail) {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "third", Email: "not-an-email", Password: "supersecret"}); !errors.Is(err, auth.ErrInvalidEmail) {
 		t.Errorf("got %v, want ErrInvalidEmail", err)
 	}
-	if _, err := s.CreateUser(auth.NewUser{Username: "fourth", Password: "supersecret"}); err != nil {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "fourth", Password: "supersecret"}); err != nil {
 		t.Errorf("a blank email should be allowed: %v", err)
 	}
-	if _, err := s.CreateUser(auth.NewUser{Username: "fifth", Password: "supersecret"}); err != nil {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "fifth", Password: "supersecret"}); err != nil {
 		t.Errorf("multiple blank emails should be allowed: %v", err)
 	}
 }
 
 func TestLoginStampsLastLoginAt(t *testing.T) {
 	s, manager := newTestAuth()
-	created, err := s.CreateSuperadmin("root", "", "supersecret")
+	created, err := s.CreateSuperadmin(t.Context(), "root", "", "supersecret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +181,7 @@ func TestLoginStampsLastLoginAt(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	manager.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, err := s.Authenticate("root", "supersecret")
+		user, err := s.Authenticate(t.Context(), "root", "supersecret")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -187,7 +190,7 @@ func TestLoginStampsLastLoginAt(t *testing.T) {
 		}
 	})).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/login", nil))
 
-	stored, err := s.Users().ByID(created.ID)
+	stored, err := s.Users().ByID(t.Context(), created.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,106 +201,106 @@ func TestLoginStampsLastLoginAt(t *testing.T) {
 
 func TestInactiveUserCannotAuthenticate(t *testing.T) {
 	s, _ := newTestAuth()
-	user, _ := s.CreateUser(auth.NewUser{Username: "jane", Password: "supersecret"})
+	user, _ := s.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "supersecret"})
 	user.IsActive = false
-	if err := s.Users().Update(user); err != nil {
+	if err := s.Users().Update(t.Context(), user); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Authenticate("jane", "supersecret"); !errors.Is(err, auth.ErrInactiveAccount) {
+	if _, err := s.Authenticate(t.Context(), "jane", "supersecret"); !errors.Is(err, auth.ErrInactiveAccount) {
 		t.Errorf("got %v, want ErrInactiveAccount", err)
 	}
 }
 
 func TestDuplicateAndInvalidUsernames(t *testing.T) {
 	s, _ := newTestAuth()
-	if _, err := s.CreateUser(auth.NewUser{Username: "jane", Password: "supersecret"}); err != nil {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateUser(auth.NewUser{Username: "Jane", Password: "supersecret"}); !errors.Is(err, auth.ErrUserExists) {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "Jane", Password: "supersecret"}); !errors.Is(err, auth.ErrUserExists) {
 		t.Errorf("got %v, want ErrUserExists", err)
 	}
-	if _, err := s.CreateUser(auth.NewUser{Username: "ab", Password: "supersecret"}); !errors.Is(err, auth.ErrInvalidUser) {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "ab", Password: "supersecret"}); !errors.Is(err, auth.ErrInvalidUser) {
 		t.Errorf("got %v, want ErrInvalidUser", err)
 	}
-	if _, err := s.CreateUser(auth.NewUser{Username: "valid", Password: "short"}); !errors.Is(err, auth.ErrPasswordTooShort) {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "valid", Password: "short"}); !errors.Is(err, auth.ErrPasswordTooShort) {
 		t.Errorf("got %v, want ErrPasswordTooShort", err)
 	}
 }
 
 func TestSetPasswordRehashes(t *testing.T) {
 	s, _ := newTestAuth()
-	user, err := s.CreateUser(auth.NewUser{Username: "jane", Password: "supersecret"})
+	user, err := s.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "supersecret"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetPassword(user.ID, "brand-new-secret"); err != nil {
+	if err := s.SetPassword(t.Context(), user.ID, "brand-new-secret"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Authenticate("jane", "supersecret"); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.Authenticate(t.Context(), "jane", "supersecret"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Error("the old password should stop working")
 	}
-	if _, err := s.Authenticate("jane", "brand-new-secret"); err != nil {
+	if _, err := s.Authenticate(t.Context(), "jane", "brand-new-secret"); err != nil {
 		t.Errorf("the new password should work: %v", err)
 	}
-	if err := s.SetPassword(user.ID, "short"); !errors.Is(err, auth.ErrPasswordTooShort) {
+	if err := s.SetPassword(t.Context(), user.ID, "short"); !errors.Is(err, auth.ErrPasswordTooShort) {
 		t.Errorf("got %v, want ErrPasswordTooShort", err)
 	}
 }
 
 func TestCannotRemoveLastSuperadmin(t *testing.T) {
 	s, _ := newTestAuth()
-	root, _ := s.CreateSuperadmin("root", "", "supersecret")
-	if err := s.Users().Delete(root.ID); !errors.Is(err, auth.ErrLastSuperadmin) {
+	root, _ := s.CreateSuperadmin(t.Context(), "root", "", "supersecret")
+	if err := s.Users().Delete(t.Context(), root.ID); !errors.Is(err, auth.ErrLastSuperadmin) {
 		t.Errorf("got %v, want ErrLastSuperadmin", err)
 	}
 
 	demoted := root.Clone()
 	demoted.IsSuperadmin = false
-	if err := s.Users().Update(demoted); !errors.Is(err, auth.ErrLastSuperadmin) {
+	if err := s.Users().Update(t.Context(), demoted); !errors.Is(err, auth.ErrLastSuperadmin) {
 		t.Errorf("demoting the last superadmin: got %v, want ErrLastSuperadmin", err)
 	}
 	deactivated := root.Clone()
 	deactivated.IsActive = false
-	if err := s.Users().Update(deactivated); !errors.Is(err, auth.ErrLastSuperadmin) {
+	if err := s.Users().Update(t.Context(), deactivated); !errors.Is(err, auth.ErrLastSuperadmin) {
 		t.Errorf("disabling the last superadmin: got %v, want ErrLastSuperadmin", err)
 	}
 
-	second, _ := s.CreateSuperadmin("root2", "", "supersecret")
-	if err := s.Users().Delete(root.ID); err != nil {
+	second, _ := s.CreateSuperadmin(t.Context(), "root2", "", "supersecret")
+	if err := s.Users().Delete(t.Context(), root.ID); err != nil {
 		t.Errorf("deleting one of two superadmins should succeed: %v", err)
 	}
-	if err := s.Users().Delete(second.ID); !errors.Is(err, auth.ErrLastSuperadmin) {
+	if err := s.Users().Delete(t.Context(), second.ID); !errors.Is(err, auth.ErrLastSuperadmin) {
 		t.Errorf("got %v, want ErrLastSuperadmin", err)
 	}
 }
 
 func TestInactiveSuperadminIsNotCountedAsTheLastOne(t *testing.T) {
 	s, _ := newTestAuth()
-	active, _ := s.CreateSuperadmin("root", "", "supersecret")
-	spare, _ := s.CreateSuperadmin("spare", "", "supersecret")
+	active, _ := s.CreateSuperadmin(t.Context(), "root", "", "supersecret")
+	spare, _ := s.CreateSuperadmin(t.Context(), "spare", "", "supersecret")
 
 	disabled := spare.Clone()
 	disabled.IsActive = false
-	if err := s.Users().Update(disabled); err != nil {
+	if err := s.Users().Update(t.Context(), disabled); err != nil {
 		t.Fatalf("disabling one of two superadmins should succeed: %v", err)
 	}
 
 	demoted := disabled.Clone()
 	demoted.IsSuperadmin = false
-	if err := s.Users().Update(demoted); err != nil {
+	if err := s.Users().Update(t.Context(), demoted); err != nil {
 		t.Errorf("demoting an already inactive superadmin should succeed: %v", err)
 	}
-	if err := s.Users().Delete(spare.ID); err != nil {
+	if err := s.Users().Delete(t.Context(), spare.ID); err != nil {
 		t.Errorf("deleting an inactive superadmin should succeed: %v", err)
 	}
-	if _, err := s.Users().ByID(active.ID); err != nil {
+	if _, err := s.Users().ByID(t.Context(), active.ID); err != nil {
 		t.Error("the active superadmin should still exist")
 	}
 }
 
 func TestLoginAndGuards(t *testing.T) {
 	s, manager := newTestAuth()
-	if _, err := s.CreateUser(auth.NewUser{Username: "jane", Password: "supersecret"}); err != nil {
+	if _, err := s.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -313,7 +316,7 @@ func TestLoginAndGuards(t *testing.T) {
 	}
 
 	login := manager.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, err := s.Authenticate("jane", "supersecret")
+		user, err := s.Authenticate(t.Context(), "jane", "supersecret")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -345,5 +348,96 @@ func TestLoginAndGuards(t *testing.T) {
 	loginOnly.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Errorf("authenticated got %d, want 200", rec.Code)
+	}
+}
+
+func TestAUserLookupHonoursTheContext(t *testing.T) {
+	a := newTestApp(t)
+	created, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "jane", Password: "unrelated-and-long",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := a.Auth.Users().ByID(cancelled, created.ID); err == nil {
+		t.Error("a read on a cancelled context should not reach the database")
+	}
+	if _, err := a.Auth.Users().ByID(t.Context(), created.ID); err != nil {
+		t.Errorf("the same read on a live context failed: %v", err)
+	}
+}
+
+func TestAuthenticateHonoursTheContext(t *testing.T) {
+	a := newTestApp(t)
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "jane", Password: "unrelated-and-long",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := a.Auth.Authenticate(cancelled, "jane", "unrelated-and-long"); err == nil {
+		t.Error("signing in on a cancelled context should not reach the database")
+	}
+}
+
+func TestSigningInUpgradesAnOldHash(t *testing.T) {
+	a := newTestApp(t, func(s *settings.Settings) { s.Auth.PBKDF2Iterations = 5000 })
+
+	created, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "ada", Password: "unrelated-and-long",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	weak := auth.Hasher{Iterations: 1000}
+	stale, err := weak.Hash("unrelated-and-long")
+	if err != nil {
+		t.Fatal(err)
+	}
+	created.Password = stale
+	if err := a.Auth.Users().Update(t.Context(), created); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := a.Auth.Authenticate(t.Context(), "ada", "unrelated-and-long"); err != nil {
+		t.Fatalf("the old hash should still let her in: %v", err)
+	}
+
+	after, err := a.Auth.Users().ByUsername(t.Context(), "ada")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Password == stale {
+		t.Error("the hash was left at 1000 iterations after a successful sign-in")
+	}
+	if _, err := a.Auth.Authenticate(t.Context(), "ada", "unrelated-and-long"); err != nil {
+		t.Errorf("the rewritten hash should still verify: %v", err)
+	}
+	if _, err := a.Auth.Authenticate(t.Context(), "ada", "wrong-password-entirely"); err == nil {
+		t.Error("the rewritten hash accepted the wrong password")
+	}
+}
+
+func TestPasswordLengthCountsCharactersNotBytes(t *testing.T) {
+	if err := auth.ValidatePasswordLength("héllo", 8); !errors.Is(err, auth.ErrPasswordTooShort) {
+		t.Errorf("error = %v; five characters must not pass an eight character minimum", err)
+	}
+	if err := auth.ValidatePasswordLength("héllo-there", 8); err != nil {
+		t.Errorf("error = %v; eleven characters should pass", err)
+	}
+}
+
+func TestAnAbsurdlyLongPasswordIsRefused(t *testing.T) {
+	long := strings.Repeat("a", auth.MaxPasswordLength+1)
+	if err := auth.ValidatePasswordLength(long, 8); !errors.Is(err, auth.ErrPasswordTooLong) {
+		t.Errorf("error = %v, want ErrPasswordTooLong", err)
+	}
+	if err := auth.ValidatePasswordLength(strings.Repeat("a", auth.MaxPasswordLength), 8); err != nil {
+		t.Errorf("error = %v; exactly the maximum should pass", err)
 	}
 }

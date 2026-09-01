@@ -1,12 +1,14 @@
 package tests
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/settings"
 	"github.com/farhapartex/coyote/lib/dotenv"
 )
@@ -149,8 +151,7 @@ func TestDotEnvDrivesSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resolved, err := settings.New(func(s *settings.Settings) {
-		s.Environment = settings.Production
+	resolved, err := settings.New(settings.Preset("production"), func(s *settings.Settings) {
 		s.SecretKey = settings.Env("SECRET_KEY", "")
 		s.Server.Port = settings.EnvInt("PORT", 8000)
 		s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", nil)
@@ -319,5 +320,128 @@ func TestDefaultEnvironmentIsDevelopment(t *testing.T) {
 	}
 	if resolved.Debug {
 		t.Error("the default must not enable Debug on its own")
+	}
+}
+
+func TestSQLitePoolIsPinnedToOneConnection(t *testing.T) {
+	resolved, err := settings.New(prodSettings()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := resolved.Database()
+	if db.MaxOpenConns != 1 || db.MaxIdleConns != 1 {
+		t.Errorf("pool = %d open, %d idle; SQLite wants one so it never meets SQLITE_BUSY",
+			db.MaxOpenConns, db.MaxIdleConns)
+	}
+}
+
+func TestAServerEnginePoolIsBoundedAndRecycled(t *testing.T) {
+	resolved, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Databases = []settings.Database{{Engine: settings.Postgres, Name: "shop"}}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := resolved.Database()
+	if db.MaxOpenConns != 25 {
+		t.Errorf("MaxOpenConns = %d, want 25 rather than unlimited", db.MaxOpenConns)
+	}
+	if db.MaxIdleConns != db.MaxOpenConns {
+		t.Errorf("MaxIdleConns = %d, want it to match MaxOpenConns so connections are not churned",
+			db.MaxIdleConns)
+	}
+	if db.ConnMaxLifetime != 30*time.Minute {
+		t.Errorf("ConnMaxLifetime = %v, want 30m so a proxy cannot hand back a dead connection",
+			db.ConnMaxLifetime)
+	}
+}
+
+func TestAnExplicitPoolSettingIsLeftAlone(t *testing.T) {
+	resolved, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Databases = []settings.Database{{
+			Engine: settings.Postgres, Name: "shop", MaxOpenConns: 4, ConnMaxLifetime: time.Minute,
+		}}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := resolved.Database()
+	if db.MaxOpenConns != 4 || db.ConnMaxLifetime != time.Minute {
+		t.Errorf("pool = %d open, %v lifetime; what the project set should survive",
+			db.MaxOpenConns, db.ConnMaxLifetime)
+	}
+}
+
+func TestSettingEnvironmentByHandStillDemandsTheHardening(t *testing.T) {
+	_, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Environment = settings.Production
+	})...)
+	if err == nil {
+		t.Fatal("a hand-written production config with no hardening should not start")
+	}
+	for _, want := range []string{"Sessions.Secure is off", "Server.WriteTimeout is unset"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %v, want it to name %s", err, want)
+		}
+	}
+}
+
+func TestThePresetSatisfiesTheDeployedRequirements(t *testing.T) {
+	resolved, err := settings.New(settings.Preset("production"), func(s *settings.Settings) {
+		s.SecretKey = strings.Repeat("k", 48)
+		s.AllowedHosts = []string{"example.com"}
+	})
+	if err != nil {
+		t.Fatalf("the documented path should start cleanly: %v", err)
+	}
+	if !resolved.Sessions.Secure {
+		t.Error("the preset should have turned Sessions.Secure on")
+	}
+	if resolved.Server.WriteTimeout == 0 || resolved.Server.ReadTimeout == 0 {
+		t.Errorf("timeouts = %v read, %v write", resolved.Server.ReadTimeout, resolved.Server.WriteTimeout)
+	}
+}
+
+func TestReadTimeoutIsSetInEveryEnvironment(t *testing.T) {
+	if got := settings.Default().Server.ReadTimeout; got != 15*time.Second {
+		t.Errorf("ReadTimeout = %v, want 15s so a dribbled body is capped everywhere", got)
+	}
+	if got := settings.Default().Server.WriteTimeout; got != 0 {
+		t.Errorf("WriteTimeout = %v; it stays unset so streaming handlers are not cut off", got)
+	}
+}
+
+func loggedQueryFailure(t *testing.T, fns ...func(*settings.Settings)) string {
+	t.Helper()
+	written := &strings.Builder{}
+	base := func(s *settings.Settings) {
+		s.Logging.Logger = slog.New(slog.NewTextHandler(written, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	}
+	a := app.NewFrom(devSettings(t, append([]func(*settings.Settings){base}, fns...)...))
+
+	if _, err := a.Auth.Users().ByEmail(t.Context(), "ada@example.test"); err == nil {
+		t.Fatal("reading an unmigrated table should fail")
+	}
+	if !strings.Contains(written.String(), "gorm query failed") {
+		t.Fatalf("the failure was not logged at all:\n%s", written.String())
+	}
+	return written.String()
+}
+
+func TestAFailedQueryDoesNotLogItsValuesInProduction(t *testing.T) {
+	written := loggedQueryFailure(t, func(s *settings.Settings) { s.Debug = false })
+
+	for _, leaked := range []string{"ada@example.test", "SELECT", "sql="} {
+		if strings.Contains(written, leaked) {
+			t.Errorf("the log carries %q:\n%s", leaked, written)
+		}
+	}
+}
+
+func TestDebugStillLogsTheFailedStatement(t *testing.T) {
+	written := loggedQueryFailure(t)
+
+	if !strings.Contains(written, "sql=") || !strings.Contains(written, "ada@example.test") {
+		t.Errorf("Debug should still show the statement and its values:\n%s", written)
 	}
 }

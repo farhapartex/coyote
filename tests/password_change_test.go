@@ -20,10 +20,10 @@ func changeApp(t *testing.T, fns ...func(*settings.Settings)) (*app.App, *client
 	base := func(s *settings.Settings) { s.Admin.SiteName = "Test admin" }
 	a := newTestApp(t, append([]func(*settings.Settings){base}, fns...)...)
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "jane", Password: "her-first-secret"}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "her-first-secret"}); err != nil {
 		t.Fatal(err)
 	}
 	admin.Mount(a)
@@ -67,10 +67,10 @@ func TestPasswordChangeIsAllowedByDefault(t *testing.T) {
 	if code := changePassword(t, c, "her-first-secret", "her-second-secret", "her-second-secret"); code != http.StatusSeeOther {
 		t.Fatalf("change: %d", code)
 	}
-	if _, err := a.Auth.Authenticate("jane", "her-second-secret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "her-second-secret"); err != nil {
 		t.Errorf("the new password should work: %v", err)
 	}
-	if _, err := a.Auth.Authenticate("jane", "her-first-secret"); err == nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "her-first-secret"); err == nil {
 		t.Error("the old password should stop working")
 	}
 }
@@ -91,7 +91,7 @@ func TestConfirmationMustMatch(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "do not match") {
 		t.Errorf("the form should say the confirmation failed:\n%s", rec.Body.String())
 	}
-	if _, err := a.Auth.Authenticate("jane", "her-first-secret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "her-first-secret"); err != nil {
 		t.Error("nothing should have changed")
 	}
 }
@@ -103,7 +103,7 @@ func TestTheCurrentPasswordIsRequired(t *testing.T) {
 	if code := changePassword(t, c, "not-her-password", "her-second-secret", "her-second-secret"); code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", code)
 	}
-	if _, err := a.Auth.Authenticate("jane", "her-first-secret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "her-first-secret"); err != nil {
 		t.Error("the password should be untouched")
 	}
 }
@@ -157,7 +157,7 @@ func TestTurningPasswordChangeOffHidesAndBlocksIt(t *testing.T) {
 	if code := changePassword(t, c, "her-first-secret", "her-second-secret", "her-second-secret"); code != http.StatusNotFound {
 		t.Errorf("POST /accounts/password = %d, want 404", code)
 	}
-	if _, err := a.Auth.Authenticate("jane", "her-first-secret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "her-first-secret"); err != nil {
 		t.Error("the password must be unchanged")
 	}
 }
@@ -189,17 +189,17 @@ func TestTheAdminPasswordFieldFollowsTheSetting(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update: %d", rec.Code)
 	}
-	if _, err := off.Auth.Authenticate("jane", "crafted-by-hand-here"); err == nil {
+	if _, err := off.Auth.Authenticate(t.Context(), "jane", "crafted-by-hand-here"); err == nil {
 		t.Error("a hand-crafted password must be ignored when changes are off")
 	}
-	if _, err := off.Auth.Authenticate("jane", "her-first-secret"); err != nil {
+	if _, err := off.Auth.Authenticate(t.Context(), "jane", "her-first-secret"); err != nil {
 		t.Error("the original password should stand")
 	}
 }
 
 func jane(t *testing.T, a *app.App) string {
 	t.Helper()
-	user, err := a.Auth.Users().ByUsername("jane")
+	user, err := a.Auth.Users().ByUsername(t.Context(), "jane")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,12 +211,12 @@ func TestResetTokensAreSingleUseAndExpiring(t *testing.T) {
 		s.Auth.ResetTokens = true
 		s.Auth.ResetTokenLifetime = time.Hour
 	})
-	user, err := a.Auth.CreateUser(auth.NewUser{Username: "jane", Password: "her-first-secret"})
+	user, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "her-first-secret"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := a.Auth.CreateResetToken(user.ID)
+	plain, err := a.Auth.CreateResetToken(t.Context(), user.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestResetTokensAreSingleUseAndExpiring(t *testing.T) {
 		t.Fatal("no token returned")
 	}
 
-	stored, err := a.Auth.Tokens().ByDigest(auth.TokenDigest(plain))
+	stored, err := a.Auth.Tokens().ByDigest(t.Context(), auth.TokenDigest(plain))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,23 +232,23 @@ func TestResetTokensAreSingleUseAndExpiring(t *testing.T) {
 		t.Error("the token must be hashed at rest, never stored in the clear")
 	}
 
-	if _, err := a.Auth.CheckResetToken(plain); err != nil {
+	if _, err := a.Auth.CheckResetToken(t.Context(), plain); err != nil {
 		t.Errorf("a fresh token should verify: %v", err)
 	}
-	if _, err := a.Auth.CheckResetToken("made-up-token"); !errors.Is(err, auth.ErrTokenInvalid) {
+	if _, err := a.Auth.CheckResetToken(t.Context(), "made-up-token"); !errors.Is(err, auth.ErrTokenInvalid) {
 		t.Errorf("an unknown token = %v, want ErrTokenInvalid", err)
 	}
 
-	if _, err := a.Auth.UseResetToken(plain, auth.PasswordChange{New: "brand-new-secret", Confirm: "mismatch"}); !errors.Is(err, auth.ErrPasswordMismatch) {
+	if _, err := a.Auth.UseResetToken(t.Context(), plain, auth.PasswordChange{New: "brand-new-secret", Confirm: "mismatch"}); !errors.Is(err, auth.ErrPasswordMismatch) {
 		t.Errorf("a mismatch should be refused: %v", err)
 	}
-	if _, err := a.Auth.UseResetToken(plain, auth.PasswordChange{New: "brand-new-secret", Confirm: "brand-new-secret"}); err != nil {
+	if _, err := a.Auth.UseResetToken(t.Context(), plain, auth.PasswordChange{New: "brand-new-secret", Confirm: "brand-new-secret"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.Authenticate("jane", "brand-new-secret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "brand-new-secret"); err != nil {
 		t.Errorf("the reset should have applied: %v", err)
 	}
-	if _, err := a.Auth.CheckResetToken(plain); !errors.Is(err, auth.ErrTokenInvalid) {
+	if _, err := a.Auth.CheckResetToken(t.Context(), plain); !errors.Is(err, auth.ErrTokenInvalid) {
 		t.Error("a used token must not verify a second time")
 	}
 }
@@ -258,7 +258,66 @@ func TestResetTokensAreOffUnlessAskedFor(t *testing.T) {
 	if a.Auth.Tokens() != nil {
 		t.Error("no token store should exist by default")
 	}
-	if _, err := a.Auth.CreateResetToken("whoever"); !errors.Is(err, auth.ErrNoTokenStore) {
+	if _, err := a.Auth.CreateResetToken(t.Context(), "whoever"); !errors.Is(err, auth.ErrNoTokenStore) {
 		t.Errorf("error = %v, want ErrNoTokenStore", err)
+	}
+}
+
+func resetPortal(t *testing.T) (*app.App, *client) {
+	t.Helper()
+	return changeApp(t, func(s *settings.Settings) {
+		s.Auth.ResetTokens = true
+		s.Auth.ResetTokenLifetime = time.Hour
+	})
+}
+
+func janesResetToken(t *testing.T, a *app.App) string {
+	t.Helper()
+	user, err := a.Auth.Users().ByUsername(t.Context(), "jane")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := a.Auth.CreateResetToken(t.Context(), user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
+}
+
+func TestUsingAResetTokenKillsTheUsersOtherSessions(t *testing.T) {
+	a, laptop := resetPortal(t)
+	signedInAsJane(t, laptop)
+	if rec := laptop.get("/accounts/profile"); rec.Code != http.StatusOK {
+		t.Fatalf("the laptop should start out signed in: %d", rec.Code)
+	}
+
+	if _, err := a.Auth.UseResetToken(t.Context(), janesResetToken(t, a), auth.PasswordChange{
+		New: "her-second-secret", Confirm: "her-second-secret",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if rec := laptop.get("/accounts/profile"); rec.Code == http.StatusOK {
+		t.Error("a reset is what you do when an account is compromised; the old session survived it")
+	}
+}
+
+func TestUsingAResetTokenInvalidatesTheUsersOtherTokens(t *testing.T) {
+	a, _ := resetPortal(t)
+
+	first := janesResetToken(t, a)
+	second := janesResetToken(t, a)
+
+	if _, err := a.Auth.UseResetToken(t.Context(), second, auth.PasswordChange{
+		New: "her-second-secret", Confirm: "her-second-secret",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := a.Auth.CheckResetToken(t.Context(), first); !errors.Is(err, auth.ErrTokenInvalid) {
+		t.Errorf("error = %v; an earlier link must die with the one that was used", err)
+	}
+	if _, err := a.Auth.CheckResetToken(t.Context(), second); !errors.Is(err, auth.ErrTokenInvalid) {
+		t.Errorf("error = %v; a used link must not work twice", err)
 	}
 }

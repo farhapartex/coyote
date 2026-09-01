@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -24,7 +25,7 @@ func LazyUsers(resolve Resolver) auth.Store {
 	return &userStore{resolve: resolve}
 }
 
-func (s *userStore) handle() (*gorm.DB, error) {
+func (s *userStore) handle(ctx context.Context) (*gorm.DB, error) {
 	if s.resolve == nil {
 		return nil, errors.New("coyote/repo: no database resolver configured")
 	}
@@ -35,26 +36,26 @@ func (s *userStore) handle() (*gorm.DB, error) {
 	if handle == nil {
 		return nil, errors.New("coyote/repo: no database connection")
 	}
-	return handle, nil
+	return handle.WithContext(ctx), nil
 }
 
-func (s *userStore) ByID(id string) (*auth.User, error) {
-	return s.first("id = ?", id)
+func (s *userStore) ByID(ctx context.Context, id string) (*auth.User, error) {
+	return s.first(ctx, "id = ?", id)
 }
 
-func (s *userStore) ByUsername(username string) (*auth.User, error) {
-	return s.first("lower(username) = ?", text.Fold(username))
+func (s *userStore) ByUsername(ctx context.Context, username string) (*auth.User, error) {
+	return s.first(ctx, "lower(username) = ?", text.Fold(username))
 }
 
-func (s *userStore) ByEmail(email string) (*auth.User, error) {
+func (s *userStore) ByEmail(ctx context.Context, email string) (*auth.User, error) {
 	if text.Fold(email) == "" {
 		return nil, auth.ErrUserNotFound
 	}
-	return s.first("lower(email) = ?", text.Fold(email))
+	return s.first(ctx, "lower(email) = ?", text.Fold(email))
 }
 
-func (s *userStore) first(condition string, args ...any) (*auth.User, error) {
-	handle, err := s.handle()
+func (s *userStore) first(ctx context.Context, condition string, args ...any) (*auth.User, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +70,11 @@ func (s *userStore) first(condition string, args ...any) (*auth.User, error) {
 	return &found, nil
 }
 
-func (s *userStore) Create(u *auth.User) error {
+func (s *userStore) Create(ctx context.Context, u *auth.User) error {
 	if err := u.Validate(); err != nil {
 		return err
 	}
-	handle, err := s.handle()
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -87,15 +88,15 @@ func (s *userStore) Create(u *auth.User) error {
 	return nil
 }
 
-func (s *userStore) Update(u *auth.User) error {
+func (s *userStore) Update(ctx context.Context, u *auth.User) error {
 	if err := u.Validate(); err != nil {
 		return err
 	}
-	handle, err := s.handle()
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
-	if _, err := s.first("id = ?", u.ID); err != nil {
+	if _, err := s.first(ctx, "id = ?", u.ID); err != nil {
 		return err
 	}
 	if err := s.assertUnique(handle, u); err != nil {
@@ -108,8 +109,8 @@ func (s *userStore) Update(u *auth.User) error {
 	return nil
 }
 
-func (s *userStore) Delete(id string) error {
-	handle, err := s.handle()
+func (s *userStore) Delete(ctx context.Context, id string) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -123,32 +124,121 @@ func (s *userStore) Delete(id string) error {
 	return nil
 }
 
-func (s *userStore) All() []*auth.User {
-	handle, err := s.handle()
+func (s *userStore) All(ctx context.Context) ([]*auth.User, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var found []*auth.User
 	if err := handle.Order("lower(username)").Find(&found).Error; err != nil {
-		return nil
+		return nil, fmt.Errorf("coyote/repo: listing users: %w", err)
 	}
-	return found
+	return found, nil
 }
 
-func (s *userStore) Count() int {
-	handle, err := s.handle()
+func (s *userStore) Search(ctx context.Context, term string, limit, offset int) ([]*auth.User, int, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
-		return 0
+		return nil, 0, err
+	}
+
+	query := handle.Model(&auth.User{})
+	if pattern := searchPattern(term); pattern != "" {
+		query = query.Where(
+			"lower(username) LIKE ? ESCAPE '\\' OR lower(email) LIKE ? ESCAPE '\\' OR "+
+				"lower(first_name) LIKE ? ESCAPE '\\' OR lower(last_name) LIKE ? ESCAPE '\\'",
+			pattern, pattern, pattern, pattern)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("coyote/repo: counting users: %w", err)
+	}
+
+	found := []*auth.User{}
+	page := query.Order("lower(username)")
+	if limit > 0 {
+		page = page.Limit(limit)
+	}
+	if offset > 0 {
+		page = page.Offset(offset)
+	}
+	if err := page.Find(&found).Error; err != nil {
+		return nil, 0, fmt.Errorf("coyote/repo: searching users: %w", err)
+	}
+	return found, int(total), nil
+}
+
+func searchPattern(term string) string {
+	folded := text.Fold(term)
+	if folded == "" {
+		return ""
+	}
+	folded = strings.ReplaceAll(folded, `\`, `\\`)
+	folded = strings.ReplaceAll(folded, "%", `\%`)
+	folded = strings.ReplaceAll(folded, "_", `\_`)
+	return "%" + folded + "%"
+}
+
+func (s *userStore) Recent(ctx context.Context, n int) ([]*auth.User, error) {
+	handle, err := s.handle(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found := []*auth.User{}
+	query := handle.Model(&auth.User{}).Order("created_at desc")
+	if n > 0 {
+		query = query.Limit(n)
+	}
+	if err := query.Find(&found).Error; err != nil {
+		return nil, fmt.Errorf("coyote/repo: reading the newest users: %w", err)
+	}
+	return found, nil
+}
+
+func (s *userStore) Stats(ctx context.Context) (auth.Stats, error) {
+	handle, err := s.handle(ctx)
+	if err != nil {
+		return auth.Stats{}, err
+	}
+
+	out := auth.Stats{}
+	counts := []struct {
+		into  *int
+		where string
+	}{
+		{&out.Total, ""},
+		{&out.Superadmins, "is_superadmin = true"},
+		{&out.Staff, "is_staff = true AND is_superadmin = false"},
+	}
+	for _, count := range counts {
+		query := handle.Model(&auth.User{})
+		if count.where != "" {
+			query = query.Where(count.where)
+		}
+		var total int64
+		if err := query.Count(&total).Error; err != nil {
+			return auth.Stats{}, fmt.Errorf("coyote/repo: counting users: %w", err)
+		}
+		*count.into = int(total)
+	}
+	return out, nil
+}
+
+func (s *userStore) Count(ctx context.Context) (int, error) {
+	handle, err := s.handle(ctx)
+	if err != nil {
+		return 0, err
 	}
 	var total int64
 	if err := handle.Model(&auth.User{}).Count(&total).Error; err != nil {
-		return 0
+		return 0, fmt.Errorf("coyote/repo: counting users: %w", err)
 	}
-	return int(total)
+	return int(total), nil
 }
 
-func (s *userStore) CountActiveSuperadmins() (int, error) {
-	handle, err := s.handle()
+func (s *userStore) CountActiveSuperadmins(ctx context.Context) (int, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return 0, err
 	}

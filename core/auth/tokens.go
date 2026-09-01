@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -26,11 +27,11 @@ type ResetToken struct {
 func (ResetToken) TableName() string { return "password_reset_tokens" }
 
 type TokenStore interface {
-	Save(token ResetToken) error
-	ByDigest(digest string) (ResetToken, error)
-	MarkUsed(digest string, at time.Time) error
-	DeleteForUser(userID string) error
-	Sweep(before time.Time) (int, error)
+	Save(ctx context.Context, token ResetToken) error
+	ByDigest(ctx context.Context, digest string) (ResetToken, error)
+	MarkUsed(ctx context.Context, digest string, at time.Time) error
+	DeleteForUser(ctx context.Context, userID string) error
+	Sweep(ctx context.Context, before time.Time) (int, error)
 }
 
 func TokenDigest(plain string) string {
@@ -40,11 +41,11 @@ func TokenDigest(plain string) string {
 
 func (s *Service) Tokens() TokenStore { return s.tokens }
 
-func (s *Service) CreateResetToken(userID string) (string, error) {
+func (s *Service) CreateResetToken(ctx context.Context, userID string) (string, error) {
 	if s.tokens == nil {
 		return "", ErrNoTokenStore
 	}
-	if _, err := s.users.ByID(userID); err != nil {
+	if _, err := s.users.ByID(ctx, userID); err != nil {
 		return "", err
 	}
 
@@ -65,42 +66,45 @@ func (s *Service) CreateResetToken(userID string) (string, error) {
 		CreatedAt: now,
 		ExpiresAt: now.Add(lifetime),
 	}
-	if err := s.tokens.Save(token); err != nil {
+	if err := s.tokens.Save(ctx, token); err != nil {
 		return "", err
 	}
 	return plain, nil
 }
 
-func (s *Service) CheckResetToken(plain string) (*User, error) {
+func (s *Service) CheckResetToken(ctx context.Context, plain string) (*User, error) {
 	if s.tokens == nil {
 		return nil, ErrNoTokenStore
 	}
-	token, err := s.tokens.ByDigest(TokenDigest(plain))
+	token, err := s.tokens.ByDigest(ctx, TokenDigest(plain))
 	if err != nil {
 		return nil, ErrTokenInvalid
 	}
 	if token.UsedAt != nil || time.Now().After(token.ExpiresAt) {
 		return nil, ErrTokenInvalid
 	}
-	user, err := s.users.ByID(token.UserID)
+	user, err := s.users.ByID(ctx, token.UserID)
 	if err != nil {
 		return nil, ErrTokenInvalid
 	}
 	return user, nil
 }
 
-func (s *Service) UseResetToken(plain string, in PasswordChange) (*User, error) {
-	user, err := s.CheckResetToken(plain)
+func (s *Service) UseResetToken(ctx context.Context, plain string, in PasswordChange) (*User, error) {
+	user, err := s.CheckResetToken(ctx, plain)
 	if err != nil {
 		return nil, err
 	}
 	if in.New != in.Confirm {
 		return nil, ErrPasswordMismatch
 	}
-	if err := s.SetPassword(user.ID, in.New); err != nil {
+	if err := s.tokens.MarkUsed(ctx, TokenDigest(plain), time.Now()); err != nil {
 		return nil, err
 	}
-	if err := s.tokens.MarkUsed(TokenDigest(plain), time.Now()); err != nil {
+	if err := s.tokens.DeleteForUser(ctx, user.ID); err != nil {
+		return nil, err
+	}
+	if err := s.SetPassword(ctx, user.ID, in.New); err != nil {
 		return nil, err
 	}
 	return user, nil

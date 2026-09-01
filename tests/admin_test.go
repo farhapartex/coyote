@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,10 +17,10 @@ func setupAdmin(t *testing.T, fns ...func(*settings.Settings)) (*app.App, *clien
 	t.Helper()
 	base := func(s *settings.Settings) { s.Admin.SiteName = "Test admin" }
 	a := newTestApp(t, append([]func(*settings.Settings){base}, fns...)...)
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "plain", Password: "supersecret"}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "plain", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
 	admin.Mount(a)
@@ -107,7 +108,7 @@ func TestAdminUserLifecycle(t *testing.T) {
 		t.Fatalf("create: %d, want 303", rec.Code)
 	}
 
-	jane, err := a.Auth.Users().ByUsername("jane")
+	jane, err := a.Auth.Users().ByUsername(t.Context(), "jane")
 	if err != nil {
 		t.Fatalf("user not created: %v", err)
 	}
@@ -133,7 +134,7 @@ func TestAdminUserLifecycle(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update: %d, want 303", rec.Code)
 	}
-	jane, _ = a.Auth.Users().ByUsername("jane")
+	jane, _ = a.Auth.Users().ByUsername(t.Context(), "jane")
 	if jane.FullName() != "Jane Q Doe" || jane.Email != "jane@corp.com" {
 		t.Errorf("update did not apply: %+v", jane)
 	}
@@ -146,7 +147,7 @@ func TestAdminUserLifecycle(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("delete: %d, want 303", rec.Code)
 	}
-	if _, err := a.Auth.Users().ByUsername("jane"); err == nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "jane"); err == nil {
 		t.Error("user should be deleted")
 	}
 }
@@ -154,12 +155,12 @@ func TestAdminUserLifecycle(t *testing.T) {
 func TestAdminCannotDeleteSelf(t *testing.T) {
 	a, c := setupAdmin(t)
 	c.login("/admin/login", "root", "supersecret")
-	root, _ := a.Auth.Users().ByUsername("root")
+	root, _ := a.Auth.Users().ByUsername(t.Context(), "root")
 
 	token := c.token("/admin/users")
 	c.do(http.MethodPost, "/admin/users/"+root.ID+"/delete", url.Values{"csrf_token": {token}})
 
-	if _, err := a.Auth.Users().ByUsername("root"); err != nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "root"); err != nil {
 		t.Error("self-deletion should be refused")
 	}
 }
@@ -179,7 +180,7 @@ func TestAdminLogoutEndsSession(t *testing.T) {
 
 func TestAdminPrefixComesFromSettings(t *testing.T) {
 	a := newTestApp(t, func(s *settings.Settings) { s.Admin.Prefix = "/control" })
-	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)
@@ -208,7 +209,7 @@ func TestRegisteredSectionIsGuardedAndMounted(t *testing.T) {
 		s.Admin.Prefix = "/backoffice"
 		s.Admin.SiteName = "Backoffice"
 	})
-	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)
@@ -255,5 +256,111 @@ func TestRemovedDeveloperPagesAreGone(t *testing.T) {
 	}
 	if rec := c.get("/admin/"); rec.Code != http.StatusOK {
 		t.Errorf("the dashboard returned %d, want 200", rec.Code)
+	}
+}
+
+func TestTheUserListPaginatesInsteadOfLoadingEveryRow(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Pagination.PerPage = 5 })
+	c.login("/admin/login", "root", "supersecret")
+
+	for i := range 12 {
+		if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+			Username: fmt.Sprintf("user%02d", i), Password: "unrelated-and-long",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	first := c.get("/admin/users").Body.String()
+	if strings.Count(first, `name="ids"`) > 5 {
+		t.Errorf("the first page rendered %d rows, want at most 5", strings.Count(first, `name="ids"`))
+	}
+	if !strings.Contains(first, "page=2") {
+		t.Error("the list should offer a second page")
+	}
+
+	second := c.get("/admin/users?page=2").Body.String()
+	if second == first {
+		t.Error("page 2 rendered the same rows as page 1")
+	}
+}
+
+func TestTheUserSearchFiltersInTheDatabase(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Pagination.PerPage = 50 })
+	c.login("/admin/login", "root", "supersecret")
+
+	for _, name := range []string{"ada", "grace", "alan"} {
+		if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+			Username: name, Email: name + "@example.test", Password: "unrelated-and-long",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	body := c.get("/admin/users?q=grace").Body.String()
+	if !strings.Contains(body, "grace") {
+		t.Error("the match should be listed")
+	}
+	for _, absent := range []string{">ada<", ">alan<"} {
+		if strings.Contains(body, absent) {
+			t.Errorf("%s should not survive the search", absent)
+		}
+	}
+
+	empty := c.get("/admin/users?q=nobody-by-that-name").Body.String()
+	if !strings.Contains(empty, "No users match") {
+		t.Error("a search with no matches should say so")
+	}
+}
+
+func TestASearchTermIsNotTreatedAsAPattern(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Pagination.PerPage = 50 })
+	c.login("/admin/login", "root", "supersecret")
+
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "ada", Password: "unrelated-and-long",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, term := range []string{"%", "_", "%%", "a%a"} {
+		body := c.get("/admin/users?q=" + url.QueryEscape(term)).Body.String()
+		if strings.Contains(body, ">ada<") {
+			t.Errorf("the term %q matched ada as a wildcard", term)
+		}
+	}
+}
+
+func TestTheDashboardCountsWithoutReadingEveryUser(t *testing.T) {
+	a, c := setupAdmin(t)
+	c.login("/admin/login", "root", "supersecret")
+
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "helper", Password: "unrelated-and-long", IsStaff: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := a.Auth.Users().Stats(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Total != 3 || stats.Superadmins != 1 || stats.Staff != 1 {
+		t.Errorf("stats = %+v, want 3 total, 1 superadmin, 1 staff", stats)
+	}
+
+	recent, err := a.Auth.Users().Recent(t.Context(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recent) != 2 {
+		t.Fatalf("Recent returned %d users, want 2", len(recent))
+	}
+	if recent[0].CreatedAt.Before(recent[1].CreatedAt) {
+		t.Error("Recent should be newest first")
+	}
+
+	if rec := c.get("/admin/"); rec.Code != http.StatusOK {
+		t.Errorf("the dashboard answered %d", rec.Code)
 	}
 }

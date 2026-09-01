@@ -24,7 +24,11 @@ func (a *App) pageCache(s Settings) Middleware {
 	if !s.PageCache.Active() {
 		return nil
 	}
-	return middleware.PageCache(deferredCache{app: a, alias: s.PageCache.Alias}, s.PageCache)
+	return middleware.PageCache(
+		deferredCache{app: a, alias: s.PageCache.Alias},
+		s.PageCache,
+		s.Sessions.CookieName,
+	)
 }
 
 func (d deferredCache) resolve() cache.Cache {

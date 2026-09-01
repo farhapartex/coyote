@@ -37,7 +37,7 @@ func filePortal(t *testing.T) (*app.App, *client) {
 	}))
 	a.RegisterModel(model.Of(Poster{}))
 	syncSchema(t, a)
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)

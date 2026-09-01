@@ -147,8 +147,9 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `PageCache` | off | Whole-page caching; see [Caching](33-caching.md) |
 | `Server.Host` | `127.0.0.1` | |
 | `Server.Port` | `8000` | |
-| `Server.ReadTimeout` | none | |
-| `Server.WriteTimeout` | none | |
+| `Server.MaxBodyBytes` | `32 MB` | Cap on any request body; 0 lifts it |
+| `Server.ReadTimeout` | `15s` | Whole-request read deadline |
+| `Server.WriteTimeout` | none, `30s` when deployed | Left unset so streaming works; required when deployed |
 | `Server.IdleTimeout` | `2m` | |
 | `Server.ReadHeaderTimeout` | `10s` | |
 | `Server.ShutdownTimeout` | `10s` | Grace period on SIGINT/SIGTERM |
@@ -161,6 +162,11 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Server.TLS.CacheDir` | `certs` | Where issued certificates are stored |
 | `Server.TLS.Staging` | `false` | Use the ACME staging directory while testing |
 | `Server.Configure` | none | `func(*http.Server)` hook called before listening |
+| `Security.TrustedProxyCount` | `0` | Proxies in front; how far into `X-Forwarded-For` to trust |
+| `Security.CSRF` | `true` | Guard every unsafe request — [CSRF](18-csrf.md) |
+| `Security.CSRFExempt` | none | Path prefixes the guard skips |
+| `Security.FrameOptions` | `DENY` | `DENY`, `SAMEORIGIN`, or empty to omit |
+| `Security.PermissionsPolicy` | camera, mic, geo denied | Sent as `Permissions-Policy` |
 | `Security.CSP` | none | Content Security Policy; off until set |
 | `Security.CSPReportOnly` | `false` | Report violations instead of blocking |
 | `Security.CORS` | off | See [CORS](20-cors.md) |
@@ -168,7 +174,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Security.CompressLevel` | `0` | 1–9, or 0 for the default |
 | `Security.RateLimit` | off | See [Rate limiting](19-rate-limiting.md) |
 | `Security.TrustRequestID` | `false` | Accept an inbound `X-Request-Id` |
-| `Sessions.Backend` | `memory` | `memory`, `database` or `cookie` |
+| `Sessions.Backend` | `database` | `database`, `memory` or `cookie`; memory is refused when deployed |
 | `Sessions.CookieName` | `coyote_session` | |
 | `Sessions.Lifetime` | `12h` | |
 | `Sessions.Rolling` | `false` | Extend the deadline on every request |
@@ -183,7 +189,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Auth.PasswordMinLength` | `8` | |
 | `Auth.PasswordRules` | four defaults | Replace to change the policy; see [Authentication](14-authentication.md) |
 | `Auth.PBKDF2Iterations` | `600000` | Lower it in tests to keep them fast |
-| `Auth.Throttle` | off | Login attempt limits; see [Authentication](14-authentication.md) |
+| `Auth.Throttle` | on, 5 per 15 min | Login attempt limits; see [Authentication](14-authentication.md) |
 | `Auth.Permissions` | `true` | Register the permission and role tables; see [Permissions](28-permissions.md) |
 | `Auth.AllowPasswordChange` | `true` | Off hides the form and makes the route 404 |
 | `Auth.ResetTokens` | `false` | Register the reset-token table |
@@ -202,10 +208,11 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Uploads.Path` | none | Default path inside the media directory; a field tag overrides it |
 | `Uploads.MaxSize` | `10 MiB` | Enforced before the body is read |
 | `Uploads.Allowed` | images and PDF | Content types, matched against the sniffed type |
-| `Uploads.MaxPixels` | `50,000,000` | Decompression-bomb guard for images |
+| `Uploads.MaxPixels` | `50,000,000` | Decompression-bomb guard; an image that will not decode is refused |
 | `Uploads.Serve` | `false` | Serve uploads over HTTP at `Uploads.URL` |
 | `Uploads.URL` | `/media/` | |
 | `Uploads.Private` | `false` | Require a signed URL; needs `SecretKey` |
+| `Uploads.SignedURLTTL` | `15m` | How long a signed media link stays valid |
 | `Uploads.StageTTL` | `24h` | How long an uncommitted upload survives |
 | `Uploads.TrashTTL` | `0` | 0 deletes immediately; above zero keeps a recovery window |
 | `Uploads.Storage` | filesystem | Any `storage.Storage` |

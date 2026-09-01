@@ -26,19 +26,40 @@ func (f *FileSystem) path(key string) (string, error) {
 	if err := ValidKey(key); err != nil {
 		return "", err
 	}
-	full := filepath.Join(f.root, filepath.FromSlash(key))
 	root, err := filepath.Abs(f.root)
 	if err != nil {
 		return "", err
 	}
-	resolved, err := filepath.Abs(full)
+	resolved, err := filepath.Abs(filepath.Join(f.root, filepath.FromSlash(key)))
 	if err != nil {
 		return "", err
 	}
-	if resolved != root && !strings.HasPrefix(resolved, root+string(os.PathSeparator)) {
+	if !within(root, resolved) {
 		return "", fmt.Errorf("%w: %q escapes the root", ErrBadKey, key)
 	}
+	if !within(followLinks(root), followLinks(resolved)) {
+		return "", fmt.Errorf("%w: %q escapes the root through a link", ErrBadKey, key)
+	}
 	return resolved, nil
+}
+
+func within(root, candidate string) bool {
+	return candidate == root || strings.HasPrefix(candidate, root+string(os.PathSeparator))
+}
+
+func followLinks(path string) string {
+	remainder := ""
+	for current := path; ; {
+		if real, err := filepath.EvalSymlinks(current); err == nil {
+			return filepath.Join(real, remainder)
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return path
+		}
+		remainder = filepath.Join(filepath.Base(current), remainder)
+		current = parent
+	}
 }
 
 func (f *FileSystem) Save(ctx context.Context, key string, r io.Reader) (Stat, error) {

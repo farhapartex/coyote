@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"sort"
 	"strings"
@@ -27,14 +28,14 @@ func (a *Admin) roleList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	roles, err := store.AllRoles()
+	roles, err := store.AllRoles(r.Context())
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
 	counts := map[string]int{}
 	for _, role := range roles {
-		granted, err := store.RolePermissions(role.ID)
+		granted, err := store.RolePermissions(r.Context(), role.ID)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -59,19 +60,19 @@ func (a *Admin) roleForm(w http.ResponseWriter, r *http.Request) {
 	isNew := true
 
 	if id := r.PathValue("id"); id != "" {
-		found, err := store.RoleByID(id)
+		found, err := store.RoleByID(r.Context(), id)
 		if err != nil {
 			a.notFound(w, r)
 			return
 		}
 		role, isNew = found, false
-		if granted, err = store.RolePermissions(id); err != nil {
+		if granted, err = store.RolePermissions(r.Context(), id); err != nil {
 			a.fail(w, r, err)
 			return
 		}
 	}
 
-	groups, err := a.permissionGroups(store, granted)
+	groups, err := a.permissionGroups(r.Context(), store, granted)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -100,7 +101,7 @@ func (a *Admin) roleSave(w http.ResponseWriter, r *http.Request) {
 	chosen := r.PostForm["permissions"]
 
 	fail := func(message string) {
-		groups, err := a.permissionGroups(store, chosen)
+		groups, err := a.permissionGroups(r.Context(), store, chosen)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -116,26 +117,26 @@ func (a *Admin) roleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if id == "" {
-		if err := store.CreateRole(role); err != nil {
+		if err := store.CreateRole(r.Context(), role); err != nil {
 			fail(humanize(r.Context(), err))
 			return
 		}
 	} else {
-		existing, err := store.RoleByID(id)
+		existing, err := store.RoleByID(r.Context(), id)
 		if err != nil {
 			a.notFound(w, r)
 			return
 		}
 		existing.Name = role.Name
 		existing.Description = role.Description
-		if err := store.UpdateRole(existing); err != nil {
+		if err := store.UpdateRole(r.Context(), existing); err != nil {
 			fail(humanize(r.Context(), err))
 			return
 		}
 		role = existing
 	}
 
-	if err := store.SetRolePermissions(role.ID, chosen); err != nil {
+	if err := store.SetRolePermissions(r.Context(), role.ID, chosen); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -148,7 +149,7 @@ func (a *Admin) roleDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := store.DeleteRole(r.PathValue("id")); err != nil {
+	if err := store.DeleteRole(r.Context(), r.PathValue("id")); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -156,8 +157,8 @@ func (a *Admin) roleDelete(w http.ResponseWriter, r *http.Request) {
 	view.Redirect(w, r, a.prefix+"/roles")
 }
 
-func (a *Admin) permissionGroups(store auth.PermissionStore, granted []string) ([]permissionGroup, error) {
-	all, err := store.AllPermissions()
+func (a *Admin) permissionGroups(ctx context.Context, store auth.PermissionStore, granted []string) ([]permissionGroup, error) {
+	all, err := store.AllPermissions(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -36,6 +36,7 @@ What you can replace, and the contract you implement:
 | Seam | Interface | Set it with |
 | --- | --- | --- |
 | Session storage | `session.Store` (+ `ManageableStore`) | `Sessions.Store` |
+| Client identity | a proxy count read by `lib/clientip` | `Security.TrustedProxyCount` |
 | User storage | `auth.Store` | `Auth.UserStore` |
 | Permission storage | `auth.PermissionStore` | `Auth.PermissionStore` |
 | Reset tokens | `auth.TokenStore` | registered when `Auth.ResetTokens` is on |
@@ -81,6 +82,8 @@ Being explicit about what is not extensible yet:
 - Migrations are forward-only; there is no `down`, and they run against the default connection only,
   so a model routed to another alias is reported but not migrated.
 - Rate limit, login-throttle and cache-statistics counters are per process, not shared.
+- Concurrent edits of one record resolve last-write-wins on the fields they share; there is no
+  version column yet.
 - The cache cannot be shared with the session store yet; `Sessions.Backend` has no `cache` option.
 - Full-text search is not built in; `model.Query` filters, but does not search.
 - Relations cover belongs-to only — no has-many, no many-to-many.

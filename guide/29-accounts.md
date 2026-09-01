@@ -36,7 +36,7 @@ POST /accounts/profile
 POST /accounts/password
 ```
 
-CSRF is applied to all of them, and the profile pages sit behind `RequireLogin`.
+CSRF covers all of them through the global guard, and the profile pages sit behind `RequireLogin`.
 
 ## Registration is off by default
 
@@ -57,7 +57,7 @@ password is too short; password is one of the most commonly used
 
 ## Sign-in
 
-Uses `AuthenticateRequest`, so [login throttling](14-authentication.md) applies if you enabled it —
+Uses `AuthenticateRequest`, so [login throttling](14-authentication.md) applies —
 a lockout renders as 429. A `?next=` parameter is honoured through `view.SafeNext`, so it can only
 send visitors to same-origin paths.
 

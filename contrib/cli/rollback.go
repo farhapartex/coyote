@@ -92,11 +92,17 @@ func (c Rollback) Run(ctx Context) error {
 	}
 
 	fmt.Fprintln(ctx.Out)
-	for _, entry := range plan {
-		if err := runner.Undo(background, entry); err != nil {
-			return err
+	err = runner.WithLock(background, func() error {
+		for _, entry := range plan {
+			if err := runner.Undo(background, entry); err != nil {
+				return err
+			}
+			fmt.Fprintf(ctx.Out, "  rolled back %s\n", entry.Migration.ID)
 		}
-		fmt.Fprintf(ctx.Out, "  rolled back %s\n", entry.Migration.ID)
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	fmt.Fprintf(ctx.Out, "\nrolled back %d migration(s)\n", len(plan))
 	return nil

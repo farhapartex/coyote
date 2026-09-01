@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"time"
@@ -90,18 +91,18 @@ func (r *SyncReport) sort() {
 }
 
 type PermissionStore interface {
-	SyncPermissions(resources []string) (SyncReport, error)
-	AllPermissions() ([]Permission, error)
-	CodenamesForUser(userID string) ([]string, error)
+	SyncPermissions(ctx context.Context, resources []string) (SyncReport, error)
+	AllPermissions(ctx context.Context) ([]Permission, error)
+	CodenamesForUser(ctx context.Context, userID string) ([]string, error)
 
-	AllRoles() ([]Role, error)
-	RoleByID(id string) (*Role, error)
-	CreateRole(role *Role) error
-	UpdateRole(role *Role) error
-	DeleteRole(id string) error
+	AllRoles(ctx context.Context) ([]Role, error)
+	RoleByID(ctx context.Context, id string) (*Role, error)
+	CreateRole(ctx context.Context, role *Role) error
+	UpdateRole(ctx context.Context, role *Role) error
+	DeleteRole(ctx context.Context, id string) error
 
-	RolePermissions(roleID string) ([]string, error)
-	SetRolePermissions(roleID string, permissionIDs []string) error
-	RolesForUser(userID string) ([]string, error)
-	SetUserRoles(userID string, roleIDs []string) error
+	RolePermissions(ctx context.Context, roleID string) ([]string, error)
+	SetRolePermissions(ctx context.Context, roleID string, permissionIDs []string) error
+	RolesForUser(ctx context.Context, userID string) ([]string, error)
+	SetUserRoles(ctx context.Context, userID string, roleIDs []string) error
 }

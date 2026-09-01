@@ -3,6 +3,7 @@ package settings
 import (
 	"time"
 
+	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/cache"
 	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
@@ -29,9 +30,16 @@ func Default() Settings {
 				CleanupInterval: cache.DefaultCleanup,
 			},
 		},
+		Security: Security{
+			CSRF:              true,
+			FrameOptions:      DefaultFrameOptions,
+			PermissionsPolicy: DefaultPermissionsPolicy,
+		},
 		Server: Server{
 			Host:              "127.0.0.1",
 			Port:              8000,
+			MaxBodyBytes:      32 << 20,
+			ReadTimeout:       15 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
 			IdleTimeout:       2 * time.Minute,
 			ShutdownTimeout:   10 * time.Second,
@@ -40,7 +48,6 @@ func Default() Settings {
 			Dir: "migrations",
 		},
 		Sessions: Sessions{
-			Backend:         SessionsInMemory,
 			CookieName:      "coyote_session",
 			Lifetime:        12 * time.Hour,
 			Rolling:         false,
@@ -57,6 +64,12 @@ func Default() Settings {
 			LoginURL:            "/admin/login",
 			PasswordMinLength:   8,
 			PBKDF2Iterations:    600000,
+			Throttle: auth.ThrottlePolicy{
+				Enabled:     true,
+				MaxAttempts: 5,
+				Window:      15 * time.Minute,
+				Lockout:     15 * time.Minute,
+			},
 		},
 		I18N: I18N{
 			Default:   i18n.DefaultTag,
@@ -72,15 +85,16 @@ func Default() Settings {
 			PerPage: view.DefaultPerPage,
 		},
 		Uploads: Uploads{
-			Enabled:   false,
-			Dir:       "media",
-			MaxSize:   10 << 20,
-			MaxPixels: 50_000_000,
-			Allowed:   []string{"image/jpeg", "image/png", "image/gif", "application/pdf"},
-			Serve:     false,
-			URL:       "/media/",
-			StageTTL:  24 * time.Hour,
-			TrashTTL:  0,
+			Enabled:      false,
+			Dir:          "media",
+			MaxSize:      10 << 20,
+			MaxPixels:    50_000_000,
+			Allowed:      []string{"image/jpeg", "image/png", "image/gif", "application/pdf"},
+			Serve:        false,
+			URL:          "/media/",
+			SignedURLTTL: 15 * time.Minute,
+			StageTTL:     24 * time.Hour,
+			TrashTTL:     0,
 		},
 		Static: Static{
 			URL: "/static/",

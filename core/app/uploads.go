@@ -45,6 +45,7 @@ func (a *App) mountUploads() {
 		Prefix:  prefix,
 		Private: a.Settings.Uploads.Private,
 		Secret:  a.Settings.SecretKey,
+		MaxAge:  a.Settings.Uploads.SignedURLTTL,
 	})
 	a.Router.Handle(http.MethodGet, strings.TrimSuffix(prefix, "/")+"/", handler)
 }
@@ -54,7 +55,7 @@ func (a *App) MediaURL(ref upload.Ref) string {
 		return ""
 	}
 	if a.Settings.Uploads.Private {
-		return a.Uploads.SignedURL(a.Settings.Uploads.URL, a.Settings.SecretKey, ref, a.Settings.Uploads.StageTTL)
+		return a.Uploads.SignedURL(a.Settings.Uploads.URL, a.Settings.SecretKey, ref, a.Settings.Uploads.SignedURLTTL)
 	}
 	return a.Uploads.URL(a.Settings.Uploads.URL, ref)
 }

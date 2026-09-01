@@ -164,6 +164,7 @@ check_the_application_still_serves() {
 		assert_http_status "GET $route still answers 200" "200" "$route"
 	done
 
+	http_reset_session
 	assert_http_status "the admin still redirects an anonymous visitor" "303" "/admin/customers"
 
 	if admin_login; then

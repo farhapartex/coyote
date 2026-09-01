@@ -2,6 +2,8 @@ package dialect
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/farhapartex/coyote/core/model"
 )
@@ -10,7 +12,9 @@ type Postgres struct{}
 
 func (Postgres) Name() string { return "postgres" }
 
-func (Postgres) Quote(identifier string) string { return `"` + identifier + `"` }
+func (Postgres) Quote(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
+}
 
 func (d Postgres) CreateTable(table string, columns []Column) string {
 	return createTable(d, table, columns, false)
@@ -29,6 +33,15 @@ func (d Postgres) DropColumn(table, column string) string {
 func (d Postgres) RenameColumn(table, from, to string) string {
 	return fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", d.Quote(table), d.Quote(from), d.Quote(to))
 }
+
+const postgresLockKey = 4023233417
+
+func (Postgres) AdvisoryLock() (string, string) {
+	key := strconv.FormatInt(postgresLockKey, 10)
+	return "SELECT pg_try_advisory_lock(" + key + ")", "SELECT pg_advisory_unlock(" + key + ")"
+}
+
+func (Postgres) TransactionalDDL() bool { return true }
 
 func (d Postgres) CreateIndex(index Index) string { return createIndex(d, index) }
 

@@ -18,7 +18,7 @@ func gormConfig(opts Options) *gorm.Config {
 		level = logger.Info
 	}
 	return &gorm.Config{
-		Logger:                                   newLogger(opts.Logger, level),
+		Logger:                                   newLogger(opts.Logger, level, opts.Debug),
 		SkipDefaultTransaction:                   true,
 		DisableForeignKeyConstraintWhenMigrating: false,
 	}

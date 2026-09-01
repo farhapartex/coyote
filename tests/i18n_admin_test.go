@@ -29,7 +29,7 @@ func translatedPortal(t *testing.T, extra fstest.MapFS) (*app.App, *client) {
 	admin.Mount(a)
 	accounts.Mount(a, accounts.Options{AllowRegistration: true})
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "correct horse battery"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "correct horse battery"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -184,23 +184,23 @@ msgstr "Mon tableau"
 func TestAdminPluralFormsInFrench(t *testing.T) {
 	a, c := translatedPortal(t, nil)
 
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 
 	store := a.Auth.Permissions()
 	role := &auth.Role{Name: "Lecteur"}
-	if err := store.CreateRole(role); err != nil {
+	if err := store.CreateRole(t.Context(), role); err != nil {
 		t.Fatal(err)
 	}
-	all, err := store.AllPermissions()
+	all, err := store.AllPermissions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(all) < 2 {
 		t.Fatalf("expected permissions after a sync, got %d", len(all))
 	}
-	if err := store.SetRolePermissions(role.ID, []string{all[0].ID}); err != nil {
+	if err := store.SetRolePermissions(t.Context(), role.ID, []string{all[0].ID}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -214,7 +214,7 @@ func TestAdminPluralFormsInFrench(t *testing.T) {
 		t.Errorf("the singular French form should be used:\n%s", rec.Body.String())
 	}
 
-	if err := store.SetRolePermissions(role.ID, []string{all[0].ID, all[1].ID}); err != nil {
+	if err := store.SetRolePermissions(t.Context(), role.ID, []string{all[0].ID, all[1].ID}); err != nil {
 		t.Fatal(err)
 	}
 	req = httptest.NewRequest(http.MethodGet, "/admin/roles", nil)

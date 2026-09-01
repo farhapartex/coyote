@@ -246,7 +246,7 @@ func TestLocalePathAndSwitch(t *testing.T) {
 }
 
 func TestLocaleSwitchHandlerSetsTheCookie(t *testing.T) {
-	a := newLocaleApp(t)
+	a := newLocaleApp(t, withoutCSRF)
 	a.Post("/locale", a.Locales().SwitchHandler("/"))
 
 	form := strings.NewReader("locale=fr&next=/where")
@@ -276,8 +276,29 @@ func TestLocaleSwitchHandlerSetsTheCookie(t *testing.T) {
 	}
 }
 
-func TestLocaleSwitchHandlerRefusesAnOffsiteRedirect(t *testing.T) {
+func TestLocaleSwitchHandlerWorksWithTheDefaultCSRFGuard(t *testing.T) {
 	a := newLocaleApp(t)
+	a.Post("/locale", a.Locales().SwitchHandler("/"))
+	a.Get("/picker", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<input name="csrf_token" value="` + a.Sessions.CSRFToken(r) + `">`))
+	})
+
+	c := newClient(t, a.Handler())
+	rec := c.do(http.MethodPost, "/locale", url.Values{
+		"csrf_token": {c.token("/picker")},
+		"locale":     {"fr"},
+		"next":       {"/where"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; the documented picker carries a token", rec.Code)
+	}
+	if location := rec.Header().Get("Location"); location != "/where" {
+		t.Errorf("Location = %q", location)
+	}
+}
+
+func TestLocaleSwitchHandlerRefusesAnOffsiteRedirect(t *testing.T) {
+	a := newLocaleApp(t, withoutCSRF)
 	a.Post("/locale", a.Locales().SwitchHandler("/safe"))
 
 	for _, next := range []string{"//evil.test/x", "https://evil.test/x", "evil"} {
@@ -368,7 +389,7 @@ func TestLocaleSwitchHandlerReadsNextFromTheQueryToo(t *testing.T) {
 }
 
 func TestLocaleSwitchHandlerPrefersThePostedNext(t *testing.T) {
-	a := newLocaleApp(t)
+	a := newLocaleApp(t, withoutCSRF)
 	a.Post("/locale", a.Locales().SwitchHandler("/"))
 
 	form := strings.NewReader("locale=fr&next=/from-the-form")

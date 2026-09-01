@@ -47,7 +47,7 @@ not collide, and the last active superadmin cannot be deleted, demoted, or disab
 Always through the service, so hashing and defaults are never skipped:
 
 ```go
-user, err := a.Auth.CreateUser(auth.NewUser{
+user, err := a.Auth.CreateUser(r.Context(), auth.NewUser{
 	Username:  "jane",
 	Email:     "jane@example.com",
 	FirstName: "Jane",
@@ -55,7 +55,7 @@ user, err := a.Auth.CreateUser(auth.NewUser{
 	Password:  "supersecret",
 })
 
-root, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret")
+root, err := a.Auth.CreateSuperadmin(ctx, "root", "root@example.com", "supersecret")
 ```
 
 New accounts are active, and not superadmin unless asked. For the first account on a fresh install
@@ -128,17 +128,23 @@ rejects anything that is not in hash format — so a plain string assigned by mi
 rather than authenticating.
 
 ```go
-a.Auth.SetPassword(userID, "new-password")
+a.Auth.SetPassword(r.Context(), userID, "new-password")
 a.Auth.ValidatePassword("candidate")      // length policy
 a.Auth.MinPasswordLength()
 ```
 
-Lower the iteration count in tests; leave it alone in production.
+Lower the iteration count in tests; leave it alone in production. **Raising it upgrades existing
+users as they sign in:** a correct password against a hash below the current cost is rewritten at the
+new cost before the request finishes, so nobody has to reset anything.
+
+Length is counted in **characters, not bytes**, so a passphrase of five emoji does not satisfy a
+minimum of eight. A password over `auth.MaxPasswordLength` (1024 bytes) is refused, because hashing
+is deliberately expensive and the size of the input is the caller's choice.
 
 ## Signing in and out
 
 ```go
-user, err := a.Auth.Authenticate(username, password)
+user, err := a.Auth.Authenticate(r.Context(), username, password)
 if err != nil {
 	view.Error(r, "Wrong username or password.")
 	view.Redirect(w, r, "/login")
@@ -160,7 +166,8 @@ exist.
 
 ## Login throttling
 
-Off by default. Turn it on and repeated failures lock the pair out:
+**On by default.** Five failures for one username from one client IP inside fifteen minutes lock that
+pair out for fifteen minutes. Those are the defaults, spelled out:
 
 ```go
 s.Auth.Throttle = auth.ThrottlePolicy{
@@ -171,13 +178,18 @@ s.Auth.Throttle = auth.ThrottlePolicy{
 }
 ```
 
-- The key is **username plus client IP**, so someone guessing at your name from their own machine
-  cannot lock you out of yours.
+Change the numbers, or set `Enabled: false` if you are putting your own limiter in front.
+
+- The key is **username plus client network**, so someone guessing at your name from their own
+  machine cannot lock you out of yours. IPv6 clients are grouped by their /64, the same way
+  [rate limiting](19-rate-limiting.md) groups them.
 - An unknown username is throttled exactly like a real one. If it were not, the lockout itself would
   reveal which accounts exist.
 - A successful sign-in clears the counter.
 - `Authenticate` alone keys on the username; `AuthenticateRequest(r, …)` adds the IP. The admin
-  portal uses the second.
+  portal uses the second. Behind a proxy, set
+  [`Security.TrustedProxyCount`](19-rate-limiting.md) or every request looks like it came from the
+  proxy and one lockout covers everybody.
 - Over the limit returns `auth.ErrTooManyAttempts`; the admin login renders it as a 429.
 
 `IsActive = false` is a separate, permanent block — throttling only limits the rate of attempts.
@@ -241,19 +253,26 @@ s.Auth.ResetTokenLifetime = time.Hour
 ```
 
 ```go
-token, err := a.Auth.CreateResetToken(user.ID)
+token, err := a.Auth.CreateResetToken(r.Context(), user.ID)
 // send it however you like: email, SMS, a support desk
 // see guide/35-email.md for the whole flow with a mail.Sender
 
-user, err := a.Auth.CheckResetToken(token)          // still valid?
+user, err := a.Auth.CheckResetToken(r.Context(), token)   // still valid?
 
-user, err := a.Auth.UseResetToken(token, auth.PasswordChange{
+user, err := a.Auth.UseResetToken(r.Context(), token, auth.PasswordChange{
 	New: "…", Confirm: "…",
 })
 ```
 
 - Tokens are **hashed before storage**, so a leaked database does not hand over working reset links.
 - Single use: `UseResetToken` marks it used, and a second attempt fails.
+- **Using one kills the account's other outstanding links**, so two reset emails in flight do not
+  leave a second door open.
+- **Using one signs every other session out.** A reset is what someone does when their account may
+  already be in the wrong hands, so leaving the intruder's session alive would defeat it. Any change
+  through `SetPassword` does this, whichever path reached it.
+- The token is burned *before* the password is written. If the write then fails, the link is dead
+  and the password is unchanged — the safe direction to fail in.
 - Expiring, with `Tokens().Sweep(before)` to clear old rows.
 - The table only exists when `ResetTokens` is on, so projects that do not want it get no schema.
 
@@ -301,16 +320,28 @@ Or implement `auth.Store` over your own table and set it in settings:
 
 ```go
 type Store interface {
-	ByID(id string) (*User, error)
-	ByUsername(username string) (*User, error)
-	ByEmail(email string) (*User, error)
-	Create(u *User) error
-	Update(u *User) error
-	Delete(id string) error
-	All() []*User
-	Count() int
+	ByID(ctx context.Context, id string) (*User, error)
+	ByUsername(ctx context.Context, username string) (*User, error)
+	ByEmail(ctx context.Context, email string) (*User, error)
+	Create(ctx context.Context, u *User) error
+	Update(ctx context.Context, u *User) error
+	Delete(ctx context.Context, id string) error
+	All(ctx context.Context) ([]*User, error)
+	Search(ctx context.Context, term string, limit, offset int) ([]*User, int, error)
+	Recent(ctx context.Context, n int) ([]*User, error)
+	Count(ctx context.Context) (int, error)
+	Stats(ctx context.Context) (Stats, error)
 }
 ```
+
+`Search`, `Recent` and `Stats` exist so the admin never has to read a whole table to draw a page:
+the user list pages and filters in the database, and the dashboard counts with counts. `All` is still
+there for a small table or a one-off script.
+
+Every method takes a context and every one that can fail says so. `auth.PermissionStore` and
+`auth.TokenStore` follow the same shape. Inside a handler the context is `r.Context()`, so a client
+that goes away cancels the query it was waiting on; from a CLI command or a background job it is
+yours to supply.
 
 ```go
 s.Auth.UserStore = myLDAPStore{}

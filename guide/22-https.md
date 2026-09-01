@@ -59,20 +59,24 @@ coyote/settings: improperly configured:
 ## Redirecting and pinning
 
 ```go
-a.Use(middleware.RequireHTTPS)   // plain HTTP redirects to https
+a.Use(middleware.RequireHTTPS(s.Security.TrustedProxyCount))
 ```
 
 `middleware.HSTS` is added for you when `Server.TLS.HSTS` is set, and only emits the header on
 connections that are actually secure. Setting HSTS without TLS is a configuration error — a browser
 that sees it will refuse plain HTTP to your host for the whole duration.
 
-Both are aware of `X-Forwarded-Proto`, so they work behind a terminating proxy.
+Both read `X-Forwarded-Proto`, so they work behind a terminating proxy — **but only when you have
+declared one** with [`Security.TrustedProxyCount`](19-rate-limiting.md). Left at zero, the header is
+ignored, because a client can write it too: an app exposed directly would otherwise skip its own
+redirect for anyone who claimed to be on https already.
 
 ## Behind a proxy
 
 If nginx, Caddy, or a load balancer terminates TLS, leave `Server.TLS` unset and serve plain HTTP on
-a private address. Keep `RequireHTTPS` — it reads the forwarded header — and set
-`Sessions.Secure = true` so cookies never travel unencrypted.
+a private address. Keep `RequireHTTPS`, set `Security.TrustedProxyCount` to the number of proxies in
+front of it so the forwarded header is believed, and set `Sessions.Secure = true` so cookies never
+travel unencrypted.
 
 ## Next
 

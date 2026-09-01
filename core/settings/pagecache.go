@@ -8,6 +8,7 @@ type PageCache struct {
 	TTL     time.Duration
 	Paths   []string
 	Skip    []string
+	Vary    []string
 }
 
 func (p PageCache) Active() bool { return p.Enabled && p.TTL > 0 }

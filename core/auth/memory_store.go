@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -24,7 +25,7 @@ func NewMemoryStore() *MemoryStore {
 	}
 }
 
-func (m *MemoryStore) ByID(id string) (*User, error) {
+func (m *MemoryStore) ByID(_ context.Context, id string) (*User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	u, ok := m.users[id]
@@ -34,13 +35,13 @@ func (m *MemoryStore) ByID(id string) (*User, error) {
 	return u.Clone(), nil
 }
 
-func (m *MemoryStore) ByUsername(username string) (*User, error) {
+func (m *MemoryStore) ByUsername(_ context.Context, username string) (*User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.lookup(m.byName, username)
 }
 
-func (m *MemoryStore) ByEmail(email string) (*User, error) {
+func (m *MemoryStore) ByEmail(_ context.Context, email string) (*User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.lookup(m.byEmail, email)
@@ -58,7 +59,7 @@ func (m *MemoryStore) lookup(index map[string]string, key string) (*User, error)
 	return u.Clone(), nil
 }
 
-func (m *MemoryStore) Create(u *User) error {
+func (m *MemoryStore) Create(_ context.Context, u *User) error {
 	if err := u.Validate(); err != nil {
 		return err
 	}
@@ -86,7 +87,7 @@ func (m *MemoryStore) Create(u *User) error {
 	return nil
 }
 
-func (m *MemoryStore) Update(u *User) error {
+func (m *MemoryStore) Update(_ context.Context, u *User) error {
 	if err := u.Validate(); err != nil {
 		return err
 	}
@@ -121,7 +122,7 @@ func (m *MemoryStore) Update(u *User) error {
 	return nil
 }
 
-func (m *MemoryStore) Delete(id string) error {
+func (m *MemoryStore) Delete(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	u, ok := m.users[id]
@@ -134,7 +135,7 @@ func (m *MemoryStore) Delete(id string) error {
 	return nil
 }
 
-func (m *MemoryStore) All() []*User {
+func (m *MemoryStore) All(_ context.Context) ([]*User, error) {
 	m.mu.RLock()
 	out := make([]*User, 0, len(m.users))
 	for _, u := range m.users {
@@ -144,16 +145,58 @@ func (m *MemoryStore) All() []*User {
 	sort.Slice(out, func(i, j int) bool {
 		return strings.ToLower(out[i].Username) < strings.ToLower(out[j].Username)
 	})
-	return out
+	return out, nil
 }
 
-func (m *MemoryStore) Count() int {
+func (m *MemoryStore) Search(ctx context.Context, term string, limit, offset int) ([]*User, int, error) {
+	everyone, err := m.All(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	matched := make([]*User, 0, len(everyone))
+	for _, u := range everyone {
+		if Matches(u, term) {
+			matched = append(matched, u)
+		}
+	}
+	return Window(matched, limit, offset), len(matched), nil
+}
+
+func (m *MemoryStore) Recent(ctx context.Context, n int) ([]*User, error) {
+	everyone, err := m.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.SliceStable(everyone, func(i, j int) bool {
+		return everyone[i].CreatedAt.After(everyone[j].CreatedAt)
+	})
+	return Window(everyone, n, 0), nil
+}
+
+func (m *MemoryStore) Stats(ctx context.Context) (Stats, error) {
+	everyone, err := m.All(ctx)
+	if err != nil {
+		return Stats{}, err
+	}
+	out := Stats{Total: len(everyone)}
+	for _, u := range everyone {
+		switch {
+		case u.IsSuperadmin:
+			out.Superadmins++
+		case u.IsStaff:
+			out.Staff++
+		}
+	}
+	return out, nil
+}
+
+func (m *MemoryStore) Count(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return len(m.users)
+	return len(m.users), nil
 }
 
-func (m *MemoryStore) CountActiveSuperadmins() (int, error) {
+func (m *MemoryStore) CountActiveSuperadmins(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	n := 0

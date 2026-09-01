@@ -1,22 +1,23 @@
 package session
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
 )
 
 type Store interface {
-	Load(id string) (*Session, bool)
-	Save(s *Session) error
-	Delete(id string) error
+	Load(ctx context.Context, id string) (*Session, bool)
+	Save(ctx context.Context, s *Session) error
+	Delete(ctx context.Context, id string) error
 }
 
 type ManageableStore interface {
 	Store
-	Count() int
-	All() []*Session
-	DeleteByUserID(userID string) int
+	Count(ctx context.Context) (int, error)
+	All(ctx context.Context) ([]*Session, error)
+	DeleteByUserID(ctx context.Context, userID string) (int, error)
 }
 
 type MemoryStore struct {
@@ -37,7 +38,7 @@ func NewMemoryStore(gcInterval time.Duration) *MemoryStore {
 	return m
 }
 
-func (m *MemoryStore) Load(id string) (*Session, bool) {
+func (m *MemoryStore) Load(ctx context.Context, id string) (*Session, bool) {
 	m.mu.RLock()
 	s, ok := m.sessions[id]
 	m.mu.RUnlock()
@@ -45,33 +46,33 @@ func (m *MemoryStore) Load(id string) (*Session, bool) {
 		return nil, false
 	}
 	if s.Expired() {
-		_ = m.Delete(id)
+		_ = m.Delete(ctx, id)
 		return nil, false
 	}
 	return s, true
 }
 
-func (m *MemoryStore) Save(s *Session) error {
+func (m *MemoryStore) Save(_ context.Context, s *Session) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.sessions[s.ID()] = s
 	return nil
 }
 
-func (m *MemoryStore) Delete(id string) error {
+func (m *MemoryStore) Delete(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.sessions, id)
 	return nil
 }
 
-func (m *MemoryStore) Count() int {
+func (m *MemoryStore) Count(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return len(m.sessions)
+	return len(m.sessions), nil
 }
 
-func (m *MemoryStore) All() []*Session {
+func (m *MemoryStore) All(_ context.Context) ([]*Session, error) {
 	m.mu.RLock()
 	out := make([]*Session, 0, len(m.sessions))
 	for _, s := range m.sessions {
@@ -81,10 +82,10 @@ func (m *MemoryStore) All() []*Session {
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].CreatedAt().After(out[j].CreatedAt())
 	})
-	return out
+	return out, nil
 }
 
-func (m *MemoryStore) DeleteByUserID(userID string) int {
+func (m *MemoryStore) DeleteByUserID(_ context.Context, userID string) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	n := 0
@@ -94,7 +95,7 @@ func (m *MemoryStore) DeleteByUserID(userID string) int {
 			n++
 		}
 	}
-	return n
+	return n, nil
 }
 
 func (m *MemoryStore) Close() {

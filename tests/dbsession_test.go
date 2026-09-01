@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,7 +52,7 @@ func TestDatabaseBackendRegistersTheSessionsTable(t *testing.T) {
 }
 
 func TestMemoryBackendDoesNotCreateASessionsTable(t *testing.T) {
-	a := newTestApp(t)
+	a := newTestApp(t, func(s *settings.Settings) { s.Sessions.Backend = settings.SessionsInMemory })
 	handle, err := a.DB()
 	if err != nil {
 		t.Fatal(err)
@@ -121,10 +123,10 @@ func TestGoTypesRoundTripThroughTheDatabase(t *testing.T) {
 	original.SetUserID("user-1")
 	original.AddFlash("success", "saved")
 
-	if err := backend.Save(original); err != nil {
+	if err := backend.Save(t.Context(), original); err != nil {
 		t.Fatal(err)
 	}
-	loaded, ok := backend.Load("round-trip")
+	loaded, ok := backend.Load(t.Context(), "round-trip")
 	if !ok {
 		t.Fatal("session did not load")
 	}
@@ -162,27 +164,31 @@ func TestDatabaseStoreImplementsManageable(t *testing.T) {
 		if id != "c" {
 			s.SetUserID("u1")
 		}
-		if err := backend.Save(s); err != nil {
+		if err := backend.Save(t.Context(), s); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if backend.Count() != 3 {
-		t.Errorf("Count = %d, want 3", backend.Count())
+	if sessionCount(t, backend) != 3 {
+		t.Errorf("Count = %d, want 3", sessionCount(t, backend))
 	}
-	if len(backend.All()) != 3 {
-		t.Errorf("All returned %d", len(backend.All()))
+	if len(allSessions(t, backend)) != 3 {
+		t.Errorf("All returned %d", len(allSessions(t, backend)))
 	}
-	if n := backend.DeleteByUserID("u1"); n != 2 {
-		t.Errorf("DeleteByUserID = %d, want 2", n)
-	}
-	if backend.Count() != 1 {
-		t.Errorf("Count after delete = %d, want 1", backend.Count())
-	}
-	if err := backend.Delete("c"); err != nil {
+	n, err := backend.DeleteByUserID(t.Context(), "u1")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := backend.Load("c"); ok {
+	if n != 2 {
+		t.Errorf("DeleteByUserID = %d, want 2", n)
+	}
+	if sessionCount(t, backend) != 1 {
+		t.Errorf("Count after delete = %d, want 1", sessionCount(t, backend))
+	}
+	if err := backend.Delete(t.Context(), "c"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := backend.Load(t.Context(), "c"); ok {
 		t.Error("deleted session should not load")
 	}
 }
@@ -195,16 +201,16 @@ func TestDatabaseStoreHidesExpiredSessions(t *testing.T) {
 	backend := store.Sessions(handle, 0)
 
 	expired := session.Restore("gone", nil, time.Now().Add(-time.Hour), time.Now().Add(-time.Minute))
-	if err := backend.Save(expired); err != nil {
+	if err := backend.Save(t.Context(), expired); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := backend.Load("gone"); ok {
+	if _, ok := backend.Load(t.Context(), "gone"); ok {
 		t.Error("an expired session must not load")
 	}
-	if backend.Count() != 0 {
-		t.Errorf("expired sessions should not be counted, got %d", backend.Count())
+	if sessionCount(t, backend) != 0 {
+		t.Errorf("expired sessions should not be counted, got %d", sessionCount(t, backend))
 	}
-	if len(backend.All()) != 0 {
+	if len(allSessions(t, backend)) != 0 {
 		t.Error("expired sessions should not be listed")
 	}
 }
@@ -218,33 +224,33 @@ func TestSavingTwiceUpdatesRatherThanDuplicates(t *testing.T) {
 
 	s := session.Restore("same-id", nil, time.Now(), time.Now().Add(time.Hour))
 	s.Set("stage", "first")
-	if err := backend.Save(s); err != nil {
+	if err := backend.Save(t.Context(), s); err != nil {
 		t.Fatal(err)
 	}
 	s.Set("stage", "second")
-	if err := backend.Save(s); err != nil {
+	if err := backend.Save(t.Context(), s); err != nil {
 		t.Fatalf("a second save must upsert, not fail: %v", err)
 	}
 
-	loaded, ok := backend.Load("same-id")
+	loaded, ok := backend.Load(t.Context(), "same-id")
 	if !ok {
 		t.Fatal("session missing")
 	}
 	if got := loaded.GetString("stage"); got != "second" {
 		t.Errorf("stage = %q, want second", got)
 	}
-	if backend.Count() != 1 {
-		t.Errorf("saving twice created %d rows", backend.Count())
+	if sessionCount(t, backend) != 1 {
+		t.Errorf("saving twice created %d rows", sessionCount(t, backend))
 	}
 }
 
 func TestLoginAndLogoutAcrossProcesses(t *testing.T) {
 	a := persistentApp(t)
-	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	a.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-		user, err := a.Auth.Authenticate("root", "supersecret")
+		user, err := a.Auth.Authenticate(t.Context(), "root", "supersecret")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -297,13 +303,24 @@ func TestSessionBackendValidation(t *testing.T) {
 	}
 }
 
-func TestMemoryRemainsTheDefault(t *testing.T) {
+func TestTheDatabaseIsTheDefaultSessionBackend(t *testing.T) {
 	resolved, err := settings.New(prodSettings()...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resolved.Sessions.Backend != settings.SessionsInMemory {
-		t.Errorf("Backend = %q, want memory by default", resolved.Sessions.Backend)
+	if resolved.Sessions.Backend != settings.SessionsInDB {
+		t.Errorf("Backend = %q; a project with a database should keep its sessions there",
+			resolved.Sessions.Backend)
+	}
+}
+
+func TestMemorySessionsAreRefusedInProduction(t *testing.T) {
+	_, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Environment = settings.Production
+		s.Sessions.Backend = settings.SessionsInMemory
+	})...)
+	if err == nil || !strings.Contains(err.Error(), "signs everyone out on every deploy") {
+		t.Errorf("error = %v, want a complaint about memory sessions in production", err)
 	}
 }
 
@@ -320,7 +337,59 @@ func TestAnonymousRequestsDoNotFillTheSessionsTable(t *testing.T) {
 	if !ok {
 		t.Fatal("the database backend should be manageable")
 	}
-	if count := sessions.Count(); count != 0 {
+	if count := sessionCount(t, sessions); count != 0 {
 		t.Errorf("a request that never touches the session should not be stored, got %d rows", count)
+	}
+}
+
+func TestADatabaseSessionIsWrittenEvenWhenTheClientDisconnects(t *testing.T) {
+	handle := newTestDB(t)
+	if err := migrate.Sync(handle, []model.Model{model.Of(session.Record{})}); err != nil {
+		t.Fatal(err)
+	}
+	backend := store.Sessions(handle, 0)
+	m := session.NewManager(session.Options{Store: backend, Lifetime: time.Hour})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session.FromRequest(r).Set("user", "jane")
+		cancel()
+	})).ServeHTTP(rec, req)
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("no session cookie was written")
+	}
+	restored, ok := backend.Load(t.Context(), cookies[0].Value)
+	if !ok {
+		t.Fatal("the session was lost because the request context had been cancelled")
+	}
+	if got := restored.GetString("user"); got != "jane" {
+		t.Errorf("user = %q, want jane", got)
+	}
+}
+
+func TestADatabaseSessionReadHonoursTheRequestContext(t *testing.T) {
+	handle := newTestDB(t)
+	if err := migrate.Sync(handle, []model.Model{model.Of(session.Record{})}); err != nil {
+		t.Fatal(err)
+	}
+	backend := store.Sessions(handle, 0)
+
+	live := session.Restore("live", nil, time.Now(), time.Now().Add(time.Hour))
+	if err := backend.Save(t.Context(), live); err != nil {
+		t.Fatal(err)
+	}
+
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, ok := backend.Load(cancelled, "live"); ok {
+		t.Error("a read on a cancelled context should not reach the database")
+	}
+	if _, ok := backend.Load(t.Context(), "live"); !ok {
+		t.Error("the session should still be readable on a live context")
 	}
 }

@@ -2,6 +2,7 @@ package view
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -15,6 +16,13 @@ func RedirectPermanent(w http.ResponseWriter, r *http.Request, target string) {
 
 func SafeNext(next, fallback string) string {
 	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		return fallback
+	}
+	if strings.ContainsAny(next, "\\\r\n\t") || strings.ContainsRune(next, 0) {
+		return fallback
+	}
+	parsed, err := url.Parse(next)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.Opaque != "" {
 		return fallback
 	}
 	return next

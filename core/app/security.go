@@ -1,11 +1,14 @@
 package app
 
-import "github.com/farhapartex/coyote/core/middleware"
+import (
+	"github.com/farhapartex/coyote/core/middleware"
+	"github.com/farhapartex/coyote/core/session"
+)
 
 func securityPolicies(s Settings) []Middleware {
 	var out []Middleware
 	if s.Server.TLS.HSTS > 0 {
-		out = append(out, middleware.HSTS(s.Server.TLS.HSTS))
+		out = append(out, middleware.HSTS(s.Server.TLS.HSTS, s.Security.TrustedProxyCount))
 	}
 	if s.Security.CSP != "" {
 		out = append(out, middleware.CSP(s.Security.CSP, s.Security.CSPReportOnly))
@@ -17,9 +20,16 @@ func securityPolicies(s Settings) []Middleware {
 		out = append(out, middleware.Compress(s.Security.CompressLevel))
 	}
 	if s.Security.RateLimit.Enabled() {
-		out = append(out, middleware.RateLimit(s.Security.RateLimit))
+		out = append(out, middleware.RateLimit(s.Security.RateLimit, s.Security.TrustedProxyCount))
 	}
 	return out
+}
+
+func csrfGuard(s Settings, sessions *session.Manager) Middleware {
+	if !s.Security.CSRF {
+		return nil
+	}
+	return middleware.CSRF(sessions, s.Security.CSRFExempt)
 }
 
 func requestID(s Settings) Middleware {

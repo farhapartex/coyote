@@ -62,7 +62,7 @@ lib/            depends on nothing local
   text/         casing, slugs, folding, truncation
   dotenv/       the .env parser
   id/           UUID generation
-  clientip/     the client address, with or without proxy headers
+  clientip/     the client address from a declared proxy count, and its rate-limit bucket
 core/           what the framework needs to exist
   app/          the application object: wiring, lifecycle, render entry point
   router/       URL dispatch, groups, static, route table
@@ -76,7 +76,7 @@ core/           what the framework needs to exist
   auth/         the User entity, passwords, login guards
   db/           connections, pool tuning, pragmas
   session/      Session, stores, cookie manager, sealing
-  middleware/   logging, recovery, hosts, headers, CSRF, CSP, CORS, limits
+  middleware/   logging, recovery, hosts, headers, CSRF, CSP, CORS, body and rate limits
   settings/     the settings type, defaults, validation, env helpers
 contrib/        what you opt into
   admin/        the admin portal

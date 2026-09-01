@@ -66,6 +66,8 @@ func devSettings(t *testing.T, fns ...func(*settings.Settings)) settings.Setting
 	return resolved
 }
 
+func withoutCSRF(s *settings.Settings) { s.Security.CSRF = false }
+
 func prodSettings(fns ...func(*settings.Settings)) []func(*settings.Settings) {
 	base := func(s *settings.Settings) {
 		s.Debug = false
@@ -91,6 +93,42 @@ func syncSchema(t *testing.T, a *app.App) {
 	if err := migrate.Sync(handle, a.Models()); err != nil {
 		t.Fatalf("syncing schema: %v", err)
 	}
+}
+
+func allUsers(t *testing.T, store auth.Store) []*auth.User {
+	t.Helper()
+	people, err := store.All(t.Context())
+	if err != nil {
+		t.Fatalf("listing users: %v", err)
+	}
+	return people
+}
+
+func userCount(t *testing.T, store auth.Store) int {
+	t.Helper()
+	total, err := store.Count(t.Context())
+	if err != nil {
+		t.Fatalf("counting users: %v", err)
+	}
+	return total
+}
+
+func sessionCount(t *testing.T, store session.ManageableStore) int {
+	t.Helper()
+	total, err := store.Count(t.Context())
+	if err != nil {
+		t.Fatalf("counting sessions: %v", err)
+	}
+	return total
+}
+
+func allSessions(t *testing.T, store session.ManageableStore) []*session.Session {
+	t.Helper()
+	live, err := store.All(t.Context())
+	if err != nil {
+		t.Fatalf("listing sessions: %v", err)
+	}
+	return live
 }
 
 func newTestManager() *session.Manager {

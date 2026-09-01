@@ -16,11 +16,11 @@ func builtinPortal(t *testing.T) (*app.App, *client) {
 	t.Helper()
 	a := newTestApp(t, func(s *settings.Settings) { s.Admin.SiteName = "Test admin" })
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"one", "two", "three"} {
-		if _, err := a.Auth.CreateUser(auth.NewUser{Username: name, Password: "unrelated-and-long"}); err != nil {
+		if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: name, Password: "unrelated-and-long"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -33,7 +33,7 @@ func builtinPortal(t *testing.T) (*app.App, *client) {
 
 func idOf(t *testing.T, a *app.App, username string) string {
 	t.Helper()
-	user, err := a.Auth.Users().ByUsername(username)
+	user, err := a.Auth.Users().ByUsername(t.Context(), username)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,10 +42,10 @@ func idOf(t *testing.T, a *app.App, username string) string {
 
 func TestEveryAdminListOffersBulkSelection(t *testing.T) {
 	a, c := builtinPortal(t)
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Auth.Permissions().CreateRole(&auth.Role{Name: "Viewer"}); err != nil {
+	if err := a.Auth.Permissions().CreateRole(t.Context(), &auth.Role{Name: "Viewer"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,10 +75,10 @@ func TestBulkDeletingUsers(t *testing.T) {
 		t.Fatalf("bulk delete: %d, body: %s", rec.Code, rec.Body.String())
 	}
 
-	if _, err := a.Auth.Users().ByUsername("one"); err == nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "one"); err == nil {
 		t.Error("the selected users should be gone")
 	}
-	if _, err := a.Auth.Users().ByUsername("three"); err != nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "three"); err != nil {
 		t.Error("unselected users should remain")
 	}
 }
@@ -96,10 +96,10 @@ func TestBulkDeleteSkipsYourOwnAccount(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 
-	if _, err := a.Auth.Users().ByID(root); err != nil {
+	if _, err := a.Auth.Users().ByID(t.Context(), root); err != nil {
 		t.Error("you must not be able to delete yourself in bulk")
 	}
-	if _, err := a.Auth.Users().ByUsername("one"); err == nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "one"); err == nil {
 		t.Error("the other selection should still have gone")
 	}
 	if body := c.get("/admin/users").Body.String(); !strings.Contains(body, "own account was left alone") {
@@ -130,13 +130,13 @@ func TestBulkRevokingSessions(t *testing.T) {
 	if !ok {
 		t.Skip("session store is not manageable")
 	}
-	before := sessions.Count()
+	before := sessionCount(t, sessions)
 	if before < 2 {
 		t.Fatalf("expected at least two sessions, got %d", before)
 	}
 
 	ids := []string{}
-	for _, s := range sessions.All() {
+	for _, s := range allSessions(t, sessions) {
 		ids = append(ids, s.ID())
 	}
 
@@ -147,8 +147,8 @@ func TestBulkRevokingSessions(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d", rec.Code)
 	}
-	if sessions.Count() >= before {
-		t.Errorf("sessions should have been revoked: %d before, %d after", before, sessions.Count())
+	if sessionCount(t, sessions) >= before {
+		t.Errorf("sessions should have been revoked: %d before, %d after", before, sessionCount(t, sessions))
 	}
 }
 
@@ -165,7 +165,7 @@ func TestBulkWithNoSelectionOnBuiltInLists(t *testing.T) {
 		}
 	}
 
-	if _, err := a.Auth.Users().ByUsername("one"); err != nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "one"); err != nil {
 		t.Error("nothing should have been deleted")
 	}
 }
@@ -181,14 +181,14 @@ func TestBulkRefusesAnUnknownActionOnUsers(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d", rec.Code)
 	}
-	if _, err := a.Auth.Users().ByUsername("one"); err != nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "one"); err != nil {
 		t.Error("an unknown action must not delete anything")
 	}
 }
 
 func TestStaffCannotBulkDeleteUsers(t *testing.T) {
 	a, _ := builtinPortal(t)
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -202,7 +202,7 @@ func TestStaffCannotBulkDeleteUsers(t *testing.T) {
 	if rec.Code == http.StatusSeeOther {
 		t.Error("staff must not reach user bulk delete")
 	}
-	if _, err := a.Auth.Users().ByUsername("one"); err != nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "one"); err != nil {
 		t.Error("nothing should have been deleted")
 	}
 }

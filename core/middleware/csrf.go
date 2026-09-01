@@ -7,7 +7,14 @@ import (
 	"github.com/farhapartex/coyote/core/session"
 )
 
-const multipartMemory = 32 << 20
+const multipartMemory = 1 << 20
+
+var safeMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+}
 
 func formToken(r *http.Request) string {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
@@ -22,16 +29,10 @@ func formToken(r *http.Request) string {
 	return r.PostForm.Get("csrf_token")
 }
 
-func CSRF(manager *session.Manager) Middleware {
-	safe := map[string]bool{
-		http.MethodGet:     true,
-		http.MethodHead:    true,
-		http.MethodOptions: true,
-		http.MethodTrace:   true,
-	}
+func CSRF(manager *session.Manager, exempt []string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if safe[r.Method] {
+			if safeMethods[r.Method] || matchesAnyPrefix(r.URL.Path, exempt) {
 				next.ServeHTTP(w, r)
 				return
 			}

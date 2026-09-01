@@ -26,7 +26,7 @@ func captureLogs(t *testing.T) (*bytes.Buffer, *slog.Logger) {
 func TestUsersLiveInTheDatabase(t *testing.T) {
 	a := newTestApp(t)
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -43,14 +43,14 @@ func TestUsersLiveInTheDatabase(t *testing.T) {
 	}
 
 	second := app.NewFrom(a.Settings)
-	found, err := second.Auth.Users().ByUsername("root")
+	found, err := second.Auth.Users().ByUsername(t.Context(), "root")
 	if err != nil {
 		t.Fatalf("a second process should see the user: %v", err)
 	}
 	if !found.IsSuperadmin {
 		t.Error("the persisted user should still be a superadmin")
 	}
-	if _, err := second.Auth.Authenticate("root", "supersecret"); err != nil {
+	if _, err := second.Auth.Authenticate(t.Context(), "root", "supersecret"); err != nil {
 		t.Errorf("the persisted password should verify: %v", err)
 	}
 }
@@ -59,7 +59,7 @@ func TestDatabaseUserStoreBehaviour(t *testing.T) {
 	a := newTestApp(t)
 	users := a.Auth.Users()
 
-	created, err := a.Auth.CreateUser(auth.NewUser{
+	created, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
 		Username: "jane", Email: "Jane@Example.com", FirstName: "Jane", Password: "supersecret",
 	})
 	if err != nil {
@@ -72,36 +72,36 @@ func TestDatabaseUserStoreBehaviour(t *testing.T) {
 		t.Error("timestamps should be set on create")
 	}
 
-	byName, err := users.ByUsername("JANE")
+	byName, err := users.ByUsername(t.Context(), "JANE")
 	if err != nil || byName.ID != created.ID {
 		t.Errorf("case-insensitive username lookup failed: %v", err)
 	}
-	byEmail, err := users.ByEmail("jane@example.com")
+	byEmail, err := users.ByEmail(t.Context(), "jane@example.com")
 	if err != nil || byEmail.ID != created.ID {
 		t.Errorf("case-insensitive email lookup failed: %v", err)
 	}
-	if _, err := users.ByID("missing"); !errors.Is(err, auth.ErrUserNotFound) {
+	if _, err := users.ByID(t.Context(), "missing"); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Errorf("got %v, want ErrUserNotFound", err)
 	}
 
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "Jane", Password: "supersecret"}); !errors.Is(err, auth.ErrUserExists) {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "Jane", Password: "supersecret"}); !errors.Is(err, auth.ErrUserExists) {
 		t.Errorf("duplicate username: got %v, want ErrUserExists", err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "other", Email: "JANE@example.com", Password: "supersecret"}); !errors.Is(err, auth.ErrEmailExists) {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "other", Email: "JANE@example.com", Password: "supersecret"}); !errors.Is(err, auth.ErrEmailExists) {
 		t.Errorf("duplicate email: got %v, want ErrEmailExists", err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "blank1", Password: "supersecret"}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "blank1", Password: "supersecret"}); err != nil {
 		t.Errorf("a blank email should be allowed: %v", err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "blank2", Password: "supersecret"}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "blank2", Password: "supersecret"}); err != nil {
 		t.Errorf("multiple blank emails should be allowed: %v", err)
 	}
 
 	created.FirstName = "Janet"
-	if err := users.Update(created); err != nil {
+	if err := users.Update(t.Context(), created); err != nil {
 		t.Fatal(err)
 	}
-	reloaded, _ := users.ByID(created.ID)
+	reloaded, _ := users.ByID(t.Context(), created.ID)
 	if reloaded.FirstName != "Janet" {
 		t.Errorf("update did not persist: %+v", reloaded)
 	}
@@ -109,20 +109,20 @@ func TestDatabaseUserStoreBehaviour(t *testing.T) {
 		t.Error("update must not move CreatedAt")
 	}
 
-	if users.Count() != 3 {
-		t.Errorf("Count = %d, want 3", users.Count())
+	if userCount(t, users) != 3 {
+		t.Errorf("Count = %d, want 3", userCount(t, users))
 	}
-	if len(users.All()) != 3 {
-		t.Errorf("All returned %d users", len(users.All()))
+	if len(allUsers(t, users)) != 3 {
+		t.Errorf("All returned %d users", len(allUsers(t, users)))
 	}
 
-	if err := users.Delete(created.ID); err != nil {
+	if err := users.Delete(t.Context(), created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := users.ByID(created.ID); !errors.Is(err, auth.ErrUserNotFound) {
+	if _, err := users.ByID(t.Context(), created.ID); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Error("user should be deleted")
 	}
-	if err := users.Delete("missing"); !errors.Is(err, auth.ErrUserNotFound) {
+	if err := users.Delete(t.Context(), "missing"); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Errorf("got %v, want ErrUserNotFound", err)
 	}
 }
@@ -145,23 +145,23 @@ func TestLastSuperadminGuardAppliesToEveryStore(t *testing.T) {
 				Hasher: auth.Hasher{Iterations: 1000}, MinPasswordLength: 8,
 			})
 
-			root, err := service.CreateSuperadmin("root", "", "supersecret")
+			root, err := service.CreateSuperadmin(t.Context(), "root", "", "supersecret")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := service.Users().Delete(root.ID); !errors.Is(err, auth.ErrLastSuperadmin) {
+			if err := service.Users().Delete(t.Context(), root.ID); !errors.Is(err, auth.ErrLastSuperadmin) {
 				t.Errorf("delete: got %v, want ErrLastSuperadmin", err)
 			}
 			demoted := root.Clone()
 			demoted.IsSuperadmin = false
-			if err := service.Users().Update(demoted); !errors.Is(err, auth.ErrLastSuperadmin) {
+			if err := service.Users().Update(t.Context(), demoted); !errors.Is(err, auth.ErrLastSuperadmin) {
 				t.Errorf("demote: got %v, want ErrLastSuperadmin", err)
 			}
 
-			if _, err := service.CreateSuperadmin("spare", "", "supersecret"); err != nil {
+			if _, err := service.CreateSuperadmin(t.Context(), "spare", "", "supersecret"); err != nil {
 				t.Fatal(err)
 			}
-			if err := service.Users().Delete(root.ID); err != nil {
+			if err := service.Users().Delete(t.Context(), root.ID); err != nil {
 				t.Errorf("deleting one of two superadmins should succeed: %v", err)
 			}
 		})
@@ -232,7 +232,7 @@ func TestStartIsQuietWhenEverythingIsReady(t *testing.T) {
 	}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -275,7 +275,7 @@ func TestCreateSuperadminFromFlags(t *testing.T) {
 		t.Errorf("unexpected output: %s", out.String())
 	}
 
-	created, err := a.Auth.Users().ByUsername("root")
+	created, err := a.Auth.Users().ByUsername(t.Context(), "root")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func TestCreateSuperadminFromFlags(t *testing.T) {
 	if created.Password == "supersecret" {
 		t.Fatal("the password must be hashed")
 	}
-	if _, err := a.Auth.Authenticate("root", "supersecret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "root", "supersecret"); err != nil {
 		t.Errorf("the new superadmin should be able to sign in: %v", err)
 	}
 }
@@ -303,7 +303,7 @@ func TestCreateSuperadminPromptsWhenFlagsAreMissing(t *testing.T) {
 			t.Errorf("missing prompt %q in:\n%s", want, out.String())
 		}
 	}
-	if _, err := a.Auth.Users().ByUsername("prompted"); err != nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "prompted"); err != nil {
 		t.Errorf("prompted user was not created: %v", err)
 	}
 }
@@ -315,7 +315,7 @@ func TestCreateSuperadminRejectsWeakPassword(t *testing.T) {
 	if !errors.Is(err, auth.ErrPasswordTooShort) {
 		t.Errorf("got %v, want ErrPasswordTooShort", err)
 	}
-	if a.Auth.Users().Count() != 0 {
+	if userCount(t, a.Auth.Users()) != 0 {
 		t.Error("a rejected password must not create a user")
 	}
 }

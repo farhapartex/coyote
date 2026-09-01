@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"strings"
 	"time"
 )
@@ -15,7 +16,7 @@ type NewUser struct {
 	IsSuperadmin bool
 }
 
-func (s *Service) CreateUser(in NewUser) (*User, error) {
+func (s *Service) CreateUser(ctx context.Context, in NewUser) (*User, error) {
 	candidate := &User{
 		FirstName: strings.TrimSpace(in.FirstName),
 		LastName:  strings.TrimSpace(in.LastName),
@@ -40,14 +41,14 @@ func (s *Service) CreateUser(in NewUser) (*User, error) {
 		IsSuperadmin: in.IsSuperadmin,
 		CreatedAt:    time.Now(),
 	}
-	if err := s.users.Create(u); err != nil {
+	if err := s.users.Create(ctx, u); err != nil {
 		return nil, err
 	}
 	return u, nil
 }
 
-func (s *Service) CreateSuperadmin(username, email, password string) (*User, error) {
-	return s.CreateUser(NewUser{
+func (s *Service) CreateSuperadmin(ctx context.Context, username, email, password string) (*User, error) {
+	return s.CreateUser(ctx, NewUser{
 		Username:     username,
 		Email:        email,
 		Password:     password,
@@ -55,8 +56,8 @@ func (s *Service) CreateSuperadmin(username, email, password string) (*User, err
 	})
 }
 
-func (s *Service) SetPassword(id, password string) error {
-	u, err := s.users.ByID(id)
+func (s *Service) SetPassword(ctx context.Context, id, password string) error {
+	u, err := s.users.ByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -68,5 +69,9 @@ func (s *Service) SetPassword(id, password string) error {
 		return err
 	}
 	u.Password = hash
-	return s.users.Update(u)
+	if err := s.users.Update(ctx, u); err != nil {
+		return err
+	}
+	s.revokeSessions(ctx, u.ID)
+	return nil
 }

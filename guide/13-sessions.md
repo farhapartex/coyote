@@ -38,21 +38,26 @@ They survive exactly one redirect and drain when read. See [Views](07-views.md).
 ## Where sessions live
 
 ```go
-s.Sessions.Backend = settings.SessionsInMemory   // default
-s.Sessions.Backend = settings.SessionsInDB
+s.Sessions.Backend = settings.SessionsInDB       // default
+s.Sessions.Backend = settings.SessionsInMemory
 s.Sessions.Backend = settings.SessionsInCookie
 ```
 
 | | server storage | survives restart | revocable | notes |
 | --- | --- | --- | --- | --- |
-| `memory` | a map | no | yes | fast, zero setup; a restart signs everyone out |
-| `database` | `sessions` table | yes | yes | shared across instances |
+| `memory` | a map | no | yes | fast, zero setup; refused in a deployed environment |
+| `database` | `sessions` table | yes | yes | the default; shared across instances |
 | `cookie` | none | yes | **no** | nothing to store, nothing to look up |
 
 ### memory
 
-The default. Sessions are held in a map, swept every `CleanupInterval`. Sessions are stored as live
-pointers, so a mutation is visible immediately and nothing is serialised.
+Sessions are held in a map, swept every `CleanupInterval`. Sessions are stored as live pointers, so
+a mutation is visible immediately and nothing is serialised.
+
+It is **refused when `Environment` is `staging` or `production`**, and deliberately: a map signs
+everyone out on every deploy and cannot be shared between two instances, so a load balancer sends
+half your traffic to a process that has never heard of the visitor. Ask for it explicitly in
+development if you want a project with no `sessions` table.
 
 ### database
 
@@ -117,9 +122,9 @@ s.Sessions.Domain     = ""
 
 ```go
 type Store interface {
-	Load(id string) (*Session, bool)
-	Save(s *Session) error
-	Delete(id string) error
+	Load(ctx context.Context, id string) (*Session, bool)
+	Save(ctx context.Context, s *Session) error
+	Delete(ctx context.Context, id string) error
 }
 ```
 
@@ -128,12 +133,30 @@ s.Sessions.Store = myRedisStore{}
 ```
 
 Add `Count`, `All` and `DeleteByUserID` — the `ManageableStore` interface — if you want the admin's
-session list and revoke to work against it.
+session list and revoke to work against it:
+
+```go
+type ManageableStore interface {
+	Store
+	Count(ctx context.Context) (int, error)
+	All(ctx context.Context) ([]*Session, error)
+	DeleteByUserID(ctx context.Context, userID string) (int, error)
+}
+```
+
+**The context on a read is the request's, so a client that disconnects cancels it.** The context on
+a write is deliberately not: the session is written on the way out, and a browser closing the
+connection mid-response must not lose the login it just performed. The write carries the request's
+values without its cancellation, so your store still sees the request id and locale.
 
 ## Session fixation
 
 `a.Auth.Login` rotates the session id, so a token captured before sign-in is worthless afterwards.
 You get that for free; no call is needed.
+
+Changing a password ends every session for that account, so a stolen cookie stops working the
+moment the owner notices. The device doing the changing is signed straight back in, because
+`ChangePassword` calls `Login` afterwards.
 
 ## Next
 

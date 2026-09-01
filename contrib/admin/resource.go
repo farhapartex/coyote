@@ -1,6 +1,10 @@
 package admin
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/farhapartex/coyote/core/auth"
+)
 
 type Resource interface {
 	Entity() any
@@ -43,10 +47,18 @@ type Filterable interface {
 }
 
 type Action struct {
-	Name    string
-	Label   string
-	Confirm string
-	Run     func(r *http.Request, ids []string) (int, error)
+	Name       string
+	Label      string
+	Confirm    string
+	Permission string
+	Run        func(r *http.Request, ids []string) (int, error)
+}
+
+func (a Action) permission() string {
+	if a.Permission == "" {
+		return auth.ActionUpdate
+	}
+	return a.Permission
 }
 
 type Actionable interface {

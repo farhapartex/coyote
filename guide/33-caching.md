@@ -205,30 +205,50 @@ s.PageCache = settings.PageCache{
 }
 ```
 
-Or apply it to one group yourself:
+`Paths` is required when `Enabled` is set. Caching every path by default would sooner or later reach a
+page written for one visitor, so the prefixes are yours to name.
+
+Or apply it to one group yourself, where the mount is the scope and `Paths` adds nothing:
 
 ```go
-docs := a.Group("/docs", middleware.PageCache(a.Cache(), settings.PageCache{TTL: time.Hour}))
+docs := a.Group("/docs", middleware.PageCache(a.Cache(), settings.PageCache{TTL: time.Hour},
+	s.Sessions.CookieName))
 ```
 
-A response is stored only when **all** of these hold: the method is GET or HEAD, the status is 200, the
-response set no `Set-Cookie`, the request carried no `Authorization` header, and `Cache-Control` says
-neither `no-store` nor `private`. Responses carry `X-Cache: HIT` or `MISS`.
+**The page cache serves anonymous traffic only.** A request carrying the session cookie is never
+looked up and never stored — it renders live, every time. That is the rule the whole feature rests on,
+and it holds whichever session backend you run, because it reads the request rather than guessing from
+the response. Stored entries carry `Vary: Cookie` so a CDN in front of you applies the same rule.
 
-The `Set-Cookie` rule is the one doing the real work. Sessions are written
-[lazily](13-sessions.md), and a session that stays empty is never written at all — so anonymous traffic
-emits no cookie and is cacheable, while anything that touched a session emits one and is not.
-Personalised pages exclude themselves without you configuring anything.
+A response is stored only when **all** of these also hold: the method is GET or HEAD, the status is
+200, the response set no `Set-Cookie`, the request carried no `Authorization` header, and
+`Cache-Control` says neither `no-store` nor `private`. Responses carry `X-Cache: HIT` or `MISS`.
 
-**The corollary catches people out:** `{{.CSRFToken}}` mints a token, which writes the session, which
-sets a cookie. So a page carrying a form is never cached — correct, but if the form lives in a partial
-that every page shares, such as a search box or a language picker in the nav, you have turned page
-caching off for the whole site. Keep CSRF-protected forms out of shared partials, or accept that those
-pages are uncacheable.
+**What this costs you:** a visitor who picks up a session cookie anywhere — a form's
+`{{.CSRFToken}}`, a language picker, a flash message — stops reading the page cache for as long as
+that cookie lives. On a site where every page shares a partial that mints a token, that is the whole
+site. Keep such partials off the pages you want cached, or accept that those visitors render live.
+
+Per-request headers are never stored: the CSP policy and its nonce, `X-Request-Id` and the
+`RateLimit-*` counters are stripped from an entry and re-issued for each hit.
 
 `Vary` is honoured: the response's `Vary` header names are recorded, and the body is keyed by those
-request headers, so two languages get two entries. `Vary: *` is never cached. A `max-age` or `s-maxage`
-on the response overrides the policy TTL.
+request headers, so two languages get two entries. `Vary: *` is never cached. A `max-age` or
+`s-maxage` on the response overrides the policy TTL.
+
+By default the whole query string is part of the key, which means `?utm_source=…` splits the cache
+and `?x=1` through `?x=99999` fills it. Name the parameters that actually change the page and the
+rest are ignored:
+
+```go
+s.PageCache.Vary = []string{"page", "tag"}
+```
+
+Get that list wrong in the other direction and a page that really does vary on an unlisted parameter
+will serve the wrong body, so name every parameter your handler reads.
+
+`Cookie` is the one response `Vary` name never keyed on. The rule above already settled it, and keying on it
+would hand every visitor holding any cookie at all their own entry.
 
 The middleware sits **inside** `Compress`, so one uncompressed copy is stored and gzip runs per
 response. Do not move it outside, or you will serve gzip to clients that did not ask for it.
@@ -329,7 +349,7 @@ seam exists.
 | `PageCache.Enabled` | `false` | |
 | `PageCache.TTL` | none | Required when enabled |
 | `PageCache.Alias` | the default cache | Which cache holds pages |
-| `PageCache.Paths` | all paths | Only cache these prefixes |
+| `PageCache.Paths` | none | Required when enabled; only cache these prefixes |
 | `PageCache.Skip` | none | Never cache these prefixes |
 
 ## Next

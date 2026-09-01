@@ -16,13 +16,13 @@ func setupStaffAdmin(t *testing.T, fns ...func(*settings.Settings)) *client {
 	base := func(s *settings.Settings) { s.Admin.SiteName = "Test admin" }
 	a := newTestApp(t, append([]func(*settings.Settings){base}, fns...)...)
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "supersecret", IsStaff: true}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "supersecret", IsStaff: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "plain", Password: "supersecret"}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "plain", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
 	admin.Mount(a)
@@ -86,7 +86,7 @@ func TestSidebarHidesPrivilegedLinksFromStaff(t *testing.T) {
 func TestSuperadminIsAlwaysStaff(t *testing.T) {
 	service, _ := newTestAuth()
 
-	root, err := service.CreateSuperadmin("root", "root@example.com", "supersecret")
+	root, err := service.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,14 +142,14 @@ func TestLastSuperadminCannotBeStrippedOfStaff(t *testing.T) {
 	service, _ := newTestAuth()
 	store := auth.Guarded(service.Users())
 
-	root, err := service.CreateSuperadmin("root", "root@example.com", "supersecret")
+	root, err := service.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	demoted := root.Clone()
 	demoted.IsStaff = false
-	if err := store.Update(demoted); err == nil {
+	if err := store.Update(t.Context(), demoted); err == nil {
 		t.Error("the last active superadmin must not lose portal access")
 	}
 }

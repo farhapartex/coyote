@@ -36,16 +36,20 @@ func main() {
 
 - **Admin portal** — login, dashboard, user management, session revoke. Register a model and it
   grows a full CRUD section with no routes, handlers, or templates from you.
-- **Sessions** — three backends: in memory, in the database, or sealed in the cookie with AES-GCM.
+- **Sessions** — three backends: in the database by default, in memory, or sealed in the cookie with
+  AES-GCM.
 - **Authentication** — a user entity, PBKDF2 passwords, sign-in, route guards, pluggable password
-  rules, and optional login throttling.
+  rules, and login throttling on by default.
 - **Permissions** — four permissions per model, bundled into roles, managed from the portal.
 - **Forms and uploads** — struct or schema binding with validation, and file uploads that stage,
   sniff, and clean up after themselves.
-- **Migrations** — versioned, written in Go rather than SQL, applied in a transaction, checksummed
-  so an edited migration is caught rather than silently skipped.
-- **Security by default** — allowed hosts, secure headers, CSRF, CSP with per-request nonces, rate
-  limiting, CORS, gzip, HSTS, and Let's Encrypt certificates.
+- **Migrations** — versioned, written in Go rather than SQL, checksummed so an edited migration is
+  caught rather than silently skipped, applied in a transaction wherever the engine has one, and
+  behind an advisory lock so two deploying instances cannot race.
+- **Security on by default** — CSRF on every route, login throttling, allowed hosts, secure headers,
+  a request body cap, and a session cookie that a deployed environment refuses to send in clear.
+  **Opt in** to CSP with per-request nonces, rate limiting, CORS, gzip, HSTS and Let's Encrypt
+  certificates: each is one setting, and validation tells you when a combination is unsafe.
 - **Caching** — one interface over memory, disk or Redis, with `Remember`, template fragments, whole
   pages and query results. The Redis client is standard library, so it costs no dependency.
 - **Internationalisation** — gettext catalogs, plural rules read from each translator's own file,

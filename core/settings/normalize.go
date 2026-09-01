@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 func (s *Settings) normalize() {
@@ -42,6 +43,7 @@ func (s *Settings) normalize() {
 
 	s.normalizeCaches()
 	s.normalizeEmail()
+	s.normalizeSessions()
 
 	for i := range s.Databases {
 		db := &s.Databases[i]
@@ -55,6 +57,8 @@ func (s *Settings) normalize() {
 		if db.Engine == "" {
 			db.Engine = SQLite
 		}
+		normalizePool(db)
+
 		switch db.Engine {
 		case SQLite:
 			if db.Name == "" {
@@ -78,6 +82,33 @@ func (s *Settings) normalize() {
 				db.Port = 3306
 			}
 		}
+	}
+}
+
+func (s *Settings) normalizeSessions() {
+	if s.Sessions.Backend == "" {
+		s.Sessions.Backend = SessionsInDB
+	}
+}
+
+func normalizePool(db *Database) {
+	if db.IsSQLite() {
+		if db.MaxOpenConns == 0 {
+			db.MaxOpenConns = 1
+		}
+		if db.MaxIdleConns == 0 {
+			db.MaxIdleConns = 1
+		}
+		return
+	}
+	if db.MaxOpenConns == 0 {
+		db.MaxOpenConns = 25
+	}
+	if db.MaxIdleConns == 0 {
+		db.MaxIdleConns = db.MaxOpenConns
+	}
+	if db.ConnMaxLifetime == 0 {
+		db.ConnMaxLifetime = 30 * time.Minute
 	}
 }
 

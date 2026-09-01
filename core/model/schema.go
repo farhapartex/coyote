@@ -78,6 +78,29 @@ func (s *Schema) FormFields() []Field {
 	return out
 }
 
+func (s *Schema) BindableFields(only, except []string) []Field {
+	allowed := map[string]bool{}
+	for _, column := range only {
+		allowed[column] = true
+	}
+	blocked := map[string]bool{}
+	for _, column := range except {
+		blocked[column] = true
+	}
+
+	out := make([]Field, 0, len(s.Fields))
+	for _, f := range s.FormFields() {
+		if len(allowed) > 0 && !allowed[f.Column] {
+			continue
+		}
+		if blocked[f.Column] {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 func (s *Schema) DisplayFields(includeKey bool) []Field {
 	out := make([]Field, 0, len(s.Fields)+1)
 	if includeKey && !s.hidden[s.Key.Column] {
@@ -157,6 +180,25 @@ func (s *Schema) SortColumn(candidate string) (string, string, bool) {
 		}
 	}
 	return "", "", false
+}
+
+type Ordering struct {
+	Column string
+	Desc   bool
+}
+
+func (s *Schema) OrderBy(candidate string) []Ordering {
+	out := make([]Ordering, 0, 2)
+	seen := map[string]bool{}
+	for _, part := range strings.Split(candidate, ",") {
+		column, direction, ok := s.SortColumn(part)
+		if !ok || seen[column] {
+			continue
+		}
+		seen[column] = true
+		out = append(out, Ordering{Column: column, Desc: direction == "desc"})
+	}
+	return out
 }
 
 func (s *Schema) Relation(column string) (Relation, bool) {

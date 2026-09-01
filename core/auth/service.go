@@ -22,7 +22,7 @@ type Options struct {
 	PasswordRules     []PasswordRule
 	Throttle          ThrottlePolicy
 	Limiter           LoginLimiter
-	TrustProxy        bool
+	TrustedProxyCount int
 	PermissionStore   PermissionStore
 	AllowChange       bool
 	Tokens            TokenStore
@@ -36,7 +36,7 @@ type Service struct {
 	minPasswordLength int
 	passwordRules     []PasswordRule
 	limiter           LoginLimiter
-	trustProxy        bool
+	trustedProxies    int
 	permissions       PermissionStore
 	allowChange       bool
 	tokens            TokenStore
@@ -64,7 +64,7 @@ func NewService(users Store, sessions *session.Manager, opts Options) *Service {
 		minPasswordLength: opts.MinPasswordLength,
 		passwordRules:     opts.PasswordRules,
 		limiter:           opts.Limiter,
-		trustProxy:        opts.TrustProxy,
+		trustedProxies:    opts.TrustedProxyCount,
 		permissions:       opts.PermissionStore,
 		allowChange:       opts.AllowChange,
 		tokens:            opts.Tokens,

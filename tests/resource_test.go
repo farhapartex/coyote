@@ -208,7 +208,7 @@ func TestStoreCRUDRoundTrip(t *testing.T) {
 func adminWithResources(t *testing.T, resources ...admin.Resource) (*app.App, *client, *admin.Admin) {
 	t.Helper()
 	a := migratedApp(t, Product{})
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)
@@ -301,7 +301,7 @@ func TestDynamicCRUDOverHTTP(t *testing.T) {
 	token = c.token("/admin/products/" + id)
 	rec = c.do(http.MethodPost, "/admin/products/"+id, url.Values{
 		"csrf_token": {token}, "id": {"tampered"}, "name": {"Desert Boot II"},
-		"sku": {"DB-1"}, "price": {"99"}, "stock": {"5"},
+		"sku": {"DB-1"}, "price": {"99"}, "stock": {"5"}, "is_published": {""},
 	})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update = %d, want 303", rec.Code)
@@ -332,7 +332,7 @@ func TestDynamicFormValidation(t *testing.T) {
 
 	token := c.token("/admin/products/new")
 	rec := c.do(http.MethodPost, "/admin/products/new", url.Values{
-		"csrf_token": {token}, "sku": {"DB-2"}, "price": {"1"},
+		"csrf_token": {token}, "name": {""}, "sku": {"DB-2"}, "price": {"1"},
 	})
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("missing required field = %d, want 400", rec.Code)
@@ -436,5 +436,120 @@ func TestFieldLabels(t *testing.T) {
 		if labels[column] != want {
 			t.Errorf("label for %q = %q, want %q", column, labels[column], want)
 		}
+	}
+}
+
+type Vault struct {
+	ID           string `gorm:"primaryKey;size:64"`
+	Label        string `gorm:"size:100;not null"`
+	AccessToken  string `gorm:"size:200"`
+	PasswordHash string `gorm:"size:200"`
+	RecoveryPin  string `gorm:"size:20" coyote:"sensitive"`
+	CacheKey     string `gorm:"size:100" coyote:"public"`
+	SortKey      string `gorm:"size:100"`
+}
+
+func TestSensitiveFieldsAreRecognisedByNameAndByTag(t *testing.T) {
+	a := migratedApp(t, Vault{})
+	schema, err := a.Describe(Vault{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string]bool{
+		"label":         false,
+		"access_token":  true,
+		"password_hash": true,
+		"recovery_pin":  true,
+		"cache_key":     false,
+		"sort_key":      true,
+	}
+	for column, sensitive := range want {
+		field, ok := schema.Field(column)
+		if !ok {
+			t.Errorf("%s is missing from the schema", column)
+			continue
+		}
+		if field.Sensitive != sensitive {
+			t.Errorf("%s Sensitive = %v, want %v", column, field.Sensitive, sensitive)
+		}
+	}
+}
+
+func TestASensitiveColumnStaysOutOfTheListView(t *testing.T) {
+	a := migratedApp(t, Vault{})
+	schema, err := a.Describe(Vault{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, field := range schema.ListFields() {
+		if field.Sensitive {
+			t.Errorf("%s is sensitive and should not be a list column", field.Column)
+		}
+	}
+}
+
+func TestAColumnTheFormDidNotCarryKeepsItsValue(t *testing.T) {
+	a, c, _ := adminWithResources(t, productResource{})
+
+	rec := c.do(http.MethodPost, "/admin/products/new", url.Values{
+		"csrf_token": {c.token("/admin/products/new")},
+		"name":       {"Desert Boot"}, "sku": {"DB-9"},
+		"price": {"89.95"}, "stock": {"12"}, "is_published": {"1"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("create = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	schema, _ := a.Describe(Product{})
+	records, _ := a.Store()
+	page, _ := records.List(t.Context(), schema, model.Query{Limit: 1})
+	id := page.Records[0].String("id")
+
+	rec = c.do(http.MethodPost, "/admin/products/"+id, url.Values{
+		"csrf_token": {c.token("/admin/products/" + id)},
+		"name":       {"Desert Boot II"}, "sku": {"DB-9"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("update = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	updated, err := records.Find(t.Context(), schema, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.String("name") != "Desert Boot II" {
+		t.Errorf("name = %q, the submitted column should have been written", updated.String("name"))
+	}
+	if updated.String("price") != "89.95" {
+		t.Errorf("price = %q, want 89.95 kept; the form never mentioned it", updated.String("price"))
+	}
+	if !updated.Bool("is_published") {
+		t.Error("is_published was cleared by a form that did not carry it")
+	}
+}
+
+func TestAMissingNotNullColumnIsRefusedRatherThanGuessed(t *testing.T) {
+	_, c, _ := adminWithResources(t, productResource{})
+
+	rec := c.do(http.MethodPost, "/admin/products/new", url.Values{
+		"csrf_token": {c.token("/admin/products/new")},
+		"sku":        {"DB-7"}, "price": {"1"},
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "was not submitted") {
+		t.Error("a not-null column absent from the form should say so rather than be guessed at")
+	}
+}
+
+func TestTheAdminCheckboxAlwaysSendsAValue(t *testing.T) {
+	_, c, _ := adminWithResources(t, productResource{})
+
+	body := c.get("/admin/products/new").Body.String()
+	if !strings.Contains(body, `<input type="hidden" name="is_published" value="">`) {
+		t.Error("a checkbox needs a hidden companion, or unticking it sends nothing at all")
 	}
 }

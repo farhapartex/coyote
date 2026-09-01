@@ -636,3 +636,83 @@ func TestAnUnchangedIndexProducesNothing(t *testing.T) {
 		t.Errorf("an unchanged schema must not churn migrations, got %d op(s)", len(change.Ops))
 	}
 }
+
+func TestSQLiteNeedsNoAdvisoryLockToMigrate(t *testing.T) {
+	handle := newTestDB(t)
+	runner := migrate.NewRunner(handle, settings.SQLite, nil)
+
+	ran := false
+	if err := runner.WithLock(t.Context(), func() error {
+		ran = true
+		return nil
+	}); err != nil {
+		t.Fatalf("WithLock: %v", err)
+	}
+	if !ran {
+		t.Error("the body should still run on an engine with no advisory lock")
+	}
+}
+
+func TestWithLockCarriesTheBodysError(t *testing.T) {
+	handle := newTestDB(t)
+	runner := migrate.NewRunner(handle, settings.SQLite, nil)
+
+	want := errors.New("the migration failed")
+	if err := runner.WithLock(t.Context(), func() error { return want }); !errors.Is(err, want) {
+		t.Errorf("error = %v, want the body's own error", err)
+	}
+}
+
+func TestEnginesReportWhetherTheirDDLIsTransactional(t *testing.T) {
+	for engine, want := range map[settings.Engine]bool{
+		settings.SQLite:   true,
+		settings.Postgres: true,
+		settings.MySQL:    false,
+	} {
+		runner := migrate.NewRunner(newTestDB(t), engine, nil)
+		if got := runner.TransactionalDDL(); got != want {
+			t.Errorf("%s TransactionalDDL = %v, want %v", engine, got, want)
+		}
+	}
+}
+
+func TestQuotingLeavesExactlyOneIdentifier(t *testing.T) {
+	cases := []struct {
+		d       dialect.Dialect
+		quote   string
+		hostile string
+	}{
+		{dialect.SQLite{}, `"`, `t"; DROP TABLE users; --`},
+		{dialect.Postgres{}, `"`, `t"; DROP TABLE users; --`},
+		{dialect.MySQL{}, "`", "t`; DROP TABLE users; --"},
+	}
+	for _, c := range cases {
+		quoted := c.d.Quote(c.hostile)
+		bare := strings.ReplaceAll(quoted, c.quote+c.quote, "")
+		if got := strings.Count(bare, c.quote); got != 2 {
+			t.Errorf("%s quoted %q with %d unescaped delimiters, want 2", c.d.Name(), quoted, got)
+		}
+	}
+}
+
+func TestAHostileTableNameCannotDropAnotherTable(t *testing.T) {
+	handle := newTestDB(t)
+	if err := handle.Exec(`CREATE TABLE users (id TEXT)`).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	hostile := `t"; DROP TABLE users; --`
+	create := dialect.SQLite{}.CreateTable(hostile, []dialect.Column{
+		{Name: "id", Type: "TEXT", PrimaryKey: true},
+	})
+	if err := handle.Exec(create).Error; err != nil {
+		t.Fatalf("the quoted identifier should be legal SQL: %v\n%s", err, create)
+	}
+
+	if !handle.Migrator().HasTable("users") {
+		t.Error("users was dropped by a table name")
+	}
+	if !handle.Migrator().HasTable(hostile) {
+		t.Errorf("the table should exist under its literal name")
+	}
+}

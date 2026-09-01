@@ -16,7 +16,7 @@ func accountsApp(t *testing.T, opts accounts.Options, fns ...func(*settings.Sett
 	t.Helper()
 	a := newTestApp(t, fns...)
 	accounts.Mount(a, opts)
-	if _, err := a.Auth.CreateUser(auth.NewUser{
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
 		Username: "jane", Email: "jane@example.com", Password: "unrelated-and-long",
 	}); err != nil {
 		t.Fatal(err)
@@ -95,7 +95,7 @@ func TestRegistrationCreatesAPlainUserAndSignsThemIn(t *testing.T) {
 		t.Fatalf("register: %d, want 303. body: %s", rec.Code, rec.Body.String())
 	}
 
-	user, err := a.Auth.Users().ByUsername("newcomer")
+	user, err := a.Auth.Users().ByUsername(t.Context(), "newcomer")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestProfileEditingAndPasswordChange(t *testing.T) {
 		t.Fatalf("saving the profile: %d", rec.Code)
 	}
 
-	user, err := a.Auth.Users().ByUsername("jane")
+	user, err := a.Auth.Users().ByUsername(t.Context(), "jane")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestProfileEditingAndPasswordChange(t *testing.T) {
 		t.Fatalf("changing the password: %d", rec.Code)
 	}
 
-	if _, err := a.Auth.Authenticate("jane", "another-good-secret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "another-good-secret"); err != nil {
 		t.Errorf("the new password should work: %v", err)
 	}
 }
@@ -208,12 +208,12 @@ func TestAccountsPagesCanBeReplaced(t *testing.T) {
 func TestLoginNeverWritesStaleUserFields(t *testing.T) {
 	a, c := accountsApp(t, accounts.Options{})
 
-	stale, err := a.Auth.Users().ByUsername("jane")
+	stale, err := a.Auth.Users().ByUsername(t.Context(), "jane")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := a.Auth.SetPassword(stale.ID, "a-brand-new-secret"); err != nil {
+	if err := a.Auth.SetPassword(t.Context(), stale.ID, "a-brand-new-secret"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -226,7 +226,7 @@ func TestLoginNeverWritesStaleUserFields(t *testing.T) {
 		t.Fatalf("login: %d", rec.Code)
 	}
 
-	if _, err := a.Auth.Authenticate("jane", "a-brand-new-secret"); err != nil {
+	if _, err := a.Auth.Authenticate(t.Context(), "jane", "a-brand-new-secret"); err != nil {
 		t.Errorf("signing in with a stale user object must not revert the stored password: %v", err)
 	}
 	if stale.LastLoginAt.IsZero() {

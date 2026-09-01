@@ -300,9 +300,9 @@ The framework supplies the token primitives and stops there, because the deliver
 `core/auth`:
 
 ```go
-plain, err := a.Auth.CreateResetToken(user.ID)   // stores only a digest
-user, err := a.Auth.CheckResetToken(plain)       // validates without consuming
-user, err := a.Auth.UseResetToken(plain, auth.PasswordChange{New: pw, Confirm: pw})
+plain, err := a.Auth.CreateResetToken(ctx, user.ID) // stores only a digest
+user, err := a.Auth.CheckResetToken(ctx, plain)     // validates without consuming
+user, err := a.Auth.UseResetToken(ctx, plain, auth.PasswordChange{New: pw, Confirm: pw})
 ```
 
 The whole flow is about thirty lines of application code:
@@ -315,7 +315,7 @@ func requestReset(a *app.App, sender mail.Sender) http.HandlerFunc {
 
 		user, err := a.Auth.Users().ByEmail(address)
 		if err == nil {
-			plain, err := a.Auth.CreateResetToken(user.ID)
+			plain, err := a.Auth.CreateResetToken(r.Context(), user.ID)
 			if err != nil {
 				log.Printf("reset token for %s: %v", user.ID, err)
 			} else {

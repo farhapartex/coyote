@@ -13,7 +13,7 @@ import (
 )
 
 func TestRoutingAndMethods(t *testing.T) {
-	a := newTestApp(t)
+	a := newTestApp(t, withoutCSRF)
 	a.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("pong"))
 	})
@@ -241,6 +241,7 @@ func TestNewReadsConfiguredSettings(t *testing.T) {
 		s.Debug = true
 		s.Server.Port = 4567
 		s.Sessions.CookieName = "gate_session"
+		s.Sessions.Backend = settings.SessionsInMemory
 		s.Templates.FS = templateFS()
 		s.Templates.Layout = "layouts/base.html"
 		s.Auth.PBKDF2Iterations = 1000

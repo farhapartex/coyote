@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -27,7 +28,7 @@ func LazySessions(resolve Resolver, sweep time.Duration) session.ManageableStore
 	return &sessionStore{resolve: resolve, sweep: sweep, stop: make(chan struct{}), swept: time.Now()}
 }
 
-func (s *sessionStore) handle() (*gorm.DB, error) {
+func (s *sessionStore) handle(ctx context.Context) (*gorm.DB, error) {
 	if s.resolve == nil {
 		return nil, errors.New("coyote/store: no database resolver configured")
 	}
@@ -38,12 +39,13 @@ func (s *sessionStore) handle() (*gorm.DB, error) {
 	if handle == nil {
 		return nil, errors.New("coyote/store: no database connection")
 	}
+	handle = handle.WithContext(ctx)
 	s.maybeSweep(handle)
 	return handle, nil
 }
 
-func (s *sessionStore) Load(id string) (*session.Session, bool) {
-	handle, err := s.handle()
+func (s *sessionStore) Load(ctx context.Context, id string) (*session.Session, bool) {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return nil, false
 	}
@@ -52,19 +54,19 @@ func (s *sessionStore) Load(id string) (*session.Session, bool) {
 		return nil, false
 	}
 	if time.Now().After(rows[0].ExpiresAt) {
-		_ = s.Delete(id)
+		_ = s.Delete(ctx, id)
 		return nil, false
 	}
 	restored, err := rows[0].Session()
 	if err != nil {
-		_ = s.Delete(id)
+		_ = s.Delete(ctx, id)
 		return nil, false
 	}
 	return restored, true
 }
 
-func (s *sessionStore) Save(target *session.Session) error {
-	handle, err := s.handle()
+func (s *sessionStore) Save(ctx context.Context, target *session.Session) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -78,34 +80,34 @@ func (s *sessionStore) Save(target *session.Session) error {
 	}).Create(&record).Error
 }
 
-func (s *sessionStore) Delete(id string) error {
-	handle, err := s.handle()
+func (s *sessionStore) Delete(ctx context.Context, id string) error {
+	handle, err := s.handle(ctx)
 	if err != nil {
 		return err
 	}
 	return handle.Where("id = ?", id).Delete(&session.Record{}).Error
 }
 
-func (s *sessionStore) Count() int {
-	handle, err := s.handle()
+func (s *sessionStore) Count(ctx context.Context) (int, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	var total int64
 	if err := handle.Model(&session.Record{}).Where("expires_at > ?", time.Now()).Count(&total).Error; err != nil {
-		return 0
+		return 0, err
 	}
-	return int(total)
+	return int(total), nil
 }
 
-func (s *sessionStore) All() []*session.Session {
-	handle, err := s.handle()
+func (s *sessionStore) All(ctx context.Context) ([]*session.Session, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	rows := []session.Record{}
 	if err := handle.Where("expires_at > ?", time.Now()).Order("created_at desc").Find(&rows).Error; err != nil {
-		return nil
+		return nil, err
 	}
 	out := make([]*session.Session, 0, len(rows))
 	for _, row := range rows {
@@ -115,19 +117,19 @@ func (s *sessionStore) All() []*session.Session {
 		}
 		out = append(out, restored)
 	}
-	return out
+	return out, nil
 }
 
-func (s *sessionStore) DeleteByUserID(userID string) int {
-	handle, err := s.handle()
+func (s *sessionStore) DeleteByUserID(ctx context.Context, userID string) (int, error) {
+	handle, err := s.handle(ctx)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	result := handle.Where("user_id = ?", userID).Delete(&session.Record{})
 	if result.Error != nil {
-		return 0
+		return 0, result.Error
 	}
-	return int(result.RowsAffected)
+	return int(result.RowsAffected), nil
 }
 
 func (s *sessionStore) Close() {

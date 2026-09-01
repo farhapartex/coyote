@@ -67,9 +67,6 @@ func applyDeployed(s *Settings) {
 	s.Logging.Level = "info"
 	s.Logging.Format = "json"
 	s.Sessions.Secure = true
-	if s.Server.ReadTimeout == 0 {
-		s.Server.ReadTimeout = 15 * time.Second
-	}
 	if s.Server.WriteTimeout == 0 {
 		s.Server.WriteTimeout = 30 * time.Second
 	}

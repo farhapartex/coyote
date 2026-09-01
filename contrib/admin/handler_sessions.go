@@ -28,12 +28,17 @@ func (a *Admin) sessionList(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	live, err := store.All(r.Context())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	current := session.FromRequest(r)
 	rows := []sessionRow{}
-	for _, s := range store.All() {
+	for _, s := range live {
 		username := i18n.T(r.Context(), "anonymous")
 		if id := s.UserID(); id != "" {
-			if u, err := a.app.Auth.Users().ByID(id); err == nil {
+			if u, err := a.app.Auth.Users().ByID(r.Context(), id); err == nil {
 				username = u.Username
 			} else {
 				username = i18n.T(r.Context(), "unknown")
@@ -63,7 +68,7 @@ func (a *Admin) sessionRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if store, ok := a.sessionStore(); ok {
-		_ = store.Delete(id)
+		_ = store.Delete(r.Context(), id)
 		view.Flash(r, "success", i18n.T(r.Context(), "Session revoked."))
 	} else {
 		view.Flash(r, "error", i18n.T(r.Context(), "The configured session store cannot revoke sessions."))

@@ -36,17 +36,31 @@ The `production` preset already turns `Debug` off, switches logging to JSON at `
 `AllowedHosts`, sets `Sessions.Secure`, caches templates, and applies server timeouts. Validation
 refuses to start on an unsafe combination, so a bad config fails before it serves traffic.
 
+**`Preset` is what applies that hardening, not the `Environment` value.** Setting
+`s.Environment = settings.Production` by hand labels the environment and nothing more, so
+validation asks for the pieces the preset would have set — `Sessions.Secure`,
+`Server.WriteTimeout` — by name. That is deliberate: nothing rewrites a choice you made on purpose,
+such as a longer write timeout for a streaming endpoint.
+
 ## Checklist
 
 - [ ] `SecretKey` from the environment, at least 32 random characters, not in source control
 - [ ] `AllowedHosts` listing the real host names — never `"*"`
-- [ ] `Environment` set to `production` (or `staging`)
+- [ ] `Environment` set to `production` (or `staging`), ideally through `settings.Preset`
 - [ ] TLS terminated, either [in-process](22-https.md) or by a proxy
-- [ ] `Sessions.Secure = true`
+- [ ] `Sessions.Secure = true` — refused otherwise, so this one cannot be forgotten
+- [ ] `Server.ReadTimeout` and `Server.WriteTimeout` set — also refused otherwise
 - [ ] Migrations applied as part of the release, before the new binary takes traffic
 - [ ] A superadmin created once, then `createsuperadmin` no longer needed
 - [ ] `Server.TLS.CacheDir` kept across deploys if you use Autocert
-- [ ] Session backend chosen deliberately — `memory` signs everyone out on every deploy
+- [ ] Session backend chosen deliberately — `database` by default; `memory` is refused here
+- [ ] [`Security.RateLimit`](19-rate-limiting.md) decided one way or the other
+
+Rate limiting stays off unless you ask for it, and that is deliberate: the limiter sits in the same
+chain as your static files, so a page with twenty assets costs twenty-one requests against the
+allowance, and a shared office address arrives as one client. Pick numbers that fit your traffic, or
+put the limit in the proxy in front. [Login throttling](14-authentication.md) is separate and is
+already on.
 
 ## Sessions across restarts and instances
 
@@ -75,12 +89,19 @@ s.Logging.Format = "json"
 s.Logging.Logger = myLogger   // your own *slog.Logger, if you have one
 ```
 
+**A failed query does not log its SQL unless `Debug` is on.** GORM hands back the statement with the
+values already substituted, so logging it in production would put whatever the row held — an address,
+an email, a token digest — into your log pipeline, where it outlives the request and travels
+wherever logs travel. Deployed, the line carries the error, the row count and the duration; turn
+`Debug` on to see the statement.
+
 ## Behind a proxy
 
 Serve plain HTTP on a private address and let the proxy terminate TLS. Keep
-`middleware.RequireHTTPS` (it reads `X-Forwarded-Proto`), set `Sessions.Secure = true`, and turn on
-`Security.RateLimit.TrustProxy` / `Security.TrustRequestID` **only** if that proxy sets those
-headers itself.
+`middleware.RequireHTTPS`, set `Sessions.Secure = true`, and set `Security.TrustedProxyCount` to the
+number of proxies actually in front of the app — one for a single nginx or load balancer, two behind
+a CDN as well. Nothing reads a forwarding header until you do. Turn on `Security.TrustRequestID`
+**only** if that proxy sets `X-Request-Id` itself.
 
 ## Next
 
