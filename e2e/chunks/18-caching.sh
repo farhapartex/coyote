@@ -47,6 +47,9 @@ boot_the_server() {
 	server_start
 	if server_wait_for_http; then
 		check_passed "the application serves with caching enabled"
+		http_reset_session
+		note "why the session is reset" \
+			"the page cache serves anonymous traffic only, so a request still carrying a session cookie from an earlier chunk would bypass it entirely"
 		return 0
 	fi
 	check_failed "the application serves with caching enabled" "$(tail -20 "$SERVER_LOG")"

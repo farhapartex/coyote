@@ -86,6 +86,7 @@ check_production_boots_when_it_is_configured_properly() {
 }
 
 check_the_session_cookie_hardens() {
+	http_reset_session
 	http_get "/quote"
 	local cookie
 	cookie="$(http_header_value Set-Cookie)"

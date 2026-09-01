@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/core/settings"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -245,5 +246,54 @@ func TestSafeNextRefusesEverythingOffsite(t *testing.T) {
 		if got := view.SafeNext(next, "/safe"); got != next {
 			t.Errorf("SafeNext(%q) = %q, a same-site path should survive", next, got)
 		}
+	}
+}
+
+func TestTheSessionCookieHardensInProduction(t *testing.T) {
+	a := newTestApp(t, func(s *settings.Settings) {
+		settings.Production.Apply(s)
+		s.Debug = false
+		s.AllowedHosts = []string{"*"}
+	})
+	a.Get("/touch", func(w http.ResponseWriter, r *http.Request) {
+		session.FromRequest(r).Set("seen", true)
+	})
+
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/touch", nil))
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("a session that was written should emit a cookie")
+	}
+	cookie := cookies[0]
+	if !cookie.Secure {
+		t.Error("the session cookie must be Secure in production")
+	}
+	if !cookie.HttpOnly {
+		t.Error("the session cookie must be HttpOnly")
+	}
+	if cookie.SameSite != http.SameSiteLaxMode {
+		t.Errorf("SameSite = %v, want Lax", cookie.SameSite)
+	}
+}
+
+func TestASessionThatWasNotTouchedWritesNoCookie(t *testing.T) {
+	a := newTestApp(t, func(s *settings.Settings) { s.Sessions.Backend = settings.SessionsInDB })
+	a.Get("/enter", func(w http.ResponseWriter, r *http.Request) {
+		session.FromRequest(r).Set("seen", true)
+	})
+	a.Get("/read", func(w http.ResponseWriter, r *http.Request) {
+		session.FromRequest(r).GetString("seen")
+	})
+
+	c := newClient(t, a.Handler())
+	if got := c.get("/enter").Result().Cookies(); len(got) == 0 {
+		t.Fatal("writing to the session should set a cookie")
+	}
+
+	rec := c.get("/read")
+	if got := rec.Result().Cookies(); len(got) != 0 {
+		t.Errorf("a read-only request wrote a cookie: %+v", got)
 	}
 }

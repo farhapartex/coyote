@@ -155,10 +155,13 @@ check_the_tracking_pages() {
 
 check_the_method_is_enforced() {
 	http_post "/about" "unused=1"
-	assert_equal "POST to a GET-only route answers 405" "405" "$HTTP_STATUS"
+	assert_equal "POST to a GET-only route is refused before it is routed" "403" "$HTTP_STATUS"
 
 	http_post "/services/ocean-freight" "unused=1"
-	assert_equal "POST to a dynamic GET-only route answers 405" "405" "$HTTP_STATUS"
+	assert_equal "POST to a dynamic GET-only route is refused too" "403" "$HTTP_STATUS"
+
+	note "why 403 and not 405" \
+		"CSRF is global and runs before dispatch, so an unsafe request with no token is answered before the route is known; that also tells a prober nothing about which methods a path accepts"
 }
 
 check_an_unknown_path() {
@@ -182,8 +185,11 @@ but an unknown URL cannot be styled at all, which is visible to every visitor of
 }
 
 check_the_admin_still_works_alongside_the_public_site() {
+	http_reset_session
 	assert_http_status "the admin is still mounted" "303" "/admin/customers"
 	assert_http_status "the static file is still served" "200" "/static/site.css"
+	note "why the session is reset first" \
+		"sessions live in the database now, so one survives a restart; without a reset this request would still be signed in from an earlier chunk"
 }
 
 check_the_public_site_needs_no_session() {
