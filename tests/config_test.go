@@ -1,12 +1,14 @@
 package tests
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/farhapartex/coyote/core/app"
 	"github.com/farhapartex/coyote/core/settings"
 	"github.com/farhapartex/coyote/lib/dotenv"
 )
@@ -406,5 +408,40 @@ func TestReadTimeoutIsSetInEveryEnvironment(t *testing.T) {
 	}
 	if got := settings.Default().Server.WriteTimeout; got != 0 {
 		t.Errorf("WriteTimeout = %v; it stays unset so streaming handlers are not cut off", got)
+	}
+}
+
+func loggedQueryFailure(t *testing.T, fns ...func(*settings.Settings)) string {
+	t.Helper()
+	written := &strings.Builder{}
+	base := func(s *settings.Settings) {
+		s.Logging.Logger = slog.New(slog.NewTextHandler(written, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	}
+	a := app.NewFrom(devSettings(t, append([]func(*settings.Settings){base}, fns...)...))
+
+	if _, err := a.Auth.Users().ByEmail(t.Context(), "ada@example.test"); err == nil {
+		t.Fatal("reading an unmigrated table should fail")
+	}
+	if !strings.Contains(written.String(), "gorm query failed") {
+		t.Fatalf("the failure was not logged at all:\n%s", written.String())
+	}
+	return written.String()
+}
+
+func TestAFailedQueryDoesNotLogItsValuesInProduction(t *testing.T) {
+	written := loggedQueryFailure(t, func(s *settings.Settings) { s.Debug = false })
+
+	for _, leaked := range []string{"ada@example.test", "SELECT", "sql="} {
+		if strings.Contains(written, leaked) {
+			t.Errorf("the log carries %q:\n%s", leaked, written)
+		}
+	}
+}
+
+func TestDebugStillLogsTheFailedStatement(t *testing.T) {
+	written := loggedQueryFailure(t)
+
+	if !strings.Contains(written, "sql=") || !strings.Contains(written, "ada@example.test") {
+		t.Errorf("Debug should still show the statement and its values:\n%s", written)
 	}
 }

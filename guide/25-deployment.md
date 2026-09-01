@@ -89,6 +89,12 @@ s.Logging.Format = "json"
 s.Logging.Logger = myLogger   // your own *slog.Logger, if you have one
 ```
 
+**A failed query does not log its SQL unless `Debug` is on.** GORM hands back the statement with the
+values already substituted, so logging it in production would put whatever the row held — an address,
+an email, a token digest — into your log pipeline, where it outlives the request and travels
+wherever logs travel. Deployed, the line carries the error, the row count and the duration; turn
+`Debug` on to see the statement.
+
 ## Behind a proxy
 
 Serve plain HTTP on a private address and let the proxy terminate TLS. Keep

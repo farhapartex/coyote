@@ -10,15 +10,16 @@ import (
 )
 
 type slogLogger struct {
-	log   *slog.Logger
-	level logger.LogLevel
+	log       *slog.Logger
+	level     logger.LogLevel
+	statement bool
 }
 
-func newLogger(log *slog.Logger, level logger.LogLevel) logger.Interface {
+func newLogger(log *slog.Logger, level logger.LogLevel, statement bool) logger.Interface {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &slogLogger{log: log, level: level}
+	return &slogLogger{log: log, level: level, statement: statement}
 }
 
 func (l *slogLogger) LogMode(level logger.LogLevel) logger.Interface {
@@ -51,9 +52,11 @@ func (l *slogLogger) Trace(_ context.Context, begin time.Time, fc func() (string
 	}
 	statement, rows := fc()
 	attrs := []any{
-		slog.String("sql", statement),
 		slog.Int64("rows", rows),
 		slog.Duration("took", time.Since(begin).Round(time.Microsecond)),
+	}
+	if l.statement {
+		attrs = append(attrs, slog.String("sql", statement))
 	}
 	switch {
 	case err != nil && !errors.Is(err, logger.ErrRecordNotFound):
