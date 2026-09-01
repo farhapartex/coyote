@@ -147,6 +147,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `PageCache` | off | Whole-page caching; see [Caching](33-caching.md) |
 | `Server.Host` | `127.0.0.1` | |
 | `Server.Port` | `8000` | |
+| `Server.MaxBodyBytes` | `32 MB` | Cap on any request body; 0 lifts it |
 | `Server.ReadTimeout` | none | |
 | `Server.WriteTimeout` | none | |
 | `Server.IdleTimeout` | `2m` | |

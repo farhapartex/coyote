@@ -125,6 +125,7 @@ func NewFrom(s Settings) *App {
 		requestID(s),
 		middleware.RequestLogger(a.Logger),
 		middleware.AllowedHosts(s.AllowedHosts, s.Debug),
+		middleware.LimitBody(s.Server.MaxBodyBytes),
 		middleware.SecureHeaders,
 	}
 	a.global = append(a.global, securityPolicies(s)...)

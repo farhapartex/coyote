@@ -7,7 +7,7 @@ import (
 	"github.com/farhapartex/coyote/core/session"
 )
 
-const multipartMemory = 32 << 20
+const multipartMemory = 1 << 20
 
 var safeMethods = map[string]bool{
 	http.MethodGet:     true,

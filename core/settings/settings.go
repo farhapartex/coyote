@@ -58,6 +58,7 @@ type Migrations struct {
 type Server struct {
 	Host              string
 	Port              int
+	MaxBodyBytes      int64
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 	IdleTimeout       time.Duration

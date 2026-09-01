@@ -14,6 +14,7 @@ Recoverer          panics become a logged 500 instead of a dropped connection
 RequestID          every request gets an id, returned as X-Request-Id
 RequestLogger      one structured access-log line per request
 AllowedHosts       an unlisted Host header gets a 400
+LimitBody          a body over Server.MaxBodyBytes gets a 413
 SecureHeaders      X-Content-Type-Options, X-Frame-Options, Referrer-Policy
 HSTS               only when Server.TLS.HSTS is set
 CSP                only when Security.CSP is set

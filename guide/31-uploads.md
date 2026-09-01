@@ -117,6 +117,7 @@ The filename and the `Content-Type` header both come from the client, so neither
 | Check | What it stops |
 | --- | --- |
 | `MaxBytesReader` before the body is read | a huge POST exhausting memory |
+| `Server.MaxBodyBytes` capping every request | a body reaching any handler unbounded |
 | Sniffing the first 512 bytes | a `.png` that is really a script |
 | Sniffed type must match the declared one | a spoofed header |
 | Extension derived from the **sniffed** type | traversal and double extensions |

@@ -53,6 +53,12 @@ func (s Settings) validateServer(add func(string)) {
 	if s.Server.ShutdownTimeout < 0 {
 		add("Server.ShutdownTimeout cannot be negative")
 	}
+	if s.Server.MaxBodyBytes < 0 {
+		add("Server.MaxBodyBytes cannot be negative; use 0 to lift the cap")
+	}
+	if s.Uploads.Enabled && s.Server.MaxBodyBytes > 0 && s.Server.MaxBodyBytes < s.Uploads.MaxSize {
+		add("Server.MaxBodyBytes is smaller than Uploads.MaxSize, so no upload could ever reach its own limit")
+	}
 }
 
 func (s Settings) validateSessions(add func(string)) {
