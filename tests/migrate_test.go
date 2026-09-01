@@ -675,3 +675,44 @@ func TestEnginesReportWhetherTheirDDLIsTransactional(t *testing.T) {
 		}
 	}
 }
+
+func TestQuotingLeavesExactlyOneIdentifier(t *testing.T) {
+	cases := []struct {
+		d       dialect.Dialect
+		quote   string
+		hostile string
+	}{
+		{dialect.SQLite{}, `"`, `t"; DROP TABLE users; --`},
+		{dialect.Postgres{}, `"`, `t"; DROP TABLE users; --`},
+		{dialect.MySQL{}, "`", "t`; DROP TABLE users; --"},
+	}
+	for _, c := range cases {
+		quoted := c.d.Quote(c.hostile)
+		bare := strings.ReplaceAll(quoted, c.quote+c.quote, "")
+		if got := strings.Count(bare, c.quote); got != 2 {
+			t.Errorf("%s quoted %q with %d unescaped delimiters, want 2", c.d.Name(), quoted, got)
+		}
+	}
+}
+
+func TestAHostileTableNameCannotDropAnotherTable(t *testing.T) {
+	handle := newTestDB(t)
+	if err := handle.Exec(`CREATE TABLE users (id TEXT)`).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	hostile := `t"; DROP TABLE users; --`
+	create := dialect.SQLite{}.CreateTable(hostile, []dialect.Column{
+		{Name: "id", Type: "TEXT", PrimaryKey: true},
+	})
+	if err := handle.Exec(create).Error; err != nil {
+		t.Fatalf("the quoted identifier should be legal SQL: %v\n%s", err, create)
+	}
+
+	if !handle.Migrator().HasTable("users") {
+		t.Error("users was dropped by a table name")
+	}
+	if !handle.Migrator().HasTable(hostile) {
+		t.Errorf("the table should exist under its literal name")
+	}
+}

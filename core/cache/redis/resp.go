@@ -101,6 +101,8 @@ func readReply(r *bufio.Reader) (reply, error) {
 	return reply{}, fmt.Errorf("%w: unknown reply type %q", ErrProtocol, prefix)
 }
 
+const maxBulkSize = 64 << 20
+
 func readBulk(r *bufio.Reader, line string) (reply, error) {
 	size, err := strconv.Atoi(line)
 	if err != nil {
@@ -108,6 +110,9 @@ func readBulk(r *bufio.Reader, line string) (reply, error) {
 	}
 	if size < 0 {
 		return reply{kind: typeBulk, null: true}, nil
+	}
+	if size > maxBulkSize {
+		return reply{}, fmt.Errorf("%w: a %d byte reply is past the %d byte limit", ErrProtocol, size, maxBulkSize)
 	}
 	buffer := make([]byte, size+2)
 	if _, err := io.ReadFull(r, buffer); err != nil {

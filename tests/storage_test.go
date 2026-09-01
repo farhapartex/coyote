@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -184,5 +185,52 @@ func TestSavesAreAtomic(t *testing.T) {
 	}
 	if len(listed) != 1 {
 		t.Errorf("a replaced file should leave no temporary behind: %+v", listed)
+	}
+}
+
+func TestASymlinkCannotLeadOutOfTheRoot(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "media")
+	outside := filepath.Join(base, "outside")
+	for _, dir := range []string{root, outside} {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("not yours"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Skipf("symlinks are unavailable here: %v", err)
+	}
+
+	store := storage.NewFileSystem(root)
+	ctx := t.Context()
+
+	if _, err := store.Open(ctx, "escape/secret.txt"); !errors.Is(err, storage.ErrBadKey) {
+		t.Errorf("error = %v, want ErrBadKey; a link inside the root led outside it", err)
+	}
+	if _, err := store.Save(ctx, "escape/planted.txt", strings.NewReader("x")); !errors.Is(err, storage.ErrBadKey) {
+		t.Errorf("error = %v, want ErrBadKey; a write followed the link out", err)
+	}
+	if _, err := os.Stat(filepath.Join(outside, "planted.txt")); err == nil {
+		t.Error("a file was written outside the media root")
+	}
+}
+
+func TestAnOrdinaryPathIsStillReachableThroughASymlinkedRoot(t *testing.T) {
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	if err := os.MkdirAll(real, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(base, "linked")
+	if err := os.Symlink(real, linked); err != nil {
+		t.Skipf("symlinks are unavailable here: %v", err)
+	}
+
+	store := storage.NewFileSystem(linked)
+	if _, err := store.Save(t.Context(), "ab/file.txt", strings.NewReader("hello")); err != nil {
+		t.Errorf("a root that is itself a symlink should still work: %v", err)
 	}
 }

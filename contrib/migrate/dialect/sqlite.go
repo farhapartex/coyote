@@ -2,6 +2,7 @@ package dialect
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/farhapartex/coyote/core/model"
 )
@@ -10,7 +11,9 @@ type SQLite struct{}
 
 func (SQLite) Name() string { return "sqlite" }
 
-func (SQLite) Quote(identifier string) string { return `"` + identifier + `"` }
+func (SQLite) Quote(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
+}
 
 func (d SQLite) CreateTable(table string, columns []Column) string {
 	return createTable(d, table, columns, true)

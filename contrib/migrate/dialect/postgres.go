@@ -3,6 +3,7 @@ package dialect
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/farhapartex/coyote/core/model"
 )
@@ -11,7 +12,9 @@ type Postgres struct{}
 
 func (Postgres) Name() string { return "postgres" }
 
-func (Postgres) Quote(identifier string) string { return `"` + identifier + `"` }
+func (Postgres) Quote(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
+}
 
 func (d Postgres) CreateTable(table string, columns []Column) string {
 	return createTable(d, table, columns, false)

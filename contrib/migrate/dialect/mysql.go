@@ -2,6 +2,7 @@ package dialect
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/farhapartex/coyote/core/model"
 )
@@ -10,7 +11,9 @@ type MySQL struct{}
 
 func (MySQL) Name() string { return "mysql" }
 
-func (MySQL) Quote(identifier string) string { return "`" + identifier + "`" }
+func (MySQL) Quote(identifier string) string {
+	return "`" + strings.ReplaceAll(identifier, "`", "``") + "`"
+}
 
 func (d MySQL) CreateTable(table string, columns []Column) string {
 	return createTable(d, table, columns, false)
