@@ -152,9 +152,9 @@ func assign(target reflect.Value, raw string, field reflect.StructField) error {
 			target.SetInt(0)
 			return nil
 		}
-		number, err := strconv.ParseInt(raw, 10, 64)
+		number, err := strconv.ParseInt(raw, 10, target.Type().Bits())
 		if err != nil {
-			return fmt.Errorf("must be a whole number")
+			return numberProblem(err, "must be a whole number")
 		}
 		target.SetInt(number)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -162,9 +162,9 @@ func assign(target reflect.Value, raw string, field reflect.StructField) error {
 			target.SetUint(0)
 			return nil
 		}
-		number, err := strconv.ParseUint(raw, 10, 64)
+		number, err := strconv.ParseUint(raw, 10, target.Type().Bits())
 		if err != nil {
-			return fmt.Errorf("must be a positive whole number")
+			return numberProblem(err, "must be a positive whole number")
 		}
 		target.SetUint(number)
 	case reflect.Float32, reflect.Float64:
@@ -172,13 +172,20 @@ func assign(target reflect.Value, raw string, field reflect.StructField) error {
 			target.SetFloat(0)
 			return nil
 		}
-		number, err := strconv.ParseFloat(raw, 64)
+		number, err := strconv.ParseFloat(raw, target.Type().Bits())
 		if err != nil {
-			return fmt.Errorf("must be a number")
+			return numberProblem(err, "must be a number")
 		}
 		target.SetFloat(number)
 	}
 	return nil
+}
+
+func numberProblem(err error, malformed string) error {
+	if errors.Is(err, strconv.ErrRange) {
+		return fmt.Errorf("is out of range")
+	}
+	return fmt.Errorf("%s", malformed)
 }
 
 func truthy(raw string) bool {
