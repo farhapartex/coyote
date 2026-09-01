@@ -80,12 +80,23 @@ func ordering(schema *model.Schema, query model.Query) clause.OrderBy {
 			Desc:   direction == "desc",
 		}}}
 	}
-	if query.Order != "" {
-		return clause.OrderBy{Expression: clause.Expr{SQL: query.Order}}
+	if columns := orderColumns(schema.OrderBy(query.Order)); len(columns) > 0 {
+		return clause.OrderBy{Columns: columns}
 	}
 	return clause.OrderBy{Columns: []clause.OrderByColumn{{
 		Column: clause.Column{Name: schema.Key.Column},
 	}}}
+}
+
+func orderColumns(order []model.Ordering) []clause.OrderByColumn {
+	out := make([]clause.OrderByColumn, 0, len(order))
+	for _, entry := range order {
+		out = append(out, clause.OrderByColumn{
+			Column: clause.Column{Name: entry.Column},
+			Desc:   entry.Desc,
+		})
+	}
+	return out
 }
 
 func selection(schema *model.Schema, query model.Query) []string {

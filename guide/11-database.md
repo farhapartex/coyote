@@ -164,9 +164,11 @@ Three safety properties, since these usually come from a URL:
 - **Columns are checked against the schema.** An unknown column is `store.ErrBadFilter`, never SQL.
 - **Values are always bind parameters**, and operators come from a closed set, so neither can be
   injected.
-- **`Sort` is validated**, accepting `name`, `-name` or `name desc` and rejecting everything else. It
-  is safe to pass `?sort=` straight in. `Order` remains a raw escape hatch for strings *you* write —
-  never for user input.
+- **`Sort` and `Order` are both validated** against the schema, accepting `name`, `-name` or
+  `name desc`, and `Order` additionally takes a comma-separated list. Anything else — an unknown
+  column, an expression, a second statement — is ignored rather than interpolated, so the query falls
+  back to the primary key. It is safe to pass `?sort=` straight in. There is no raw ordering
+  escape hatch: if you need a real SQL expression, reach for the `*gorm.DB` handle.
 
 `Select` narrows the columns fetched, which is worth doing on tables with a large text column; the
 primary key is always included so rows stay addressable.

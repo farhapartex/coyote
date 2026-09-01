@@ -8,7 +8,7 @@ import (
 func securityPolicies(s Settings) []Middleware {
 	var out []Middleware
 	if s.Server.TLS.HSTS > 0 {
-		out = append(out, middleware.HSTS(s.Server.TLS.HSTS))
+		out = append(out, middleware.HSTS(s.Server.TLS.HSTS, s.Security.TrustedProxyCount))
 	}
 	if s.Security.CSP != "" {
 		out = append(out, middleware.CSP(s.Security.CSP, s.Security.CSPReportOnly))

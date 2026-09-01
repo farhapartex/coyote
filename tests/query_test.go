@@ -219,3 +219,55 @@ func TestExistsAndFirst(t *testing.T) {
 		t.Errorf("First on an empty result = %v, want ErrNotFound", err)
 	}
 }
+
+func TestOrderIsValidatedAgainstTheSchemaToo(t *testing.T) {
+	_, records, schema := queryApp(t, 4)
+
+	page, err := records.List(t.Context(), schema, model.Query{Order: "name desc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Records) != 4 || page.Records[0].String("name") != "Widget 03" {
+		t.Errorf("first row = %q, want the last widget first", page.Records[0].String("name"))
+	}
+
+	page, err = records.List(t.Context(), schema, model.Query{Order: "-stock, name asc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Records[0].String("name") != "Widget 03" {
+		t.Errorf("first row = %q, want the highest stock first", page.Records[0].String("name"))
+	}
+}
+
+func TestOrderCannotCarrySQL(t *testing.T) {
+	_, records, schema := queryApp(t, 3)
+
+	hostile := []string{
+		"name; DROP TABLE widget2s",
+		"(SELECT 1)",
+		"name COLLATE NOCASE",
+		"1",
+		"CASE WHEN 1 THEN name END",
+		"nosuchcolumn",
+		"name asc; DELETE FROM widget2s",
+	}
+	for _, order := range hostile {
+		page, err := records.List(t.Context(), schema, model.Query{Order: order})
+		if err != nil {
+			t.Errorf("Order %q returned an error rather than being ignored: %v", order, err)
+			continue
+		}
+		if len(page.Records) != 3 {
+			t.Errorf("Order %q left %d of 3 rows", order, len(page.Records))
+		}
+	}
+
+	total, err := records.Count(t.Context(), schema, model.Query{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 {
+		t.Errorf("%d rows survive, want 3; something in that list executed", total)
+	}
+}

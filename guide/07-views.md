@@ -157,7 +157,7 @@ opts := view.Options{
 	Store: store, Schema: schema, Renderer: a,
 	Template: "pages/products.html",
 	PerPage:  20,
-	Order:    "name asc",
+	Order:    "name asc",   // validated against the schema, like Sort
 	Redirect: "/products",
 }
 

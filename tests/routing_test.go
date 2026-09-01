@@ -256,7 +256,7 @@ func TestSchemeAndBaseURL(t *testing.T) {
 }
 
 func TestHSTSOnlyOverSecureConnections(t *testing.T) {
-	handler := middleware.HSTS(48 * time.Hour)(http.HandlerFunc(noop))
+	handler := middleware.HSTS(48*time.Hour, 1)(http.HandlerFunc(noop))
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -282,7 +282,7 @@ func TestHSTSOnlyOverSecureConnections(t *testing.T) {
 }
 
 func TestRequireHTTPS(t *testing.T) {
-	handler := middleware.RequireHTTPS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := middleware.RequireHTTPS(1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("secure"))
 	}))
 
@@ -443,5 +443,36 @@ func TestUnmanagedTLSConfigIsUnchanged(t *testing.T) {
 	}
 	if config.GetCertificate != nil {
 		t.Error("a cert/key pair should not install a certificate fetcher")
+	}
+}
+
+func TestForwardedProtoIsIgnoredWithNoProxyDeclared(t *testing.T) {
+	handler := middleware.RequireHTTPS(0)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("secure"))
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/pay", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMovedPermanently {
+		t.Errorf("status = %d, want a redirect; a claim of https means nothing with no proxy in front", rec.Code)
+	}
+	if rec.Body.String() == "secure" {
+		t.Error("the handler ran over plain HTTP on the strength of a header the client wrote")
+	}
+}
+
+func TestHSTSIsNotSentOnAForgedForwardedProto(t *testing.T) {
+	handler := middleware.HSTS(48*time.Hour, 0)(http.HandlerFunc(noop))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
+		t.Errorf("HSTS = %q; a forged header must not pin a browser to https", got)
 	}
 }

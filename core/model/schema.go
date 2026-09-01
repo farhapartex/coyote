@@ -159,6 +159,25 @@ func (s *Schema) SortColumn(candidate string) (string, string, bool) {
 	return "", "", false
 }
 
+type Ordering struct {
+	Column string
+	Desc   bool
+}
+
+func (s *Schema) OrderBy(candidate string) []Ordering {
+	out := make([]Ordering, 0, 2)
+	seen := map[string]bool{}
+	for _, part := range strings.Split(candidate, ",") {
+		column, direction, ok := s.SortColumn(part)
+		if !ok || seen[column] {
+			continue
+		}
+		seen[column] = true
+		out = append(out, Ordering{Column: column, Desc: direction == "desc"})
+	}
+	return out
+}
+
 func (s *Schema) Relation(column string) (Relation, bool) {
 	for _, relation := range s.Relations {
 		if relation.Column == column {
