@@ -57,8 +57,8 @@ import _ "your/module/migrations"
 
 ## Operations
 
-`CreateTable`, `DropTable`, `AddColumn`, `DropColumn`, `RenameColumn`, `CreateIndex`, `DropIndex`,
-plus two escape hatches:
+`CreateTable`, `DropTable`, `AddColumn`, `DropColumn`, `RenameColumn`, `AlterColumn`, `CreateIndex`,
+`DropIndex`, plus two escape hatches:
 
 ```go
 migrate.RunSQL{
@@ -80,6 +80,11 @@ ledger guarantees it runs exactly once.
 
 Each migration applies **inside a transaction** — a failure rolls back the schema change *and* the
 ledger row together, so a half-applied migration cannot be recorded.
+
+The one exception is a SQLite table rebuild (`AlterColumn`), because `PRAGMA foreign_keys` is a no-op
+inside a transaction. Those run outside one and finish with a `PRAGMA foreign_key_check`; a rebuild
+that leaves a dangling row fails and is not recorded. See
+[Referential integrity](11-database.md#referential-integrity).
 
 The ledger (`coyote_migrations`) stores a checksum of every migration, so editing one that already
 ran is caught rather than silently skipped:
@@ -175,10 +180,27 @@ migrate.Sync(handle, a.Models())
 Runs GORM's `AutoMigrate` directly — no files, no ledger. Convenient in tests and while sketching a
 schema. Do not point it at production: it has no record of what it did and no way to undo it.
 
+## Rolling back
+
+A generated migration carries a `Down` for every operation that can be inverted, and leaves a comment
+naming the ones that cannot rather than guessing at them:
+
+```go
+// no automatic reverse for: run sql
+```
+
+```
+coyote rollback              # undo the most recently applied migration
+coyote rollback --steps=3
+```
+
+`RunSQL` and `RunGo` cannot be inverted automatically. Write a `Down` for them, or pass `--force` to
+roll back the rest of the migration without them.
+
 ## Not yet
 
-Down migrations. Every migration is forward-only today; roll back by writing the inverse as a new
-migration.
+Squashing a long ladder into one migration, and per-alias migrations: routing a model to a second
+connection works, but `migrate` only ever targets the default one.
 
 ## Next
 

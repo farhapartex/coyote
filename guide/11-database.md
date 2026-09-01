@@ -191,6 +191,46 @@ collected and resolved with a single `IN (…)`, so a page of 20 rows costs two 
 The label column is the target's `name`, `title`, `label`, `username` or `email`, whichever exists
 first, falling back to its first string column.
 
+### Referential integrity
+
+A described relation is also a constraint. `makemigrations` emits a named `FOREIGN KEY` for the
+column, so the database refuses a key that points at nothing:
+
+```sql
+CREATE TABLE "items" (
+  "id" VARCHAR(64) NOT NULL PRIMARY KEY,
+  "title" VARCHAR(100) NOT NULL,
+  "category_id" VARCHAR(64),
+  CONSTRAINT "fk_items_category_id" FOREIGN KEY ("category_id") REFERENCES "categories" ("id")
+)
+```
+
+```
+INSERT INTO items (id, title, category_id) VALUES ('i2', 'Ghost', 'no-such-category')
+→ FOREIGN KEY constraint failed
+```
+
+A nullable relation still accepts `NULL` — the constraint is about keys that point somewhere, not
+about the column being filled in.
+
+Because the constraint exists, `makemigrations` creates tables in dependency order: a table is
+created after the tables it points at, and dropped before them. A cycle of references cannot be
+ordered, so the plan falls back to alphabetical and the engine decides — SQLite accepts a forward
+reference, Postgres does not.
+
+Adding a relation to a column that already exists is a schema change like any other. On SQLite that
+means a table rebuild, which the runner performs outside its transaction — `PRAGMA foreign_keys` is a
+no-op inside one — and then checks with `PRAGMA foreign_key_check`. If the rebuilt table holds a row
+pointing at a parent that is not there, the migration fails and is **not** recorded, so `migrate`
+will try it again once you have fixed the data:
+
+```
+0007_alter_items_title: the rebuild left 1 foreign key violation(s); the database was not recorded as migrated
+```
+
+The delete behaviour is the database default, `NO ACTION`: deleting a row that something still points
+at fails. Cascades are not declarable from a struct tag yet.
+
 Has-many and many-to-many are not described yet.
 
 ## Querying without GORM

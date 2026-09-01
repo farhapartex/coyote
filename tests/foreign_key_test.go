@@ -356,3 +356,75 @@ func TestGeneratedMigrationSourceCarriesTheReference(t *testing.T) {
 		t.Errorf("the generated migration should parse: %v", err)
 	}
 }
+
+func TestRebuildRefusesToRecordWithADanglingChild(t *testing.T) {
+	handle := newTestDB(t)
+	desired := relatedSnapshot(t, handle)
+	initial := migrate.Diff(migrate.Snapshot{Version: 1}, desired)
+
+	items, _ := desired.Table("items")
+	widened := migrate.Table{Name: items.Name, Indexes: items.Indexes}
+	for _, column := range items.Columns {
+		if column.Name == "title" {
+			column.Size = 250
+		}
+		widened.Columns = append(widened.Columns, column)
+	}
+	from, _ := items.Column("title")
+	to, _ := widened.Column("title")
+	rebuild := migrate.AlterColumn{
+		Table: "items", From: from, To: to,
+		Columns: widened.Columns, Indexes: widened.Indexes,
+	}
+
+	migrate.Reset()
+	t.Cleanup(migrate.Reset)
+	migrate.Register(
+		migrate.Migration{ID: "0001_initial", Up: initial.Ops},
+		migrate.Migration{ID: "0002_widen_title", Up: []migrate.Op{rebuild}},
+	)
+
+	runner := migrate.NewRunner(handle, settings.SQLite, migrate.Registered())
+	background := context.Background()
+	if err := runner.Prepare(background); err != nil {
+		t.Fatal(err)
+	}
+	pool := migrate.Registered()
+	if err := runner.Apply(background, pool[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := handle.Exec(`INSERT INTO categories (id, name) VALUES ('c1', 'Kitchen')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := handle.Exec(`INSERT INTO items (id, title, category_id) VALUES ('i1', 'Pan', 'c1')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		"PRAGMA foreign_keys = OFF",
+		`DELETE FROM categories WHERE id = 'c1'`,
+		"PRAGMA foreign_keys = ON",
+	} {
+		if err := handle.Exec(statement).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err := runner.Apply(background, pool[1])
+	if err == nil {
+		t.Fatal("a rebuild that leaves a dangling child must not be recorded")
+	}
+	if !strings.Contains(err.Error(), "foreign key violation") {
+		t.Errorf("the failure should name the violation, got %v", err)
+	}
+
+	applied, err := runner.Applied(background)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range applied {
+		if entry.ID == "0002_widen_title" {
+			t.Error("the failed rebuild must not appear in the ledger")
+		}
+	}
+}
