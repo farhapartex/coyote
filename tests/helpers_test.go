@@ -66,6 +66,8 @@ func devSettings(t *testing.T, fns ...func(*settings.Settings)) settings.Setting
 	return resolved
 }
 
+func withoutCSRF(s *settings.Settings) { s.Security.CSRF = false }
+
 func prodSettings(fns ...func(*settings.Settings)) []func(*settings.Settings) {
 	base := func(s *settings.Settings) {
 		s.Debug = false

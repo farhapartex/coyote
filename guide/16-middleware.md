@@ -22,6 +22,7 @@ Compress           only when Security.Compress is on
 RateLimit          only when Security.RateLimit is set
 PageCache          only when PageCache.Enabled; skips any request carrying the session cookie
 Session            loads the session, writes the cookie on the way out
+CSRF               unless Security.CSRF is off; an unsafe method needs a valid token
 Auth               resolves the current user
   ↓
 your a.Use(…) middleware
@@ -58,7 +59,7 @@ Order is the order you add them.
 
 | Middleware | Purpose |
 | --- | --- |
-| `a.CSRF` | reject unsafe methods without a valid token — [CSRF](18-csrf.md) |
+| `a.CSRF` | the per-group form of the global guard, for when it is off — [CSRF](18-csrf.md) |
 | `middleware.RequireHTTPS` | redirect plain HTTP to HTTPS |
 | `middleware.StripTrailingSlash` | normalise `/path/` to `/path` |
 | `middleware.RateLimitBy(policy, key)` | rate limit on something other than IP |

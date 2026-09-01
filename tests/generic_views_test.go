@@ -36,7 +36,7 @@ func genericApp(t *testing.T, seed int) (*app.App, model.Store, *model.Schema) {
 				`<form method="post"></form>{{end}}`)},
 	}
 
-	a := app.NewFrom(devSettings(t, func(s *settings.Settings) {
+	a := app.NewFrom(devSettings(t, withoutCSRF, func(s *settings.Settings) {
 		s.Templates.FS = pages
 		s.Templates.Layout = "layouts/base.html"
 		s.Templates.Shared = []string{"layouts/*.html"}

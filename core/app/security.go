@@ -1,6 +1,9 @@
 package app
 
-import "github.com/farhapartex/coyote/core/middleware"
+import (
+	"github.com/farhapartex/coyote/core/middleware"
+	"github.com/farhapartex/coyote/core/session"
+)
 
 func securityPolicies(s Settings) []Middleware {
 	var out []Middleware
@@ -20,6 +23,13 @@ func securityPolicies(s Settings) []Middleware {
 		out = append(out, middleware.RateLimit(s.Security.RateLimit))
 	}
 	return out
+}
+
+func csrfGuard(s Settings, sessions *session.Manager) Middleware {
+	if !s.Security.CSRF {
+		return nil
+	}
+	return middleware.CSRF(sessions, s.Security.CSRFExempt)
 }
 
 func requestID(s Settings) Middleware {

@@ -58,20 +58,10 @@ func cacheableRequest(r *http.Request, policy settings.PageCache, sessionCookie 
 	if hasDirective(r.Header, "no-store", "no-cache") {
 		return false
 	}
-	for _, prefix := range policy.Skip {
-		if strings.HasPrefix(r.URL.Path, prefix) {
-			return false
-		}
+	if matchesAnyPrefix(r.URL.Path, policy.Skip) {
+		return false
 	}
-	if len(policy.Paths) == 0 {
-		return true
-	}
-	for _, prefix := range policy.Paths {
-		if strings.HasPrefix(r.URL.Path, prefix) {
-			return true
-		}
-	}
-	return false
+	return len(policy.Paths) == 0 || matchesAnyPrefix(r.URL.Path, policy.Paths)
 }
 
 func carriesSession(r *http.Request, cookieName string) bool {

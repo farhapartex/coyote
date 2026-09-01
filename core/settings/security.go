@@ -2,6 +2,8 @@ package settings
 
 type Security struct {
 	TrustRequestID bool
+	CSRF           bool
+	CSRFExempt     []string
 	CSP            string
 	CSPReportOnly  bool
 	CORS           CORS

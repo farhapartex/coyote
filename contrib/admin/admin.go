@@ -43,7 +43,6 @@ func Mount(application *app.App) *Admin {
 	}
 
 	group := application.Group(prefix)
-	group.Use(application.CSRF)
 	a.router = group
 
 	a.routes(group, prefix+"/login")

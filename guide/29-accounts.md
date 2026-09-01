@@ -36,7 +36,7 @@ POST /accounts/profile
 POST /accounts/password
 ```
 
-CSRF is applied to all of them, and the profile pages sit behind `RequireLogin`.
+CSRF covers all of them through the global guard, and the profile pages sit behind `RequireLogin`.
 
 ## Registration is off by default
 

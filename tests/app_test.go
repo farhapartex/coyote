@@ -13,7 +13,7 @@ import (
 )
 
 func TestRoutingAndMethods(t *testing.T) {
-	a := newTestApp(t)
+	a := newTestApp(t, withoutCSRF)
 	a.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("pong"))
 	})

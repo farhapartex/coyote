@@ -66,7 +66,7 @@ func TestPageCacheKeepsQueryStringsApart(t *testing.T) {
 }
 
 func TestPageCacheSkipsPostRequests(t *testing.T) {
-	a, _ := newPageCacheApp(t)
+	a, _ := newPageCacheApp(t, withoutCSRF)
 
 	var posts atomic.Int64
 	a.Post("/submit", func(w http.ResponseWriter, r *http.Request) {

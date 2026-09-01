@@ -94,6 +94,15 @@ func (s Settings) validateAdmin(add func(string)) {
 }
 
 func (s Settings) validateSecurity(add func(string)) {
+	if !s.Security.CSRF && s.Environment.Deployed() {
+		add("Security.CSRF is off while Environment is " + string(s.Environment) +
+			"; every form and every unsafe request would be forgeable from another site")
+	}
+	for _, prefix := range s.Security.CSRFExempt {
+		if !strings.HasPrefix(prefix, "/") {
+			add("Security.CSRFExempt paths must start with \"/\"; " + strconv.Quote(prefix) + " does not")
+		}
+	}
 	if s.Security.CSPReportOnly && s.Security.CSP == "" {
 		add("Security.CSPReportOnly is set but Security.CSP is empty, so no policy would be reported")
 	}

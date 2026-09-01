@@ -132,7 +132,11 @@ func NewFrom(s Settings) *App {
 	if pages := a.pageCache(s); pages != nil {
 		a.global = append(a.global, pages)
 	}
-	a.global = append(a.global, sessions.Middleware, a.Auth.Middleware)
+	a.global = append(a.global, sessions.Middleware)
+	if guard := csrfGuard(s, sessions); guard != nil {
+		a.global = append(a.global, guard)
+	}
+	a.global = append(a.global, a.Auth.Middleware)
 
 	if fsys := staticFS(s); fsys != nil {
 		a.Router.Static(s.Static.URL, fsys)
@@ -165,7 +169,7 @@ func (a *App) Use(mw ...Middleware) {
 }
 
 func (a *App) CSRF(next http.Handler) http.Handler {
-	return middleware.CSRF(a.Sessions)(next)
+	return middleware.CSRF(a.Sessions, nil)(next)
 }
 
 func (a *App) Static(prefix string, fsys fs.FS) {

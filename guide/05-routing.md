@@ -54,7 +54,7 @@ Three scopes, from widest to narrowest:
 ```go
 a.Use(middleware.RequireHTTPS)          // every request
 api := a.Group("/api", requireToken)    // every route in the group
-a.Post("/notes", createNote, a.CSRF)    // this route only
+a.Post("/notes", createNote, requireLogin) // this route only
 ```
 
 See [Middleware](16-middleware.md) for what runs before your handler by default.

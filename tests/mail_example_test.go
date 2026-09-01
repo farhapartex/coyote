@@ -270,11 +270,15 @@ func TestDocumentedPasswordResetFlowEmailsAWorkingLink(t *testing.T) {
 	}
 	resetLog := &strings.Builder{}
 	a.Post("/reset/request", requestReset(a, sender, resetLog))
+	a.Get("/reset", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<input name="csrf_token" value="` + a.Sessions.CSRFToken(r) + `">`))
+	})
 
 	client := newClient(t, a.Handler())
+	csrfToken := client.token("/reset")
 	for _, address := range []string{"ada@example.test", "nobody@example.test"} {
 		response := client.do(http.MethodPost, "/reset/request",
-			url.Values{"email": {address}}).Result()
+			url.Values{"csrf_token": {csrfToken}, "email": {address}}).Result()
 		if response.StatusCode >= 500 {
 			t.Fatalf("status = %d for %s", response.StatusCode, address)
 		}

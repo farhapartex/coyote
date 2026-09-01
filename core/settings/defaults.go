@@ -29,6 +29,9 @@ func Default() Settings {
 				CleanupInterval: cache.DefaultCleanup,
 			},
 		},
+		Security: Security{
+			CSRF: true,
+		},
 		Server: Server{
 			Host:              "127.0.0.1",
 			Port:              8000,

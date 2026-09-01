@@ -233,9 +233,11 @@ Per-request headers are never stored: the CSP policy and its nonce, `X-Request-I
 `RateLimit-*` counters are stripped from an entry and re-issued for each hit.
 
 `Vary` is honoured: the response's `Vary` header names are recorded, and the body is keyed by those
-request headers, so two languages get two entries. `Cookie` is the one name never keyed on — the rule
-above already settled it, and keying on it would give every visitor holding any cookie their own entry. `Vary: *` is never cached. A `max-age` or `s-maxage`
-on the response overrides the policy TTL.
+request headers, so two languages get two entries. `Vary: *` is never cached. A `max-age` or
+`s-maxage` on the response overrides the policy TTL.
+
+`Cookie` is the one `Vary` name never keyed on. The rule above already settled it, and keying on it
+would hand every visitor holding any cookie at all their own entry.
 
 The middleware sits **inside** `Compress`, so one uncompressed copy is stored and gzip runs per
 response. Do not move it outside, or you will serve gzip to clients that did not ask for it.

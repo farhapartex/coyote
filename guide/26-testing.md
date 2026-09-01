@@ -72,8 +72,8 @@ for _, c := range rec.Result().Cookies() {
 }
 ```
 
-Remember CSRF on POSTs: read `{{.CSRFToken}}` out of the form page first, or apply `a.CSRF` only
-where you mean it.
+Remember CSRF on POSTs: read `{{.CSRFToken}}` out of the form page first, or set
+`Security.CSRF = false` on the tests that are not about CSRF.
 
 ## The framework's own suite
 
