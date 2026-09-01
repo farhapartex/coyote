@@ -158,6 +158,12 @@ func (s *Service) StoreTo(ctx context.Context, r io.Reader, name, declared strin
 	if _, err := temp.Seek(0, io.SeekStart); err != nil {
 		return File{}, err
 	}
+	if err := s.rules.CheckPixels(temp, kind); err != nil {
+		return File{}, err
+	}
+	if _, err := temp.Seek(0, io.SeekStart); err != nil {
+		return File{}, err
+	}
 
 	sum := hex.EncodeToString(digest.Sum(nil))
 	ref := Ref(join(StagedPrefix, s.PathFor(path), fmt.Sprintf("%s/%s/%s%s", sum[:2], sum[2:4], sum, ExtensionFor(kind))))

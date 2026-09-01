@@ -98,7 +98,8 @@ Delete  →  gone, or trash/… if you set a window
 directory, under whatever path the field asks for.
 
 - **A failed insert leaves an orphan in `staged/`**, and `Sweep` deletes anything there older than
-  `StageTTL` (24h). Orphans clean themselves up.
+  `StageTTL` (24h). Orphans clean themselves up. This has nothing to do with how long a signed URL
+  lives — that is `SignedURLTTL`.
 - **`Commit` runs after your database write succeeds.** If the write fails, you simply never commit,
   and the sweeper takes care of it.
 - **`Delete` is immediate by default** (`TrashTTL: 0`). Set a window and deletes move to `trash/`
@@ -122,7 +123,7 @@ The filename and the `Content-Type` header both come from the client, so neither
 | Sniffed type must match the declared one | a spoofed header |
 | Extension derived from the **sniffed** type | traversal and double extensions |
 | The key is the content hash, never the name | `../../etc/passwd`, null bytes, reserved names |
-| `image.DecodeConfig` against `MaxPixels` | decompression bombs |
+| `image.DecodeConfig` over the whole file, against `MaxPixels` | decompression bombs, and images that will not decode |
 | Empty files rejected | zero-byte junk |
 
 The original filename is kept only as `File.Name`, sanitised, for showing back to the user. It never
@@ -155,9 +156,14 @@ Every request then needs a signature derived from `SecretKey`:
 
 ```go
 url := a.MediaURL(product.Photo)   // signed and time-limited when Private is on
+s.Uploads.SignedURLTTL = 15 * time.Minute
 ```
 
-An unsigned, expired, or tampered URL gets a 403.
+An unsigned, expired, or tampered URL gets a 403 — and so does one signed for longer than
+`SignedURLTTL`, so a link that leaks into a chat log, a referrer header or an access log stops
+working in minutes rather than a day. Fifteen minutes is the default. It is a *link* lifetime, quite
+separate from `StageTTL`, which is only about how long an unclaimed upload waits before the sweeper
+takes it.
 
 In templates:
 

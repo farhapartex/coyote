@@ -83,18 +83,19 @@ type Sessions struct {
 }
 
 type Uploads struct {
-	Enabled   bool
-	Dir       string
-	Path      string
-	MaxSize   int64
-	Allowed   []string
-	MaxPixels int
-	Serve     bool
-	URL       string
-	Private   bool
-	StageTTL  time.Duration
-	TrashTTL  time.Duration
-	Storage   storage.Storage
+	Enabled      bool
+	Dir          string
+	Path         string
+	MaxSize      int64
+	Allowed      []string
+	MaxPixels    int
+	Serve        bool
+	URL          string
+	Private      bool
+	SignedURLTTL time.Duration
+	StageTTL     time.Duration
+	TrashTTL     time.Duration
+	Storage      storage.Storage
 }
 
 type Pagination struct {

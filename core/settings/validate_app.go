@@ -54,6 +54,9 @@ func (s Settings) validateUploads(add func(string)) {
 		if s.Uploads.Private && s.SecretKey == "" {
 			add("Uploads.Private needs a SecretKey to sign URLs with")
 		}
+		if s.Uploads.Private && s.Uploads.SignedURLTTL <= 0 {
+			add("Uploads.Private needs Uploads.SignedURLTTL; a signed link with no lifetime never expires")
+		}
 	}
 	if s.Uploads.StageTTL < 0 || s.Uploads.TrashTTL < 0 {
 		add("Uploads.StageTTL and Uploads.TrashTTL cannot be negative")

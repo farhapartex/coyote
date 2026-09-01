@@ -4,12 +4,11 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/farhapartex/coyote/core/storage"
 )
 
 var inlineTypes = map[string]bool{
@@ -29,6 +28,7 @@ type HandlerOptions struct {
 
 func (s *Service) Handler(opts HandlerOptions) http.Handler {
 	prefix := "/" + strings.Trim(opts.Prefix, "/") + "/"
+	maxAge := opts.MaxAge
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := strings.TrimPrefix(r.URL.Path, prefix)
@@ -40,7 +40,7 @@ func (s *Service) Handler(opts HandlerOptions) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		if opts.Private && !ValidSignature(opts.Secret, key, r.URL.Query().Get("expires"), r.URL.Query().Get("signature")) {
+		if opts.Private && !ValidSignature(opts.Secret, key, r.URL.Query().Get("expires"), r.URL.Query().Get("signature"), maxAge) {
 			http.Error(w, "403 forbidden", http.StatusForbidden)
 			return
 		}
@@ -96,13 +96,13 @@ func ContentTypeFor(key string) string {
 }
 
 func Sign(secret, key string, expires time.Time) string {
+	stamp := strconv.FormatInt(expires.Unix(), 10)
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(key))
-	mac.Write([]byte(strconv.FormatInt(expires.Unix(), 10)))
+	fmt.Fprintf(mac, "%d:%s:%d:%s", len(key), key, len(stamp), stamp)
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func ValidSignature(secret, key, expires, signature string) bool {
+func ValidSignature(secret, key, expires, signature string, maxAge time.Duration) bool {
 	if secret == "" || signature == "" || expires == "" {
 		return false
 	}
@@ -111,7 +111,11 @@ func ValidSignature(secret, key, expires, signature string) bool {
 		return false
 	}
 	deadline := time.Unix(seconds, 0)
-	if time.Now().After(deadline) {
+	now := time.Now()
+	if now.After(deadline) {
+		return false
+	}
+	if maxAge > 0 && deadline.Sub(now) > maxAge {
 		return false
 	}
 	return hmac.Equal([]byte(signature), []byte(Sign(secret, key, deadline)))
@@ -130,5 +134,3 @@ func (s *Service) URL(prefix string, ref Ref) string {
 	}
 	return "/" + strings.Trim(prefix, "/") + "/" + string(ref)
 }
-
-var _ = storage.ErrNotFound

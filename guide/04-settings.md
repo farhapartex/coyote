@@ -206,10 +206,11 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Uploads.Path` | none | Default path inside the media directory; a field tag overrides it |
 | `Uploads.MaxSize` | `10 MiB` | Enforced before the body is read |
 | `Uploads.Allowed` | images and PDF | Content types, matched against the sniffed type |
-| `Uploads.MaxPixels` | `50,000,000` | Decompression-bomb guard for images |
+| `Uploads.MaxPixels` | `50,000,000` | Decompression-bomb guard; an image that will not decode is refused |
 | `Uploads.Serve` | `false` | Serve uploads over HTTP at `Uploads.URL` |
 | `Uploads.URL` | `/media/` | |
 | `Uploads.Private` | `false` | Require a signed URL; needs `SecretKey` |
+| `Uploads.SignedURLTTL` | `15m` | How long a signed media link stays valid |
 | `Uploads.StageTTL` | `24h` | How long an uncommitted upload survives |
 | `Uploads.TrashTTL` | `0` | 0 deletes immediately; above zero keeps a recovery window |
 | `Uploads.Storage` | filesystem | Any `storage.Storage` |

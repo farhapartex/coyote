@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io"
 	"mime"
 	"net/http"
 	"strings"
@@ -70,9 +71,6 @@ func (r Rules) Check(head []byte, declared string) (string, error) {
 	if declared != "" && normalise(declared) != sniffed && !compatible(normalise(declared), sniffed) {
 		return "", fmt.Errorf("%w: sent %s, looks like %s", ErrTypeMismatch, normalise(declared), sniffed)
 	}
-	if err := r.checkPixels(head, sniffed); err != nil {
-		return "", err
-	}
 	return sniffed, nil
 }
 
@@ -86,13 +84,13 @@ func compatible(declared, sniffed string) bool {
 	return false
 }
 
-func (r Rules) checkPixels(head []byte, sniffed string) error {
+func (r Rules) CheckPixels(whole io.Reader, sniffed string) error {
 	if r.MaxPixels <= 0 || !strings.HasPrefix(sniffed, "image/") {
 		return nil
 	}
-	config, _, err := image.DecodeConfig(strings.NewReader(string(head)))
+	config, _, err := image.DecodeConfig(whole)
 	if err != nil {
-		return nil
+		return fmt.Errorf("%w: %s did not decode as an image", ErrTypeNotAllow, sniffed)
 	}
 	if config.Width*config.Height > r.MaxPixels {
 		return fmt.Errorf("%w: %dx%d", ErrTooManyPixel, config.Width, config.Height)
