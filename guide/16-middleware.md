@@ -20,7 +20,7 @@ CSP                only when Security.CSP is set
 CORS               only when Security.CORS has origins
 Compress           only when Security.Compress is on
 RateLimit          only when Security.RateLimit is set
-PageCache          only when PageCache.Enabled; inside Compress, outside Session
+PageCache          only when PageCache.Enabled; skips any request carrying the session cookie
 Session            loads the session, writes the cookie on the way out
 Auth               resolves the current user
   ↓

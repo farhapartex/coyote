@@ -24,7 +24,7 @@ func newCachedLocaleApp(t *testing.T, fns ...func(*settings.Settings)) (*app.App
 			Supported: []string{"en", "fr", "ar"},
 			FS:        docsLocaleFS(),
 		}
-		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute}
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}}
 	}
 	a := newTestApp(t, append([]func(*settings.Settings){base}, fns...)...)
 

@@ -65,6 +65,10 @@ func (s Settings) validatePageCache(add func(string)) {
 	if page.TTL <= 0 {
 		add("PageCache.Enabled is set but PageCache.TTL is not; a page cache with no lifetime caches nothing")
 	}
+	if len(page.Paths) == 0 {
+		add("PageCache.Enabled is set but PageCache.Paths is empty; list the path prefixes to cache, " +
+			"because caching every path would reach pages meant for one visitor")
+	}
 	if page.Alias != "" {
 		if _, found := s.CacheByAlias(page.Alias); !found {
 			add("PageCache.Alias " + strconv.Quote(page.Alias) + " does not match any entry in Caches")

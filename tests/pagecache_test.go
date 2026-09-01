@@ -19,7 +19,7 @@ import (
 func newPageCacheApp(t *testing.T, fns ...func(*settings.Settings)) (*app.App, *atomic.Int64) {
 	t.Helper()
 	base := func(s *settings.Settings) {
-		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute}
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}}
 	}
 	a := newTestApp(t, append([]func(*settings.Settings){base}, fns...)...)
 
@@ -106,6 +106,64 @@ func TestPageCacheNeverStoresAResponseThatSetsACookie(t *testing.T) {
 	}
 }
 
+func TestPageCacheNeverServesASessionPageToAnotherVisitor(t *testing.T) {
+	a := newTestApp(t, func(s *settings.Settings) {
+		s.Sessions.Backend = settings.SessionsInCookie
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}}
+	})
+	a.Get("/enter", func(w http.ResponseWriter, r *http.Request) {
+		session.FromRequest(r).Set("who", "alice")
+		fmt.Fprint(w, "welcome")
+	})
+	a.Get("/greeting", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "hello %s", session.FromRequest(r).GetString("who"))
+	})
+
+	alice := newClient(t, a.Handler())
+	alice.get("/enter")
+	if body := alice.get("/greeting").Body.String(); body != "hello alice" {
+		t.Fatalf("alice read %q, want her own greeting", body)
+	}
+	alice.get("/greeting")
+
+	stranger := newClient(t, a.Handler())
+	rec := stranger.get("/greeting")
+	if body := rec.Body.String(); strings.Contains(body, "alice") {
+		t.Errorf("a visitor with no session was served %q", body)
+	}
+	if got := rec.Header().Get(middleware.CacheStatusHeader); got == middleware.CacheHit {
+		t.Error("the stranger read an entry written while a session was in play")
+	}
+}
+
+func TestPageCacheBypassesAnyRequestCarryingTheSessionCookie(t *testing.T) {
+	a, renders := newPageCacheApp(t)
+	name := a.Settings.Sessions.CookieName
+
+	for range 3 {
+		req := httptest.NewRequest(http.MethodGet, "/page", nil)
+		req.AddCookie(&http.Cookie{Name: name, Value: "whatever"})
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, req)
+		if got := rec.Header().Get(middleware.CacheStatusHeader); got != "" {
+			t.Errorf("a request carrying the session cookie reported %q", got)
+		}
+	}
+	if renders.Load() != 3 {
+		t.Errorf("the handler ran %d times, want one per request", renders.Load())
+	}
+
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/page", nil))
+	if got := rec.Header().Get(middleware.CacheStatusHeader); got != middleware.CacheMiss {
+		t.Errorf("a visitor with no cookie reported %q, want MISS", got)
+	}
+	if !strings.Contains(rec.Header().Get("Vary"), "Cookie") {
+		t.Errorf("Vary = %q, want a shared cache to be told the page turns on the cookie",
+			rec.Header().Get("Vary"))
+	}
+}
+
 func TestPageCacheHonoursNoStore(t *testing.T) {
 	a, renders := newPageCacheApp(t)
 
@@ -168,6 +226,38 @@ func TestPageCacheHonoursVary(t *testing.T) {
 	}
 	if renders.Load() != 2 {
 		t.Errorf("the handler ran %d times, want 2 variants", renders.Load())
+	}
+}
+
+func TestPageCacheDoesNotReplayThePerRequestHeaders(t *testing.T) {
+	a := newTestApp(t, func(s *settings.Settings) {
+		s.Security.CSP = settings.DefaultCSP
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}}
+	})
+	a.Get("/page", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "body") })
+
+	fetch := func() *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/page", nil))
+		return rec
+	}
+
+	first := fetch()
+	second := fetch()
+	if got := second.Header().Get(middleware.CacheStatusHeader); got != middleware.CacheHit {
+		t.Fatalf("second response = %q, want HIT", got)
+	}
+
+	for _, name := range []string{"Content-Security-Policy", "X-Frame-Options", "X-Request-Id"} {
+		if values := second.Header().Values(name); len(values) != 1 {
+			t.Errorf("a hit carried %d %s headers, want 1: %v", len(values), name, values)
+		}
+	}
+	if first.Header().Get("Content-Security-Policy") == second.Header().Get("Content-Security-Policy") {
+		t.Error("a hit replayed the stored nonce instead of the one minted for it")
+	}
+	if first.Header().Get("X-Request-Id") == second.Header().Get("X-Request-Id") {
+		t.Error("a hit replayed the stored request id")
 	}
 }
 
@@ -264,10 +354,19 @@ func TestPageCacheSkipsAuthorizedRequests(t *testing.T) {
 
 func TestPageCacheValidationRejectsAMissingAlias(t *testing.T) {
 	_, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
-		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Alias: "nope"}
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}, Alias: "nope"}
 	})...)
 	if err == nil || !strings.Contains(err.Error(), "does not match any entry in Caches") {
 		t.Errorf("error = %v, want a complaint about the alias", err)
+	}
+}
+
+func TestPageCacheValidationRejectsAnEmptyPathList(t *testing.T) {
+	_, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute}
+	})...)
+	if err == nil || !strings.Contains(err.Error(), "PageCache.Paths is empty") {
+		t.Errorf("error = %v, want a complaint about the empty path list", err)
 	}
 }
 
@@ -296,7 +395,7 @@ func TestPageCacheIsLostByACSRFTokenInASharedPartial(t *testing.T) {
 	a := newTestApp(t, func(s *settings.Settings) {
 		s.Templates.FS = templates
 		s.Templates.Layout = "layouts/base.html"
-		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute}
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}}
 	})
 	a.Get("/plain", func(w http.ResponseWriter, r *http.Request) {
 		a.Render(w, r, "pages/plain.html", app.Data{})
