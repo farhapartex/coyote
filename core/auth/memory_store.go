@@ -148,6 +148,48 @@ func (m *MemoryStore) All(_ context.Context) ([]*User, error) {
 	return out, nil
 }
 
+func (m *MemoryStore) Search(ctx context.Context, term string, limit, offset int) ([]*User, int, error) {
+	everyone, err := m.All(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	matched := make([]*User, 0, len(everyone))
+	for _, u := range everyone {
+		if Matches(u, term) {
+			matched = append(matched, u)
+		}
+	}
+	return Window(matched, limit, offset), len(matched), nil
+}
+
+func (m *MemoryStore) Recent(ctx context.Context, n int) ([]*User, error) {
+	everyone, err := m.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.SliceStable(everyone, func(i, j int) bool {
+		return everyone[i].CreatedAt.After(everyone[j].CreatedAt)
+	})
+	return Window(everyone, n, 0), nil
+}
+
+func (m *MemoryStore) Stats(ctx context.Context) (Stats, error) {
+	everyone, err := m.All(ctx)
+	if err != nil {
+		return Stats{}, err
+	}
+	out := Stats{Total: len(everyone)}
+	for _, u := range everyone {
+		switch {
+		case u.IsSuperadmin:
+			out.Superadmins++
+		case u.IsStaff:
+			out.Staff++
+		}
+	}
+	return out, nil
+}
+
 func (m *MemoryStore) Count(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

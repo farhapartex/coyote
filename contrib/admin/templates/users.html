@@ -60,4 +60,19 @@
   </div>
   {{end}}
 </div>
+
+{{with .Page}}
+{{if and .Enabled (not .Single)}}
+<div class="pager">
+  {{if .HasPrev}}<a class="btn secondary" href="{{$.Prefix}}/users?q={{$.Query}}&page={{.Prev}}">{{$.Locale.T "Previous"}}</a>{{end}}
+  <span class="pages">
+    {{range .Numbers}}
+    <a href="{{$.Prefix}}/users?q={{$.Query}}&page={{.}}"{{if eq . $.Page.Number}} class="on"{{end}}>{{.}}</a>
+    {{end}}
+  </span>
+  {{if .HasNext}}<a class="btn secondary" href="{{$.Prefix}}/users?q={{$.Query}}&page={{.Next}}">{{$.Locale.T "Next"}}</a>{{end}}
+</div>
+<p class="muted" style="font-size:12px">{{$.Locale.Tf "Page %d of %d" .Number .Pages}} · {{$.Locale.Tf "%d total" .Total}}</p>
+{{end}}
+{{end}}
 {{end}}

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -255,5 +256,111 @@ func TestRemovedDeveloperPagesAreGone(t *testing.T) {
 	}
 	if rec := c.get("/admin/"); rec.Code != http.StatusOK {
 		t.Errorf("the dashboard returned %d, want 200", rec.Code)
+	}
+}
+
+func TestTheUserListPaginatesInsteadOfLoadingEveryRow(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Pagination.PerPage = 5 })
+	c.login("/admin/login", "root", "supersecret")
+
+	for i := range 12 {
+		if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+			Username: fmt.Sprintf("user%02d", i), Password: "unrelated-and-long",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	first := c.get("/admin/users").Body.String()
+	if strings.Count(first, `name="ids"`) > 5 {
+		t.Errorf("the first page rendered %d rows, want at most 5", strings.Count(first, `name="ids"`))
+	}
+	if !strings.Contains(first, "page=2") {
+		t.Error("the list should offer a second page")
+	}
+
+	second := c.get("/admin/users?page=2").Body.String()
+	if second == first {
+		t.Error("page 2 rendered the same rows as page 1")
+	}
+}
+
+func TestTheUserSearchFiltersInTheDatabase(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Pagination.PerPage = 50 })
+	c.login("/admin/login", "root", "supersecret")
+
+	for _, name := range []string{"ada", "grace", "alan"} {
+		if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+			Username: name, Email: name + "@example.test", Password: "unrelated-and-long",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	body := c.get("/admin/users?q=grace").Body.String()
+	if !strings.Contains(body, "grace") {
+		t.Error("the match should be listed")
+	}
+	for _, absent := range []string{">ada<", ">alan<"} {
+		if strings.Contains(body, absent) {
+			t.Errorf("%s should not survive the search", absent)
+		}
+	}
+
+	empty := c.get("/admin/users?q=nobody-by-that-name").Body.String()
+	if !strings.Contains(empty, "No users match") {
+		t.Error("a search with no matches should say so")
+	}
+}
+
+func TestASearchTermIsNotTreatedAsAPattern(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Pagination.PerPage = 50 })
+	c.login("/admin/login", "root", "supersecret")
+
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "ada", Password: "unrelated-and-long",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, term := range []string{"%", "_", "%%", "a%a"} {
+		body := c.get("/admin/users?q=" + url.QueryEscape(term)).Body.String()
+		if strings.Contains(body, ">ada<") {
+			t.Errorf("the term %q matched ada as a wildcard", term)
+		}
+	}
+}
+
+func TestTheDashboardCountsWithoutReadingEveryUser(t *testing.T) {
+	a, c := setupAdmin(t)
+	c.login("/admin/login", "root", "supersecret")
+
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "helper", Password: "unrelated-and-long", IsStaff: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := a.Auth.Users().Stats(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Total != 3 || stats.Superadmins != 1 || stats.Staff != 1 {
+		t.Errorf("stats = %+v, want 3 total, 1 superadmin, 1 staff", stats)
+	}
+
+	recent, err := a.Auth.Users().Recent(t.Context(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recent) != 2 {
+		t.Fatalf("Recent returned %d users, want 2", len(recent))
+	}
+	if recent[0].CreatedAt.Before(recent[1].CreatedAt) {
+		t.Error("Recent should be newest first")
+	}
+
+	if rec := c.get("/admin/"); rec.Code != http.StatusOK {
+		t.Errorf("the dashboard answered %d", rec.Code)
 	}
 }

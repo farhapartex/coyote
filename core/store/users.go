@@ -136,6 +136,95 @@ func (s *userStore) All(ctx context.Context) ([]*auth.User, error) {
 	return found, nil
 }
 
+func (s *userStore) Search(ctx context.Context, term string, limit, offset int) ([]*auth.User, int, error) {
+	handle, err := s.handle(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := handle.Model(&auth.User{})
+	if pattern := searchPattern(term); pattern != "" {
+		query = query.Where(
+			"lower(username) LIKE ? ESCAPE '\\' OR lower(email) LIKE ? ESCAPE '\\' OR "+
+				"lower(first_name) LIKE ? ESCAPE '\\' OR lower(last_name) LIKE ? ESCAPE '\\'",
+			pattern, pattern, pattern, pattern)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("coyote/repo: counting users: %w", err)
+	}
+
+	found := []*auth.User{}
+	page := query.Order("lower(username)")
+	if limit > 0 {
+		page = page.Limit(limit)
+	}
+	if offset > 0 {
+		page = page.Offset(offset)
+	}
+	if err := page.Find(&found).Error; err != nil {
+		return nil, 0, fmt.Errorf("coyote/repo: searching users: %w", err)
+	}
+	return found, int(total), nil
+}
+
+func searchPattern(term string) string {
+	folded := text.Fold(term)
+	if folded == "" {
+		return ""
+	}
+	folded = strings.ReplaceAll(folded, `\`, `\\`)
+	folded = strings.ReplaceAll(folded, "%", `\%`)
+	folded = strings.ReplaceAll(folded, "_", `\_`)
+	return "%" + folded + "%"
+}
+
+func (s *userStore) Recent(ctx context.Context, n int) ([]*auth.User, error) {
+	handle, err := s.handle(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found := []*auth.User{}
+	query := handle.Model(&auth.User{}).Order("created_at desc")
+	if n > 0 {
+		query = query.Limit(n)
+	}
+	if err := query.Find(&found).Error; err != nil {
+		return nil, fmt.Errorf("coyote/repo: reading the newest users: %w", err)
+	}
+	return found, nil
+}
+
+func (s *userStore) Stats(ctx context.Context) (auth.Stats, error) {
+	handle, err := s.handle(ctx)
+	if err != nil {
+		return auth.Stats{}, err
+	}
+
+	out := auth.Stats{}
+	counts := []struct {
+		into  *int
+		where string
+	}{
+		{&out.Total, ""},
+		{&out.Superadmins, "is_superadmin = true"},
+		{&out.Staff, "is_staff = true AND is_superadmin = false"},
+	}
+	for _, count := range counts {
+		query := handle.Model(&auth.User{})
+		if count.where != "" {
+			query = query.Where(count.where)
+		}
+		var total int64
+		if err := query.Count(&total).Error; err != nil {
+			return auth.Stats{}, fmt.Errorf("coyote/repo: counting users: %w", err)
+		}
+		*count.into = int(total)
+	}
+	return out, nil
+}
+
 func (s *userStore) Count(ctx context.Context) (int, error) {
 	handle, err := s.handle(ctx)
 	if err != nil {

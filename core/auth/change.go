@@ -91,18 +91,15 @@ func (s *Service) RevokeOtherSessions(r *http.Request) int {
 		return 0
 	}
 	ctx := r.Context()
-	others, err := store.All(ctx)
+	removed, err := store.DeleteByUserID(ctx, userID)
 	if err != nil {
 		return 0
 	}
-	removed := 0
-	for _, other := range others {
-		if other.UserID() != userID || other.ID() == current.ID() {
-			continue
-		}
-		if err := store.Delete(ctx, other.ID()); err == nil {
-			removed++
-		}
+	if err := store.Save(ctx, current); err != nil {
+		return 0
+	}
+	if removed > 0 {
+		removed--
 	}
 	return removed
 }

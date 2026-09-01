@@ -327,9 +327,16 @@ type Store interface {
 	Update(ctx context.Context, u *User) error
 	Delete(ctx context.Context, id string) error
 	All(ctx context.Context) ([]*User, error)
+	Search(ctx context.Context, term string, limit, offset int) ([]*User, int, error)
+	Recent(ctx context.Context, n int) ([]*User, error)
 	Count(ctx context.Context) (int, error)
+	Stats(ctx context.Context) (Stats, error)
 }
 ```
+
+`Search`, `Recent` and `Stats` exist so the admin never has to read a whole table to draw a page:
+the user list pages and filters in the database, and the dashboard counts with counts. `All` is still
+there for a small table or a one-off script.
 
 Every method takes a context and every one that can fail says so. `auth.PermissionStore` and
 `auth.TokenStore` follow the same shape. Inside a handler the context is `r.Context()`, so a client

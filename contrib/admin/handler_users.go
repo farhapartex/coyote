@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/farhapartex/coyote/core/auth"
@@ -11,26 +12,39 @@ import (
 )
 
 func (a *Admin) userList(w http.ResponseWriter, r *http.Request) {
-	query := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
-	all, err := a.app.Auth.Users().All(r.Context())
+	term := strings.TrimSpace(r.URL.Query().Get("q"))
+	perPage := a.app.Settings.Pagination.PerPage
+
+	number := 1
+	if n, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && n > 1 {
+		number = n
+	}
+	offset := 0
+	if perPage > 0 && number > 1 {
+		offset = (number - 1) * perPage
+	}
+
+	matched, total, err := a.app.Auth.Users().Search(r.Context(), term, perPage, offset)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	matched := make([]*auth.User, 0, len(all))
-	for _, u := range all {
-		if query == "" ||
-			strings.Contains(strings.ToLower(u.Username), query) ||
-			strings.Contains(strings.ToLower(u.Email), query) ||
-			strings.Contains(strings.ToLower(u.FullName()), query) {
-			matched = append(matched, u)
+
+	page := view.Paginate(a.app.Settings.Pagination.Paginator, int64(total), number, perPage)
+	if page.Offset != offset {
+		matched, total, err = a.app.Auth.Users().Search(r.Context(), term, page.Limit, page.Offset)
+		if err != nil {
+			a.fail(w, r, err)
+			return
 		}
 	}
+
 	a.render(w, r, http.StatusOK, "users.html", view.Data{
 		"Nav":   "users",
 		"Users": matched,
-		"Query": r.URL.Query().Get("q"),
-		"Total": len(all),
+		"Query": term,
+		"Total": total,
+		"Page":  page,
 	})
 }
 

@@ -4,45 +4,32 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/view"
 )
 
+const dashboardRecent = 5
+
 func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request) {
-	users, err := a.app.Auth.Users().All(r.Context())
+	users := a.app.Auth.Users()
+
+	stats, err := users.Stats(r.Context())
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	superadmins, staff := 0, 0
-	for _, u := range users {
-		if u.IsSuperadmin {
-			superadmins++
-		}
-		if u.IsStaff && !u.IsSuperadmin {
-			staff++
-		}
+	recent, err := users.Recent(r.Context(), dashboardRecent)
+	if err != nil {
+		a.fail(w, r, err)
+		return
 	}
+
 	a.render(w, r, http.StatusOK, "dashboard.html", view.Data{
 		"Nav":             "dashboard",
-		"UserCount":       len(users),
-		"SuperadminCount": superadmins,
-		"StaffCount":      staff,
+		"UserCount":       stats.Total,
+		"SuperadminCount": stats.Superadmins,
+		"StaffCount":      stats.Staff,
 		"SessionCount":    a.sessionCount(r.Context()),
 		"Uptime":          time.Since(a.app.Started).Round(time.Second).String(),
-		"Recent":          recentUsers(users, 5),
+		"Recent":          recent,
 	})
-}
-
-func recentUsers(users []*auth.User, n int) []*auth.User {
-	sorted := append([]*auth.User{}, users...)
-	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && sorted[j].CreatedAt.After(sorted[j-1].CreatedAt); j-- {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-		}
-	}
-	if len(sorted) > n {
-		sorted = sorted[:n]
-	}
-	return sorted
 }
