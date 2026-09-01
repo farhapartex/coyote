@@ -60,6 +60,24 @@ nullable; a value field is not.
 | `[]byte` | `bytes` | — |
 | `upload.Ref` | `file` | `file`, with a link to the current file |
 
+## Sensitive fields
+
+A sensitive field is rendered as a password input, left alone when its form field comes back empty,
+and kept out of admin list columns. Say so and it is settled:
+
+```go
+RecoveryPin string `gorm:"size:20" coyote:"sensitive"`
+```
+
+Without a tag the column name is used as a guess: `password`, `secret`, `token`, `api_key`, `salt`
+and `pin` exactly, anything ending `_password`, `_secret`, `_token`, `_hash` or `_key`, and anything
+starting `password` or `otp`. That guess is deliberately generous, because a leaked column is worse
+than a hidden one — so `sort_key` is treated as sensitive too. Turn it off where the guess is wrong:
+
+```go
+CacheKey string `gorm:"size:100" coyote:"public"`
+```
+
 There is no decimal kind. Store money as an integer count of minor units — cents, pence, paise — and
 format it on the way out, as the `PriceCents` field above does:
 

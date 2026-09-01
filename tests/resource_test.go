@@ -438,3 +438,54 @@ func TestFieldLabels(t *testing.T) {
 		}
 	}
 }
+
+type Vault struct {
+	ID           string `gorm:"primaryKey;size:64"`
+	Label        string `gorm:"size:100;not null"`
+	AccessToken  string `gorm:"size:200"`
+	PasswordHash string `gorm:"size:200"`
+	RecoveryPin  string `gorm:"size:20" coyote:"sensitive"`
+	CacheKey     string `gorm:"size:100" coyote:"public"`
+	SortKey      string `gorm:"size:100"`
+}
+
+func TestSensitiveFieldsAreRecognisedByNameAndByTag(t *testing.T) {
+	a := migratedApp(t, Vault{})
+	schema, err := a.Describe(Vault{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string]bool{
+		"label":         false,
+		"access_token":  true,
+		"password_hash": true,
+		"recovery_pin":  true,
+		"cache_key":     false,
+		"sort_key":      true,
+	}
+	for column, sensitive := range want {
+		field, ok := schema.Field(column)
+		if !ok {
+			t.Errorf("%s is missing from the schema", column)
+			continue
+		}
+		if field.Sensitive != sensitive {
+			t.Errorf("%s Sensitive = %v, want %v", column, field.Sensitive, sensitive)
+		}
+	}
+}
+
+func TestASensitiveColumnStaysOutOfTheListView(t *testing.T) {
+	a := migratedApp(t, Vault{})
+	schema, err := a.Describe(Vault{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, field := range schema.ListFields() {
+		if field.Sensitive {
+			t.Errorf("%s is sensitive and should not be a list column", field.Column)
+		}
+	}
+}
