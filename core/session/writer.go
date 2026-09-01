@@ -1,7 +1,9 @@
 package session
 
 import (
+	"bufio"
 	"context"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -39,6 +41,11 @@ func (w *sessionWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
+func (w *sessionWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	w.commit()
+	return http.NewResponseController(w.ResponseWriter).Hijack()
+}
+
 func (w *sessionWriter) commit() {
 	w.once.Do(func() {
 		if w.wroteHeader {
@@ -54,6 +61,10 @@ func (w *sessionWriter) commit() {
 			return
 		}
 		if !sess.Modified() || (sess.isFresh() && sess.isEmpty()) {
+			return
+		}
+		if sess.ID() == "" {
+			m.report(ErrNoSessionID)
 			return
 		}
 		value, err := m.carrier.persist(w.ctx, sess)

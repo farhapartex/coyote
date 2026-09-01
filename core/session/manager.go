@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -120,7 +121,8 @@ func (m *Manager) load(r *http.Request) *Session {
 func (m *Manager) blank() *Session {
 	id, err := newID()
 	if err != nil {
-		id = "invalid"
+		m.report(fmt.Errorf("coyote/session: no session id could be generated: %w", err))
+		return newSession("", m.lifetime)
 	}
 	return newSession(id, m.lifetime)
 }

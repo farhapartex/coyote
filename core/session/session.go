@@ -1,9 +1,12 @@
 package session
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
+
+var ErrNoSessionID = errors.New("coyote/session: refusing to store a session with no id")
 
 type status int
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/farhapartex/coyote/core/session"
+	"github.com/farhapartex/coyote/core/view"
 )
 
 func TestSessionPersistsAcrossRequests(t *testing.T) {
@@ -217,5 +218,32 @@ func TestMemoryStoreSatisfiesManageableStore(t *testing.T) {
 	}
 	if len(allSessions(t, manageable)) != 0 {
 		t.Error("All should start empty")
+	}
+}
+
+func TestSafeNextRefusesEverythingOffsite(t *testing.T) {
+	hostile := []string{
+		"//evil.test/x",
+		"/\\evil.test/x",
+		"\\/evil.test",
+		"https://evil.test/x",
+		"http:/evil.test",
+		"javascript:alert(1)",
+		"/x\r\nSet-Cookie: a=b",
+		"/x\n/y",
+		"//",
+		"evil",
+		"",
+	}
+	for _, next := range hostile {
+		if got := view.SafeNext(next, "/safe"); got != "/safe" {
+			t.Errorf("SafeNext(%q) = %q, want the fallback", next, got)
+		}
+	}
+
+	for _, next := range []string{"/", "/dashboard", "/a/b?c=1", "/a#b"} {
+		if got := view.SafeNext(next, "/safe"); got != next {
+			t.Errorf("SafeNext(%q) = %q, a same-site path should survive", next, got)
+		}
 	}
 }

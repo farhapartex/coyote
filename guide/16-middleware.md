@@ -105,3 +105,14 @@ process stays up.
 ## Next
 
 [Security headers and CSP →](17-security-headers.md)
+
+## Writing your own
+
+Wrap the `http.ResponseWriter` if you must, and give the wrapper an `Unwrap() http.ResponseWriter`
+so `http.ResponseController` can find what is underneath. The framework's own wrappers do, and each
+also forwards `Hijack`, so a WebSocket library that type-asserts `w.(http.Hijacker)` reaches the
+connection through the whole chain rather than stopping at the first wrapper.
+
+A hijacked response has no headers left to set, so a session cookie minted during that request never
+reaches the client. The session itself is written before the handover, so server-side state stays
+consistent — but do not sign someone in and upgrade in the same request.

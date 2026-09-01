@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"bufio"
 	"compress/gzip"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -103,6 +105,10 @@ func (g *gzipWriter) Flush() {
 }
 
 func (g *gzipWriter) Unwrap() http.ResponseWriter { return g.ResponseWriter }
+
+func (g *gzipWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(g.ResponseWriter).Hijack()
+}
 
 func (g *gzipWriter) Close() {
 	if g.active {

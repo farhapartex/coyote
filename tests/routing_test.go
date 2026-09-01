@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"bufio"
 	"crypto/tls"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -474,5 +476,45 @@ func TestHSTSIsNotSentOnAForgedForwardedProto(t *testing.T) {
 
 	if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
 		t.Errorf("HSTS = %q; a forged header must not pin a browser to https", got)
+	}
+}
+
+type hijackable struct {
+	*httptest.ResponseRecorder
+	taken bool
+}
+
+func (h *hijackable) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h.taken = true
+	server, client := net.Pipe()
+	client.Close()
+	return server, bufio.NewReadWriter(bufio.NewReader(server), bufio.NewWriter(server)), nil
+}
+
+func TestTheMiddlewareChainCanBeHijackedForAnUpgrade(t *testing.T) {
+	a := newTestApp(t, withoutCSRF, func(s *settings.Settings) {
+		s.Security.Compress = true
+		s.PageCache = settings.PageCache{Enabled: true, TTL: time.Minute, Paths: []string{"/"}}
+	})
+
+	var hijackErr error
+	a.Get("/upgrade", func(w http.ResponseWriter, r *http.Request) {
+		conn, _, err := w.(http.Hijacker).Hijack()
+		hijackErr = err
+		if conn != nil {
+			conn.Close()
+		}
+	})
+
+	rec := &hijackable{ResponseRecorder: httptest.NewRecorder()}
+	req := httptest.NewRequest(http.MethodGet, "/upgrade", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	a.Handler().ServeHTTP(rec, req)
+
+	if !rec.taken {
+		t.Error("the handler could not reach the underlying connection through the chain")
+	}
+	if hijackErr != nil {
+		t.Errorf("Hijack: %v", hijackErr)
 	}
 }

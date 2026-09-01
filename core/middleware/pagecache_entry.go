@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/gob"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -90,6 +92,10 @@ func (p *pageRecorder) Flush() {
 }
 
 func (p *pageRecorder) Unwrap() http.ResponseWriter { return p.ResponseWriter }
+
+func (p *pageRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(p.ResponseWriter).Hijack()
+}
 
 func (p *pageRecorder) entry() pageEntry {
 	header := http.Header{}
