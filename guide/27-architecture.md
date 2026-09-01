@@ -36,6 +36,7 @@ What you can replace, and the contract you implement:
 | Seam | Interface | Set it with |
 | --- | --- | --- |
 | Session storage | `session.Store` (+ `ManageableStore`) | `Sessions.Store` |
+| Client identity | a proxy count read by `lib/clientip` | `Security.TrustedProxyCount` |
 | User storage | `auth.Store` | `Auth.UserStore` |
 | Permission storage | `auth.PermissionStore` | `Auth.PermissionStore` |
 | Reset tokens | `auth.TokenStore` | registered when `Auth.ResetTokens` is on |
