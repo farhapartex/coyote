@@ -17,22 +17,34 @@ func (c Change) Empty() bool { return len(c.Ops) == 0 }
 func Diff(previous, desired Snapshot) Change {
 	var change Change
 
+	created := []Table{}
 	for _, table := range desired.Tables {
 		before, existed := previous.Table(table.Name)
 		if !existed {
-			change.Ops = append(change.Ops, CreateTable{Table: table})
+			created = append(created, table)
 			continue
 		}
 		change.merge(diffColumns(before, table))
 		change.merge(diffIndexes(before, table))
 	}
 
+	creates := make([]Op, 0, len(created))
+	for _, table := range orderedForCreate(created) {
+		creates = append(creates, CreateTable{Table: table})
+	}
+	change.Ops = append(creates, change.Ops...)
+
+	dropped := []Table{}
 	for _, table := range previous.Tables {
 		if _, kept := desired.Table(table.Name); !kept {
-			change.Ops = append(change.Ops, DropTable{Name: table.Name})
-			change.Warnings = append(change.Warnings,
-				"table "+table.Name+" is no longer declared; the generated drop will destroy its data")
+			dropped = append(dropped, table)
 		}
+	}
+	ordered := orderedForCreate(dropped)
+	for i := len(ordered) - 1; i >= 0; i-- {
+		change.Ops = append(change.Ops, DropTable{Name: ordered[i].Name})
+		change.Warnings = append(change.Warnings,
+			"table "+ordered[i].Name+" is no longer declared; the generated drop will destroy its data")
 	}
 	return change
 }

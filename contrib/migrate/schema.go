@@ -6,6 +6,13 @@ import (
 	"github.com/farhapartex/coyote/core/model"
 )
 
+type Reference struct {
+	Table  string `json:"table"`
+	Column string `json:"column"`
+}
+
+func (r Reference) IsZero() bool { return r.Table == "" && r.Column == "" }
+
 type Column struct {
 	Name          string     `json:"name"`
 	Kind          model.Kind `json:"kind"`
@@ -14,6 +21,7 @@ type Column struct {
 	PrimaryKey    bool       `json:"primaryKey,omitempty"`
 	AutoIncrement bool       `json:"autoIncrement,omitempty"`
 	Default       string     `json:"default,omitempty"`
+	References    Reference  `json:"references,omitzero"`
 }
 
 type Index struct {
@@ -48,6 +56,13 @@ func (t Table) Index(name string) (Index, bool) {
 
 func TableOf(schema *model.Schema) Table {
 	table := Table{Name: schema.Table}
+	references := make(map[string]Reference, len(schema.Relations))
+	for _, relation := range schema.Relations {
+		if relation.Target == "" || relation.TargetKey == "" {
+			continue
+		}
+		references[relation.Column] = Reference{Table: relation.Target, Column: relation.TargetKey}
+	}
 	for _, f := range schema.Fields {
 		table.Columns = append(table.Columns, Column{
 			Name:          f.Column,
@@ -57,6 +72,7 @@ func TableOf(schema *model.Schema) Table {
 			PrimaryKey:    f.PrimaryKey,
 			AutoIncrement: f.AutoIncrement,
 			Default:       f.Default,
+			References:    references[f.Column],
 		})
 	}
 	for _, ix := range schema.Indexes {

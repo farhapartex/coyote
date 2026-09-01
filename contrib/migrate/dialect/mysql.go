@@ -18,8 +18,8 @@ func (d MySQL) CreateTable(table string, columns []Column) string {
 
 func (d MySQL) DropTable(table string) string { return "DROP TABLE " + d.Quote(table) }
 
-func (d MySQL) AddColumn(table string, column Column) string {
-	return fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", d.Quote(table), columnClause(d, column))
+func (d MySQL) AddColumn(table string, column Column) []string {
+	return addColumnWithConstraint(d, table, column)
 }
 
 func (d MySQL) DropColumn(table, column string) string {
@@ -37,8 +37,18 @@ func (d MySQL) DropIndex(table, name string) string {
 }
 
 func (d MySQL) AlterColumn(table string, from, to Column) []string {
-	return []string{fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s",
+	out := []string{fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s",
 		d.Quote(table), columnClause(d, to))}
+	if from.References != to.References {
+		if !from.References.IsZero() {
+			out = append(out, fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY %s",
+				d.Quote(table), d.Quote(ForeignKeyName(table, to.Name))))
+		}
+		if !to.References.IsZero() {
+			out = append(out, fmt.Sprintf("ALTER TABLE %s ADD %s", d.Quote(table), foreignKeyClause(d, table, to)))
+		}
+	}
+	return out
 }
 
 func MySQLType(kind model.Kind, size int, autoIncrement bool) string {

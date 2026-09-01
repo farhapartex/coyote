@@ -20,8 +20,13 @@ func (d SQLite) DropTable(table string) string {
 	return "DROP TABLE " + d.Quote(table)
 }
 
-func (d SQLite) AddColumn(table string, column Column) string {
-	return fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", d.Quote(table), columnClause(d, column))
+func (d SQLite) AddColumn(table string, column Column) []string {
+	clause := columnClause(d, column)
+	if !column.References.IsZero() {
+		clause += fmt.Sprintf(" REFERENCES %s (%s)",
+			d.Quote(column.References.Table), d.Quote(column.References.Column))
+	}
+	return []string{fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", d.Quote(table), clause)}
 }
 
 func (d SQLite) DropColumn(table, column string) string {
@@ -62,7 +67,7 @@ func (d SQLite) Rebuild(table string, columns []Column, indexes []Index, copied 
 	shadow := table + "__rebuilt"
 
 	statements := []string{
-		createTable(d, shadow, columns, true),
+		createTableNamed(d, shadow, table, columns, true),
 		fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM %s",
 			d.Quote(shadow), joinColumns(d, copied), joinColumns(d, copied), d.Quote(table)),
 		"DROP TABLE " + d.Quote(table),

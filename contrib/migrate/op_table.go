@@ -67,6 +67,7 @@ func dialectColumns(d dialect.Dialect, columns []Column) []dialect.Column {
 			PrimaryKey:    c.PrimaryKey,
 			AutoIncrement: c.AutoIncrement,
 			Default:       c.Default,
+			References:    dialect.Reference{Table: c.References.Table, Column: c.References.Column},
 		})
 	}
 	return out
