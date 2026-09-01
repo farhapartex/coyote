@@ -160,7 +160,8 @@ exist.
 
 ## Login throttling
 
-Off by default. Turn it on and repeated failures lock the pair out:
+**On by default.** Five failures for one username from one client IP inside fifteen minutes lock that
+pair out for fifteen minutes. Those are the defaults, spelled out:
 
 ```go
 s.Auth.Throttle = auth.ThrottlePolicy{
@@ -170,6 +171,8 @@ s.Auth.Throttle = auth.ThrottlePolicy{
 	Lockout:     15 * time.Minute,
 }
 ```
+
+Change the numbers, or set `Enabled: false` if you are putting your own limiter in front.
 
 - The key is **username plus client IP**, so someone guessing at your name from their own machine
   cannot lock you out of yours.

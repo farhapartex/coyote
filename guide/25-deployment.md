@@ -47,6 +47,13 @@ refuses to start on an unsafe combination, so a bad config fails before it serve
 - [ ] A superadmin created once, then `createsuperadmin` no longer needed
 - [ ] `Server.TLS.CacheDir` kept across deploys if you use Autocert
 - [ ] Session backend chosen deliberately — `memory` signs everyone out on every deploy
+- [ ] [`Security.RateLimit`](19-rate-limiting.md) decided one way or the other
+
+Rate limiting stays off unless you ask for it, and that is deliberate: the limiter sits in the same
+chain as your static files, so a page with twenty assets costs twenty-one requests against the
+allowance, and a shared office address arrives as one client. Pick numbers that fit your traffic, or
+put the limit in the proxy in front. [Login throttling](14-authentication.md) is separate and is
+already on.
 
 ## Sessions across restarts and instances
 

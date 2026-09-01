@@ -25,16 +25,49 @@ func throttledService(t *testing.T, policy auth.ThrottlePolicy) *auth.Service {
 	return service
 }
 
-func TestThrottlingIsOffByDefault(t *testing.T) {
-	if settings.Default().Auth.Throttle.Enabled {
-		t.Fatal("login throttling must be off unless asked for")
+func TestThrottlingIsOnByDefault(t *testing.T) {
+	policy := settings.Default().Auth.Throttle
+	if !policy.Enabled {
+		t.Fatal("login throttling must be on without being asked for")
+	}
+	if policy.MaxAttempts != 5 || policy.Window != 15*time.Minute || policy.Lockout != 15*time.Minute {
+		t.Errorf("policy = %+v, want 5 attempts over 15 minutes and a 15 minute lockout", policy)
 	}
 
+	service := throttledService(t, policy)
+	for i := range policy.MaxAttempts {
+		if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
+			t.Fatalf("attempt %d: error = %v, want ErrInvalidCredentials", i, err)
+		}
+	}
+	if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
+		t.Errorf("error = %v, want ErrTooManyAttempts once the default is spent", err)
+	}
+}
+
+func TestNoPolicyAtAllStillMeansNoThrottling(t *testing.T) {
 	service := throttledService(t, auth.ThrottlePolicy{})
 	for i := range 20 {
 		if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Fatalf("attempt %d: error = %v, want ErrInvalidCredentials", i, err)
 		}
+	}
+}
+
+func TestTheDefaultThrottleStopsBruteForcingTheAdminLogin(t *testing.T) {
+	_, c := setupAdmin(t)
+
+	for attempt := range 5 {
+		if response := c.login("/admin/login", "root", "wrong"); response.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("attempt %d answered %d, want 401", attempt+1, response.StatusCode)
+		}
+	}
+	if response := c.login("/admin/login", "root", "wrong"); response.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("the sixth guess answered %d, want 429 without the project configuring anything",
+			response.StatusCode)
+	}
+	if response := c.login("/admin/login", "root", "supersecret"); response.StatusCode == http.StatusSeeOther {
+		t.Error("the lockout let the right password straight through")
 	}
 }
 

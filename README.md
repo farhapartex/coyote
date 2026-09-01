@@ -38,7 +38,7 @@ func main() {
   grows a full CRUD section with no routes, handlers, or templates from you.
 - **Sessions** — three backends: in memory, in the database, or sealed in the cookie with AES-GCM.
 - **Authentication** — a user entity, PBKDF2 passwords, sign-in, route guards, pluggable password
-  rules, and optional login throttling.
+  rules, and login throttling on by default.
 - **Permissions** — four permissions per model, bundled into roles, managed from the portal.
 - **Forms and uploads** — struct or schema binding with validation, and file uploads that stage,
   sniff, and clean up after themselves.

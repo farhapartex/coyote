@@ -3,6 +3,7 @@ package settings
 import (
 	"time"
 
+	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/cache"
 	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
@@ -60,6 +61,12 @@ func Default() Settings {
 			LoginURL:            "/admin/login",
 			PasswordMinLength:   8,
 			PBKDF2Iterations:    600000,
+			Throttle: auth.ThrottlePolicy{
+				Enabled:     true,
+				MaxAttempts: 5,
+				Window:      15 * time.Minute,
+				Lockout:     15 * time.Minute,
+			},
 		},
 		I18N: I18N{
 			Default:   i18n.DefaultTag,

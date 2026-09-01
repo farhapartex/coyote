@@ -185,7 +185,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Auth.PasswordMinLength` | `8` | |
 | `Auth.PasswordRules` | four defaults | Replace to change the policy; see [Authentication](14-authentication.md) |
 | `Auth.PBKDF2Iterations` | `600000` | Lower it in tests to keep them fast |
-| `Auth.Throttle` | off | Login attempt limits; see [Authentication](14-authentication.md) |
+| `Auth.Throttle` | on, 5 per 15 min | Login attempt limits; see [Authentication](14-authentication.md) |
 | `Auth.Permissions` | `true` | Register the permission and role tables; see [Permissions](28-permissions.md) |
 | `Auth.AllowPasswordChange` | `true` | Off hides the form and makes the route 404 |
 | `Auth.ResetTokens` | `false` | Register the reset-token table |
