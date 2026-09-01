@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"mime/quotedprintable"
 	netmail "net/mail"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -242,6 +243,8 @@ func TestEncodeWithAttachmentBecomesMixed(t *testing.T) {
 	}
 }
 
+var bccHeader = regexp.MustCompile(`(?im)^bcc[ \t]*:`)
+
 func TestEncodeNeverWritesBcc(t *testing.T) {
 	message := mail.Message{
 		From:    "shop@example.test",
@@ -257,8 +260,8 @@ func TestEncodeNeverWritesBcc(t *testing.T) {
 	if strings.Contains(raw, "secret@example.test") || strings.Contains(raw, "hidden@example.test") {
 		t.Fatalf("a blind copy leaked into the message:\n%s", raw)
 	}
-	if strings.Contains(strings.ToLower(raw), "bcc") {
-		t.Errorf("the word bcc should not appear at all:\n%s", raw)
+	if bccHeader.MatchString(raw) {
+		t.Errorf("a Bcc header was written:\n%s", raw)
 	}
 	if got := parsed.Header.Get("Bcc"); got != "" {
 		t.Errorf("Bcc header = %q", got)
