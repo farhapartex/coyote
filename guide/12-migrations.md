@@ -57,8 +57,8 @@ import _ "your/module/migrations"
 
 ## Operations
 
-`CreateTable`, `DropTable`, `AddColumn`, `DropColumn`, `RenameColumn`, `CreateIndex`, `DropIndex`,
-plus two escape hatches:
+`CreateTable`, `DropTable`, `AddColumn`, `DropColumn`, `RenameColumn`, `AlterColumn`, `CreateIndex`,
+`DropIndex`, plus two escape hatches:
 
 ```go
 migrate.RunSQL{
@@ -81,6 +81,11 @@ ledger guarantees it runs exactly once.
 Each migration applies **inside a transaction** — a failure rolls back the schema change *and* the
 ledger row together, so a half-applied migration cannot be recorded.
 
+The one exception is a SQLite table rebuild (`AlterColumn`), because `PRAGMA foreign_keys` is a no-op
+inside a transaction. Those run outside one and finish with a `PRAGMA foreign_key_check`; a rebuild
+that leaves a dangling row fails and is not recorded. See
+[Referential integrity](11-database.md#referential-integrity).
+
 The ledger (`coyote_migrations`) stores a checksum of every migration, so editing one that already
 ran is caught rather than silently skipped:
 
@@ -102,25 +107,69 @@ review before applying:
 
 Silently destroying a column of data is worse than asking.
 
+## Backing out a migration you never applied
+
+`makemigrations` writes the snapshot when it generates the file, so the snapshot describes the
+migrations on disk rather than the state of any database. That is what lets it run with nothing
+connected — but it means a migration that `migrate` refuses still counts. Add a `NOT NULL` column to
+a populated table and the sequence goes:
+
+```
+$ coyote makemigrations --name=add_carrier_name
+created migrations/0005_add_carrier_name.go
+$ coyote migrate
+      failed
+coyote/migrate: NOT NULL constraint failed: shipments.carrier_name
+```
+
+The database is untouched and `0005` is not in the ledger, but the snapshot already lists
+`carrier_name`. Fix the model and regenerate, and the next diff is measured against a snapshot that
+claims a column the database never got.
+
+`--undo` puts the ladder back:
+
+```
+$ coyote makemigrations --undo
+undo 0005_add_carrier_name
+
+    add column shipments.carrier_name
+
+this deletes migrations/0005_add_carrier_name.go and rewinds snapshot.json
+
+type yes to continue: yes
+
+removed 0005_add_carrier_name.go and rewound snapshot.json
+```
+
+It only ever touches the newest migration, and it refuses one that has been applied:
+
+```
+coyote/cli: 0004_add_eta has already been applied; roll it back first with: coyote rollback
+```
+
+Pass `--no-input` to skip the confirmation in a script. A migration carrying `migrate.RunSQL` cannot
+be rewound this way — the framework has no way to know what the SQL did to the shape of the schema —
+so `--undo` refuses rather than guessing.
+
 ## Applying
 
 `migrate` reports the plan, then applies it:
 
 ```
 $ coyote migrate
-server    running on 127.0.0.1:8000
 database  sqlite /path/to/app/coyote.db
-models    3 registered
+migrations 3 found, 1 pending
 
-  create table products ... ok
+  0003_create_products
+      create table products
+      applied
 
-applied 1 change(s)
+applied 1 migration(s)
 ```
 
-Running it again reports `schema is up to date, nothing to apply`.
+Running it again reports `database is up to date, nothing to apply`.
 
-> `migrate` currently refuses unless the server is already listening on the configured address:
-> `coyote/cli: server is not running at 127.0.0.1:8000; start it first with: coyote start`
+`migrate` needs a database it can reach, but not a running server — it works with nothing listening.
 
 ## Prototyping without files
 
@@ -131,10 +180,27 @@ migrate.Sync(handle, a.Models())
 Runs GORM's `AutoMigrate` directly — no files, no ledger. Convenient in tests and while sketching a
 schema. Do not point it at production: it has no record of what it did and no way to undo it.
 
+## Rolling back
+
+A generated migration carries a `Down` for every operation that can be inverted, and leaves a comment
+naming the ones that cannot rather than guessing at them:
+
+```go
+// no automatic reverse for: run sql
+```
+
+```
+coyote rollback              # undo the most recently applied migration
+coyote rollback --steps=3
+```
+
+`RunSQL` and `RunGo` cannot be inverted automatically. Write a `Down` for them, or pass `--force` to
+roll back the rest of the migration without them.
+
 ## Not yet
 
-Down migrations. Every migration is forward-only today; roll back by writing the inverse as a new
-migration.
+Squashing a long ladder into one migration, and per-alias migrations: routing a model to a second
+connection works, but `migrate` only ever targets the default one.
 
 ## Next
 

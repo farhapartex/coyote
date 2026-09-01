@@ -22,6 +22,10 @@ func columnSource(c Column) string {
 	if c.Default != "" {
 		parts = append(parts, fmt.Sprintf("Default: %q", c.Default))
 	}
+	if !c.References.IsZero() {
+		parts = append(parts, fmt.Sprintf("References: migrate.Reference{Table: %q, Column: %q}",
+			c.References.Table, c.References.Column))
+	}
 	return "{" + strings.Join(parts, ", ") + "}"
 }
 

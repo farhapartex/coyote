@@ -10,7 +10,9 @@ import (
 const NameMakeMigrations = "makemigrations"
 
 type MakeMigrations struct {
-	Label string
+	Label   string
+	Undo    bool
+	NoInput bool
 }
 
 func (MakeMigrations) Name() string { return NameMakeMigrations }
@@ -19,7 +21,19 @@ func (MakeMigrations) Summary() string {
 	return "write a migration file for changes to your models"
 }
 
+func MakeMigrationsFromEnv() MakeMigrations {
+	return MakeMigrations{
+		Label:   flagSet(EnvName),
+		Undo:    flagBool(EnvUndo),
+		NoInput: flagBool(EnvNoInput),
+	}
+}
+
 func (m MakeMigrations) Run(ctx Context) error {
+	if m.Undo {
+		return m.undo(ctx)
+	}
+
 	cfg := ctx.App.Config()
 	dir := cfg.Migrations.Dir
 

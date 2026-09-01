@@ -141,6 +141,18 @@ func (r *Runner) needsRebuild(ops []Op) bool {
 
 func (r *Runner) applyOutsideTransaction(ctx context.Context, m Migration) error {
 	started := time.Now()
+	return r.rebuildOutsideTransaction(ctx, m.ID, m.Up, func(handle *gorm.DB) error {
+		return r.ledger.Record(ctx, handle, m, time.Since(started))
+	})
+}
+
+func (r *Runner) undoOutsideTransaction(ctx context.Context, plan Rollback) error {
+	return r.rebuildOutsideTransaction(ctx, plan.Migration.ID, plan.Ops, func(handle *gorm.DB) error {
+		return r.ledger.Forget(ctx, handle, plan.Migration.ID)
+	})
+}
+
+func (r *Runner) rebuildOutsideTransaction(ctx context.Context, id string, ops []Op, record func(*gorm.DB) error) error {
 	handle := r.handle.WithContext(ctx)
 
 	if err := handle.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
@@ -148,21 +160,37 @@ func (r *Runner) applyOutsideTransaction(ctx context.Context, m Migration) error
 	}
 	defer handle.Exec("PRAGMA foreign_keys = ON")
 
-	for _, op := range m.Up {
+	violations, err := foreignKeyViolations(handle)
+	if err != nil {
+		return err
+	}
+	if violations > 0 {
+		return fmt.Errorf("%s: the database already holds %d foreign key violation(s); a table rebuild would preserve them, so nothing was changed",
+			id, violations)
+	}
+
+	for _, op := range ops {
 		if err := r.applyOp(ctx, handle, op); err != nil {
-			return fmt.Errorf("%s: %s: %w", m.ID, op.Describe(), err)
+			return fmt.Errorf("%s: %s: %w", id, op.Describe(), err)
 		}
 	}
 
-	violations := []map[string]any{}
-	if err := handle.Raw("PRAGMA foreign_key_check").Scan(&violations).Error; err != nil {
+	if violations, err = foreignKeyViolations(handle); err != nil {
 		return err
 	}
-	if len(violations) > 0 {
+	if violations > 0 {
 		return fmt.Errorf("%s: the rebuild left %d foreign key violation(s); the database was not recorded as migrated",
-			m.ID, len(violations))
+			id, violations)
 	}
-	return r.ledger.Record(ctx, handle, m, time.Since(started))
+	return record(handle)
+}
+
+func foreignKeyViolations(handle *gorm.DB) (int, error) {
+	rows := []map[string]any{}
+	if err := handle.Raw("PRAGMA foreign_key_check").Scan(&rows).Error; err != nil {
+		return 0, err
+	}
+	return len(rows), nil
 }
 
 func (r *Runner) applyOp(ctx context.Context, tx *gorm.DB, op Op) error {
@@ -270,6 +298,9 @@ func (r *Runner) Undo(ctx context.Context, plan Rollback) error {
 	if len(plan.Blocked) > 0 {
 		return fmt.Errorf("coyote/migrate: %s cannot be reversed: %s",
 			plan.Migration.ID, strings.Join(plan.Blocked, ", "))
+	}
+	if r.needsRebuild(plan.Ops) {
+		return r.undoOutsideTransaction(ctx, plan)
 	}
 	return r.handle.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, op := range plan.Ops {

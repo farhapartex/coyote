@@ -2,6 +2,13 @@ package dialect
 
 import "github.com/farhapartex/coyote/core/settings"
 
+type Reference struct {
+	Table  string
+	Column string
+}
+
+func (r Reference) IsZero() bool { return r.Table == "" && r.Column == "" }
+
 type Column struct {
 	Name          string
 	Type          string
@@ -9,6 +16,7 @@ type Column struct {
 	PrimaryKey    bool
 	AutoIncrement bool
 	Default       string
+	References    Reference
 }
 
 type Index struct {
@@ -23,7 +31,7 @@ type Dialect interface {
 	Quote(identifier string) string
 	CreateTable(table string, columns []Column) string
 	DropTable(table string) string
-	AddColumn(table string, column Column) string
+	AddColumn(table string, column Column) []string
 	DropColumn(table, column string) string
 	RenameColumn(table, from, to string) string
 	CreateIndex(index Index) string

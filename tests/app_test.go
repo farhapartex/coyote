@@ -349,6 +349,40 @@ func TestAllowedHostsRejectsUnlistedHost(t *testing.T) {
 		{"api.corp.internal", http.StatusOK},
 		{"evil.com", http.StatusBadRequest},
 		{"notexample.com", http.StatusBadRequest},
+		{"example.com:8000.evil.com", http.StatusBadRequest},
+		{"example.com:evil", http.StatusBadRequest},
+		{"example.com:", http.StatusBadRequest},
+		{"example.com:99999", http.StatusBadRequest},
+		{"example.com:-1", http.StatusBadRequest},
+		{"example.com:8000 ", http.StatusBadRequest},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/x", nil)
+		req.Host = c.host
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, req)
+		if rec.Code != c.code {
+			t.Errorf("host %q: code %d, want %d", c.host, rec.Code, c.code)
+		}
+	}
+}
+
+func TestAllowedHostsIPv6(t *testing.T) {
+	a := newTestApp(t, func(s *settings.Settings) {
+		s.Debug = false
+		s.SecretKey = strings.Repeat("k", 48)
+		s.AllowedHosts = []string{"::1", "example.com"}
+	})
+	a.Get("/x", func(w http.ResponseWriter, r *http.Request) {})
+
+	cases := []struct {
+		host string
+		code int
+	}{
+		{"[::1]:8000", http.StatusOK},
+		{"[::1]", http.StatusOK},
+		{"[::1]:evil", http.StatusBadRequest},
+		{"[::2]:8000", http.StatusBadRequest},
 	}
 	for _, c := range cases {
 		req := httptest.NewRequest(http.MethodGet, "/x", nil)

@@ -18,8 +18,8 @@ func (d Postgres) CreateTable(table string, columns []Column) string {
 
 func (d Postgres) DropTable(table string) string { return "DROP TABLE " + d.Quote(table) }
 
-func (d Postgres) AddColumn(table string, column Column) string {
-	return fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", d.Quote(table), columnClause(d, column))
+func (d Postgres) AddColumn(table string, column Column) []string {
+	return addColumnWithConstraint(d, table, column)
 }
 
 func (d Postgres) DropColumn(table, column string) string {
@@ -53,6 +53,15 @@ func (d Postgres) AlterColumn(table string, from, to Column) []string {
 			out = append(out, prefix+" DROP DEFAULT")
 		} else {
 			out = append(out, prefix+" SET DEFAULT "+to.Default)
+		}
+	}
+	if from.References != to.References {
+		if !from.References.IsZero() {
+			out = append(out, fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s",
+				d.Quote(table), d.Quote(ForeignKeyName(table, to.Name))))
+		}
+		if !to.References.IsZero() {
+			out = append(out, fmt.Sprintf("ALTER TABLE %s ADD %s", d.Quote(table), foreignKeyClause(d, table, to)))
 		}
 	}
 	return out

@@ -16,7 +16,7 @@ func (o AddColumn) Describe() string {
 }
 
 func (o AddColumn) Statements(d dialect.Dialect) []string {
-	return []string{d.AddColumn(o.Table, dialectColumns(d, []Column{o.Column})[0])}
+	return d.AddColumn(o.Table, dialectColumns(d, []Column{o.Column})[0])
 }
 
 func (o AddColumn) Source() string {

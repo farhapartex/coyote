@@ -67,15 +67,18 @@ check_the_host_is_checked() {
 		assert_equal "a request claiming to be $host is served" "200" "$status"
 	done
 
-	status="$(curl -s -o /dev/null -w '%{http_code}' -H "Host: 127.0.0.1:8099.evil.test" "$E2E_BASE_URL/services" 2>/dev/null)"
-	if [ "$status" = "400" ]; then
-		check_passed "a host with a port that is not a number is refused"
-	else
-		check_skipped "a host with a port that is not a number is refused" \
-			"answered $status; net.SplitHostPort accepts any text after the colon, so the port is not validated"
-		note "the port is not checked" \
-			"the hostname is still pinned to an allowed value, so this is not host injection, but r.Host can carry attacker text after the colon and should not be echoed or used as a cache key"
-	fi
+	local malformed
+	for malformed in "127.0.0.1:8099.evil.test" "127.0.0.1:evil" "127.0.0.1:" "127.0.0.1:99999"; do
+		status="$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $malformed" "$E2E_BASE_URL/services" 2>/dev/null)"
+		if [ "$status" = "400" ]; then
+			check_passed "a host claiming the port $malformed is refused"
+		else
+			check_failed "a host claiming the port $malformed is refused" \
+				"answered $status; net.SplitHostPort accepts any text after the colon, so the port must be checked separately"
+		fi
+	done
+	note "why the port is checked" \
+		"the hostname was already pinned, so this was never host injection, but r.Host could carry attacker text after the colon into a log line or a cache key"
 }
 
 turn_security_on() {

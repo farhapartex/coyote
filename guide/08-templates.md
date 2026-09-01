@@ -113,7 +113,7 @@ s.Templates.Funcs = template.FuncMap{
 ```
 
 ```html
-<p>{{money .Price}}</p>
+<p>{{money .PriceCents}}</p>
 ```
 
 ## Reloading

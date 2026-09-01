@@ -3,6 +3,7 @@ package middleware
 import (
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -32,8 +33,13 @@ func AllowedHosts(hosts []string, debug bool) Middleware {
 
 func hostAllowed(requestHost string, patterns []string) bool {
 	host := strings.ToLower(requestHost)
-	if h, _, err := net.SplitHostPort(host); err == nil {
+	if h, port, err := net.SplitHostPort(host); err == nil {
+		if _, err := strconv.ParseUint(port, 10, 16); err != nil {
+			return false
+		}
 		host = h
+	} else if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
 	}
 	host = strings.TrimSuffix(host, ".")
 	for _, pattern := range patterns {

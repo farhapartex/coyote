@@ -101,10 +101,13 @@ check_the_migration_describes_the_relations() {
 		return
 	fi
 
-	local column
-	for column in customer_id origin_id destination_id; do
+	local column target
+	for column in customer_id:customers origin_id:ports destination_id:ports; do
+		target="${column#*:}"
+		column="${column%%:*}"
 		assert_output_contains "the migration adds the $column column" \
-			"{Name: \"$column\", Kind: model.KindString, Size: 36}" cat "$MIGRATION_FILE"
+			"{Name: \"$column\", Kind: model.KindString, Size: 36, References: migrate.Reference{Table: \"$target\", Column: \"id\"}}" \
+			cat "$MIGRATION_FILE"
 		assert_output_contains "the migration indexes $column" \
 			"idx_shipments_$column" cat "$MIGRATION_FILE"
 	done
@@ -172,9 +175,11 @@ check_referential_integrity_in_the_schema() {
 	ddl="$(app_sqlite_query "SELECT sql FROM sqlite_master WHERE name='shipments';")"
 
 	case "$ddl" in
-	*REFERENCES*)
-		check_passed "the schema enforces that a shipment points at a real customer"
-		return
+	*REFERENCES*"customers"*)
+		check_passed "the shipments schema declares a foreign key to customers"
+		;;
+	*)
+		check_failed "the shipments schema declares a foreign key to customers" "ddl: $ddl"
 		;;
 	esac
 
@@ -190,16 +195,29 @@ check_referential_integrity_in_the_schema() {
 
 	if [ "$dangling" = "0" ]; then
 		check_passed "the schema enforces that a shipment points at a real customer"
-		return
+	else
+		check_failed "the schema enforces that a shipment points at a real customer" \
+			"a row pointing at customer_id 'no-such-customer' was accepted even with PRAGMA foreign_keys=ON"
 	fi
 
-	check_failed "the schema enforces that a shipment points at a real customer" \
-		"contrib/migrate emits no REFERENCES clause, so the generated DDL has no foreign keys
-a row pointing at customer_id 'no-such-customer' was accepted even with PRAGMA foreign_keys=ON
-belongs-to is described for the admin and for labels, but referential integrity is left to the
-application; guide/11-database.md documents the labelling half and is silent on constraints"
+	local kept
+	kept="$(app_sqlite_query "SELECT count(*) FROM shipments WHERE customer_id IS NULL;")"
+	sqlite3 "$(app_database_path)" "PRAGMA foreign_keys=ON;
+		INSERT INTO shipments (id, reference, status, created_at, updated_at)
+		VALUES ('shp-loose','LOOSE','draft',datetime('now'),datetime('now'));" >/dev/null 2>&1 || true
+	local loose
+	loose="$(app_sqlite_query "SELECT count(*) FROM shipments WHERE id='shp-loose';")"
+	app_sqlite_query "DELETE FROM shipments WHERE id='shp-loose';"
+
+	if [ "$loose" = "1" ]; then
+		check_passed "a shipment with no customer at all is still allowed"
+	else
+		check_failed "a shipment with no customer at all is still allowed" \
+			"the constraint should reject dangling keys, not require the column to be filled in (had $kept null rows)"
+	fi
+
 	note "referential integrity" \
-		"relations drive admin dropdowns and label lookups only; nothing stops a dangling key"
+		"a described belongs-to becomes a named FOREIGN KEY, so the database refuses a key that points at nothing"
 }
 
 boot_the_server() {

@@ -12,7 +12,7 @@ type Product struct {
 	ID          string `gorm:"primaryKey;size:64"`
 	Name        string `gorm:"size:200;not null"`
 	SKU         string `gorm:"uniqueIndex;size:64;not null"`
-	Price       float64
+	PriceCents  int64
 	Stock       int
 	Description string `gorm:"size:2000"`
 	IsPublished bool   `gorm:"index"`
@@ -59,6 +59,21 @@ nullable; a value field is not.
 | `time.Time` | `time` | `datetime-local` |
 | `[]byte` | `bytes` | — |
 | `upload.Ref` | `file` | `file`, with a link to the current file |
+
+There is no decimal kind. Store money as an integer count of minor units — cents, pence, paise — and
+format it on the way out, as the `PriceCents` field above does:
+
+```go
+PriceCents int64
+```
+
+`float64` is the wrong shape for currency. Most decimal prices have no exact binary form — `19.99` is
+held as `19.98999999999999844` — and the error compounds as you add: `0.1` summed ten times is not
+`1.0`, so a total and a `SUM` over the same rows can disagree in the last cent. An `int64` of minor
+units is exact, sorts and sums correctly in every supported database, and needs one division to
+display — see the `money` template function in [Templates](08-templates.md).
+
+Use `float` for quantities that really are approximate: weights, distances, ratings.
 
 ## Registering it
 

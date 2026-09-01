@@ -28,7 +28,29 @@ func columnClauseWith(d Dialect, c Column, ownsKey bool) string {
 	return clause
 }
 
+func ForeignKeyName(table string, column string) string {
+	return "fk_" + table + "_" + column
+}
+
+func foreignKeyClause(d Dialect, table string, c Column) string {
+	return fmt.Sprintf("CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)",
+		d.Quote(ForeignKeyName(table, c.Name)), d.Quote(c.Name),
+		d.Quote(c.References.Table), d.Quote(c.References.Column))
+}
+
+func addColumnWithConstraint(d Dialect, table string, c Column) []string {
+	out := []string{fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", d.Quote(table), columnClause(d, c))}
+	if c.References.IsZero() {
+		return out
+	}
+	return append(out, fmt.Sprintf("ALTER TABLE %s ADD %s", d.Quote(table), foreignKeyClause(d, table, c)))
+}
+
 func createTable(d Dialect, table string, columns []Column, primaryKeyInline bool) string {
+	return createTableNamed(d, table, table, columns, primaryKeyInline)
+}
+
+func createTableNamed(d Dialect, table, constraintTable string, columns []Column, primaryKeyInline bool) string {
 	declared := 0
 	for _, c := range columns {
 		if c.PrimaryKey {
@@ -52,6 +74,11 @@ func createTable(d Dialect, table string, columns []Column, primaryKeyInline boo
 	}
 	if len(keys) > 0 {
 		lines = append(lines, "  PRIMARY KEY ("+joinColumns(d, keys)+")")
+	}
+	for _, c := range columns {
+		if !c.References.IsZero() {
+			lines = append(lines, "  "+foreignKeyClause(d, constraintTable, c))
+		}
 	}
 	return fmt.Sprintf("CREATE TABLE %s (\n%s\n)", d.Quote(table), strings.Join(lines, ",\n"))
 }
