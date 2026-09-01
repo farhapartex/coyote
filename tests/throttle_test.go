@@ -222,3 +222,31 @@ func TestForgedForwardingCannotEscapeTheLoginLockout(t *testing.T) {
 			"chain must not buy a new allowance", code)
 	}
 }
+
+func TestThrottlingPoolsAnIPv6NetworkIntoOneLockout(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Security.TrustedProxyCount = 1 })
+	token := c.token("/admin/login")
+
+	guess := func(client string) int {
+		form := url.Values{"csrf_token": {token}, "username": {"root"}, "password": {"wrong"}}
+		req := httptest.NewRequest(http.MethodPost, "/admin/login", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-Forwarded-For", client)
+		req.AddCookie(c.cookie)
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	for attempt := range 5 {
+		if code := guess(fmt.Sprintf("2001:db8:1:2::%d", attempt+1)); code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d answered %d, want 401", attempt+1, code)
+		}
+	}
+	if code := guess("2001:db8:1:2::ffff"); code != http.StatusTooManyRequests {
+		t.Errorf("a fresh address in the same /64 answered %d, want 429", code)
+	}
+	if code := guess("2001:db8:1:3::1"); code != http.StatusUnauthorized {
+		t.Errorf("a different /64 answered %d, want its own allowance", code)
+	}
+}

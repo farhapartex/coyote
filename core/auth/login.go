@@ -15,7 +15,7 @@ func (s *Service) Authenticate(username, password string) (*User, error) {
 }
 
 func (s *Service) AuthenticateRequest(r *http.Request, username, password string) (*User, error) {
-	return s.authenticate(loginKey(username, s.clientIP(r)), username, password)
+	return s.authenticate(loginKey(username, s.clientBucket(r)), username, password)
 }
 
 func (s *Service) authenticate(key, username, password string) (*User, error) {
@@ -49,11 +49,11 @@ func (s *Service) recordFailure(key string) {
 	}
 }
 
-func (s *Service) clientIP(r *http.Request) string {
+func (s *Service) clientBucket(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	return clientip.From(r, s.trustedProxies)
+	return clientip.Key(r, s.trustedProxies)
 }
 
 func loginKey(username, ip string) string {

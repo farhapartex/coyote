@@ -44,6 +44,20 @@ too high — the peer address is used instead, which is always safe and never fo
 `X-Real-Ip` is not read. It carries a single value with no hop structure, so nothing distinguishes
 one your proxy set from one a client invented.
 
+**IPv6 clients are bucketed by their /64**, because a single allocation hands one visitor more
+addresses than there are limits worth counting. An IPv4 address is its own bucket, as before. That
+means two households behind one /64 share an allowance, which is the same trade IPv4 already makes
+behind NAT. If you want per-address keying, say so explicitly:
+
+```go
+a.Use(middleware.RateLimitBy(policy, func(r *http.Request) string {
+	return clientip.From(r, s.Security.TrustedProxyCount)
+}))
+```
+
+Both maps hold a bounded number of clients and evict the least recently seen when full, so neither
+one grows without limit.
+
 The same setting feeds [login throttling](14-authentication.md) and
 [`RequireHTTPS`](22-https.md) — request trust is one decision, made once.
 

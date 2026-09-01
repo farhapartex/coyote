@@ -174,8 +174,9 @@ s.Auth.Throttle = auth.ThrottlePolicy{
 
 Change the numbers, or set `Enabled: false` if you are putting your own limiter in front.
 
-- The key is **username plus client IP**, so someone guessing at your name from their own machine
-  cannot lock you out of yours.
+- The key is **username plus client network**, so someone guessing at your name from their own
+  machine cannot lock you out of yours. IPv6 clients are grouped by their /64, the same way
+  [rate limiting](19-rate-limiting.md) groups them.
 - An unknown username is throttled exactly like a real one. If it were not, the lockout itself would
   reveal which accounts exist.
 - A successful sign-in clears the counter.

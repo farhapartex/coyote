@@ -41,8 +41,13 @@ func RateLimitBy(policy settings.RateLimit, key KeyFunc) Middleware {
 }
 
 func ClientIP(trustedProxies int) KeyFunc {
-	return func(r *http.Request) string { return clientip.From(r, trustedProxies) }
+	return func(r *http.Request) string { return clientip.Key(r, trustedProxies) }
 }
+
+const (
+	maxTrackedClients = 100_000
+	evictionSample    = 8
+)
 
 type bucket struct {
 	tokens float64
@@ -78,6 +83,7 @@ func (s *bucketSet) take(key string) (int, bool) {
 
 	entry, found := s.buckets[key]
 	if !found {
+		s.makeRoom()
 		entry = &bucket{tokens: s.capacity, seen: now}
 		s.buckets[key] = entry
 	} else {
@@ -100,10 +106,35 @@ func (s *bucketSet) sweep(now time.Time) {
 		return
 	}
 	s.swept = now
+	s.expire(now)
+}
+
+func (s *bucketSet) expire(now time.Time) {
 	stale := s.window * 2
 	for key, entry := range s.buckets {
 		if now.Sub(entry.seen) > stale {
 			delete(s.buckets, key)
 		}
 	}
+}
+
+func (s *bucketSet) makeRoom() {
+	for len(s.buckets) >= maxTrackedClients {
+		s.evictOldest()
+	}
+}
+
+func (s *bucketSet) evictOldest() {
+	oldest, oldestSeen := "", time.Time{}
+	sampled := 0
+	for key, entry := range s.buckets {
+		if sampled == evictionSample {
+			break
+		}
+		sampled++
+		if oldestSeen.IsZero() || entry.seen.Before(oldestSeen) {
+			oldest, oldestSeen = key, entry.seen
+		}
+	}
+	delete(s.buckets, oldest)
 }

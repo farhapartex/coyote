@@ -279,3 +279,76 @@ func TestRateLimitValidation(t *testing.T) {
 		mustContain(t, problemsOf(t, err), want)
 	}
 }
+
+func TestRateLimitPoolsAnIPv6NetworkIntoOneBudget(t *testing.T) {
+	handler := limited(settings.RateLimit{Requests: 2, Window: time.Minute})
+
+	for _, address := range []string{"[2001:db8:1:2::1]", "[2001:db8:1:2::2]"} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = address + ":1234"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s answered %d, want 200", address, rec.Code)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "[2001:db8:1:2::ffff]:1234"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("a third address in the same /64 answered %d, want 429; one allocation is one client",
+			rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "[2001:db8:1:3::1]:1234"
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("a different /64 answered %d, want its own budget", rec.Code)
+	}
+}
+
+func TestRateLimitKeepsIPv4AddressesApart(t *testing.T) {
+	handler := limited(settings.RateLimit{Requests: 1, Window: time.Minute})
+
+	if rec := from(t, handler, "203.0.113.7"); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if rec := from(t, handler, "203.0.113.8"); rec.Code != http.StatusOK {
+		t.Errorf("a neighbouring IPv4 address answered %d, want its own budget", rec.Code)
+	}
+	if rec := from(t, handler, "203.0.113.7"); rec.Code != http.StatusTooManyRequests {
+		t.Errorf("the returning address answered %d, want 429", rec.Code)
+	}
+}
+
+func TestRateLimitStillWorksAfterMoreClientsThanItTracks(t *testing.T) {
+	handler := middleware.RateLimitBy(
+		settings.RateLimit{Requests: 1, Window: time.Minute},
+		func(r *http.Request) string { return r.Header.Get("X-Tenant") },
+	)(http.HandlerFunc(noop))
+
+	flood := httptest.NewRequest(http.MethodGet, "/", nil)
+	discard := httptest.NewRecorder()
+	for i := range 120_000 {
+		flood.Header.Set("X-Tenant", strconv.Itoa(i))
+		handler.ServeHTTP(discard, flood)
+	}
+
+	fresh := httptest.NewRequest(http.MethodGet, "/", nil)
+	fresh.Header.Set("X-Tenant", "arrives-late")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, fresh)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a new client answered %d, want 200", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, fresh)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("status = %d, want 429; the limiter must keep working once it is full", rec.Code)
+	}
+}

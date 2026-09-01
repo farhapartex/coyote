@@ -33,7 +33,7 @@ func (s *Service) ChangePassword(r *http.Request, in PasswordChange) error {
 		return ErrPasswordMismatch
 	}
 
-	key := loginKey(user.Username, s.clientIP(r))
+	key := loginKey(user.Username, s.clientBucket(r))
 	if s.limiter != nil && !s.limiter.Allow(key) {
 		return ErrTooManyAttempts
 	}
