@@ -45,7 +45,6 @@ func Default() Settings {
 			Dir: "migrations",
 		},
 		Sessions: Sessions{
-			Backend:         SessionsInMemory,
 			CookieName:      "coyote_session",
 			Lifetime:        12 * time.Hour,
 			Rolling:         false,

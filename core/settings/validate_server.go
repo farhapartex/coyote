@@ -64,6 +64,10 @@ func (s Settings) validateServer(add func(string)) {
 func (s Settings) validateSessions(add func(string)) {
 	switch s.Sessions.Backend {
 	case SessionsInMemory:
+		if s.Environment.Deployed() {
+			add("Sessions.Backend is \"memory\" while Environment is " + string(s.Environment) +
+				"; that signs everyone out on every deploy and cannot be shared between instances")
+		}
 	case SessionsInDB:
 		if s.Database().Engine == "" {
 			add("Sessions.Backend is \"database\" but no database is configured")

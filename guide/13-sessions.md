@@ -38,21 +38,26 @@ They survive exactly one redirect and drain when read. See [Views](07-views.md).
 ## Where sessions live
 
 ```go
-s.Sessions.Backend = settings.SessionsInMemory   // default
-s.Sessions.Backend = settings.SessionsInDB
+s.Sessions.Backend = settings.SessionsInDB       // default
+s.Sessions.Backend = settings.SessionsInMemory
 s.Sessions.Backend = settings.SessionsInCookie
 ```
 
 | | server storage | survives restart | revocable | notes |
 | --- | --- | --- | --- | --- |
-| `memory` | a map | no | yes | fast, zero setup; a restart signs everyone out |
-| `database` | `sessions` table | yes | yes | shared across instances |
+| `memory` | a map | no | yes | fast, zero setup; refused in a deployed environment |
+| `database` | `sessions` table | yes | yes | the default; shared across instances |
 | `cookie` | none | yes | **no** | nothing to store, nothing to look up |
 
 ### memory
 
-The default. Sessions are held in a map, swept every `CleanupInterval`. Sessions are stored as live
-pointers, so a mutation is visible immediately and nothing is serialised.
+Sessions are held in a map, swept every `CleanupInterval`. Sessions are stored as live pointers, so
+a mutation is visible immediately and nothing is serialised.
+
+It is **refused when `Environment` is `staging` or `production`**, and deliberately: a map signs
+everyone out on every deploy and cannot be shared between two instances, so a load balancer sends
+half your traffic to a process that has never heard of the visitor. Ask for it explicitly in
+development if you want a project with no `sessions` table.
 
 ### database
 

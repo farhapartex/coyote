@@ -172,7 +172,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Security.CompressLevel` | `0` | 1–9, or 0 for the default |
 | `Security.RateLimit` | off | See [Rate limiting](19-rate-limiting.md) |
 | `Security.TrustRequestID` | `false` | Accept an inbound `X-Request-Id` |
-| `Sessions.Backend` | `memory` | `memory`, `database` or `cookie` |
+| `Sessions.Backend` | `database` | `database`, `memory` or `cookie`; memory is refused when deployed |
 | `Sessions.CookieName` | `coyote_session` | |
 | `Sessions.Lifetime` | `12h` | |
 | `Sessions.Rolling` | `false` | Extend the deadline on every request |

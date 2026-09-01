@@ -321,3 +321,52 @@ func TestDefaultEnvironmentIsDevelopment(t *testing.T) {
 		t.Error("the default must not enable Debug on its own")
 	}
 }
+
+func TestSQLitePoolIsPinnedToOneConnection(t *testing.T) {
+	resolved, err := settings.New(prodSettings()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := resolved.Database()
+	if db.MaxOpenConns != 1 || db.MaxIdleConns != 1 {
+		t.Errorf("pool = %d open, %d idle; SQLite wants one so it never meets SQLITE_BUSY",
+			db.MaxOpenConns, db.MaxIdleConns)
+	}
+}
+
+func TestAServerEnginePoolIsBoundedAndRecycled(t *testing.T) {
+	resolved, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Databases = []settings.Database{{Engine: settings.Postgres, Name: "shop"}}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := resolved.Database()
+	if db.MaxOpenConns != 25 {
+		t.Errorf("MaxOpenConns = %d, want 25 rather than unlimited", db.MaxOpenConns)
+	}
+	if db.MaxIdleConns != db.MaxOpenConns {
+		t.Errorf("MaxIdleConns = %d, want it to match MaxOpenConns so connections are not churned",
+			db.MaxIdleConns)
+	}
+	if db.ConnMaxLifetime != 30*time.Minute {
+		t.Errorf("ConnMaxLifetime = %v, want 30m so a proxy cannot hand back a dead connection",
+			db.ConnMaxLifetime)
+	}
+}
+
+func TestAnExplicitPoolSettingIsLeftAlone(t *testing.T) {
+	resolved, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Databases = []settings.Database{{
+			Engine: settings.Postgres, Name: "shop", MaxOpenConns: 4, ConnMaxLifetime: time.Minute,
+		}}
+	})...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := resolved.Database()
+	if db.MaxOpenConns != 4 || db.ConnMaxLifetime != time.Minute {
+		t.Errorf("pool = %d open, %v lifetime; what the project set should survive",
+			db.MaxOpenConns, db.ConnMaxLifetime)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,7 +52,7 @@ func TestDatabaseBackendRegistersTheSessionsTable(t *testing.T) {
 }
 
 func TestMemoryBackendDoesNotCreateASessionsTable(t *testing.T) {
-	a := newTestApp(t)
+	a := newTestApp(t, func(s *settings.Settings) { s.Sessions.Backend = settings.SessionsInMemory })
 	handle, err := a.DB()
 	if err != nil {
 		t.Fatal(err)
@@ -302,13 +303,24 @@ func TestSessionBackendValidation(t *testing.T) {
 	}
 }
 
-func TestMemoryRemainsTheDefault(t *testing.T) {
+func TestTheDatabaseIsTheDefaultSessionBackend(t *testing.T) {
 	resolved, err := settings.New(prodSettings()...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resolved.Sessions.Backend != settings.SessionsInMemory {
-		t.Errorf("Backend = %q, want memory by default", resolved.Sessions.Backend)
+	if resolved.Sessions.Backend != settings.SessionsInDB {
+		t.Errorf("Backend = %q; a project with a database should keep its sessions there",
+			resolved.Sessions.Backend)
+	}
+}
+
+func TestMemorySessionsAreRefusedInProduction(t *testing.T) {
+	_, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Environment = settings.Production
+		s.Sessions.Backend = settings.SessionsInMemory
+	})...)
+	if err == nil || !strings.Contains(err.Error(), "signs everyone out on every deploy") {
+		t.Errorf("error = %v, want a complaint about memory sessions in production", err)
 	}
 }
 

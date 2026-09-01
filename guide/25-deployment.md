@@ -46,7 +46,7 @@ refuses to start on an unsafe combination, so a bad config fails before it serve
 - [ ] Migrations applied as part of the release, before the new binary takes traffic
 - [ ] A superadmin created once, then `createsuperadmin` no longer needed
 - [ ] `Server.TLS.CacheDir` kept across deploys if you use Autocert
-- [ ] Session backend chosen deliberately — `memory` signs everyone out on every deploy
+- [ ] Session backend chosen deliberately — `database` by default; `memory` is refused here
 - [ ] [`Security.RateLimit`](19-rate-limiting.md) decided one way or the other
 
 Rate limiting stays off unless you ask for it, and that is deliberate: the limiter sits in the same

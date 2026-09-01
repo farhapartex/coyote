@@ -36,10 +36,26 @@ settings.Configure(func(s *settings.Settings) {
 | `Host` / `Port` | Server engines only; port defaults to 5432 or 3306 |
 | `User` / `Password` | Server engines only; rejected on SQLite so mistakes are caught early |
 | `Options` | Extra DSN parameters |
-| `MaxOpenConns`, `MaxIdleConns`, `ConnMaxLifetime`, `ConnMaxIdleTime` | Pool tuning; zero means the driver default |
+| `MaxOpenConns`, `MaxIdleConns`, `ConnMaxLifetime`, `ConnMaxIdleTime` | Pool tuning; see below |
 
 Relative SQLite paths resolve against `BaseDir`, so the file lands in the project folder. Absolute
 paths and `:memory:` are left alone.
+
+### The pool
+
+Left alone, the pool is filled in for you, because the two families of engine want opposite things:
+
+| | `MaxOpenConns` | `MaxIdleConns` | `ConnMaxLifetime` |
+| --- | --- | --- | --- |
+| SQLite | 1 | 1 | none |
+| Postgres, MySQL | 25 | 25 | 30m |
+
+One connection for SQLite means writes queue in the pool instead of meeting `SQLITE_BUSY` and
+stalling for `busy_timeout`. For a server engine, 25 is a ceiling rather than a target — the point
+is that a traffic spike cannot exhaust `max_connections` and take down every other client of that
+database. Idle matches open so connections are not opened and closed on every burst, and the 30
+minute lifetime means a proxy or cloud load balancer that quietly kills idle connections cannot hand
+you a dead one. Set any of them yourself and your value stands.
 
 Accessors: `s.Database()` for the default, `s.DatabaseByAlias("cache")` to look one up, `db.DSN()`
 to build the connection string, and `db.Redacted()` to mask the password for display.
