@@ -72,10 +72,10 @@ func TestRenewRotatesIDAndKeepsValues(t *testing.T) {
 	if kept != "jane" {
 		t.Errorf("values lost on renew: %q", kept)
 	}
-	if _, ok := store.Load(first.Value); ok {
+	if _, ok := store.Load(t.Context(), first.Value); ok {
 		t.Error("old session should be evicted from the store")
 	}
-	if _, ok := store.Load(second.Value); !ok {
+	if _, ok := store.Load(t.Context(), second.Value); !ok {
 		t.Error("new session should be in the store")
 	}
 }
@@ -102,7 +102,7 @@ func TestDestroyClearsCookieAndStore(t *testing.T) {
 	if cleared.MaxAge >= 0 {
 		t.Errorf("cookie MaxAge = %d, want negative", cleared.MaxAge)
 	}
-	if _, ok := m.Store().Load(cookie.Value); ok {
+	if _, ok := m.Store().Load(t.Context(), cookie.Value); ok {
 		t.Error("session should be gone from the store")
 	}
 }
@@ -124,13 +124,13 @@ func TestFlashesDrainOnce(t *testing.T) {
 func TestExpiredSessionIsNotLoaded(t *testing.T) {
 	store := session.NewMemoryStore(0)
 	expired := session.Restore("expired", nil, time.Now().Add(-time.Hour), time.Now().Add(-time.Minute))
-	if err := store.Save(expired); err != nil {
+	if err := store.Save(t.Context(), expired); err != nil {
 		t.Fatal(err)
 	}
 	if !expired.Expired() {
 		t.Fatal("session should report itself expired")
 	}
-	if _, ok := store.Load("expired"); ok {
+	if _, ok := store.Load(t.Context(), "expired"); ok {
 		t.Error("expired session should not load")
 	}
 }
@@ -190,15 +190,19 @@ func TestDeleteByUserID(t *testing.T) {
 		if id != "c" {
 			s.SetUserID("u1")
 		}
-		if err := store.Save(s); err != nil {
+		if err := store.Save(t.Context(), s); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if n := store.DeleteByUserID("u1"); n != 2 {
+	n, err := store.DeleteByUserID(t.Context(), "u1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
 		t.Errorf("deleted %d sessions, want 2", n)
 	}
-	if store.Count() != 1 {
-		t.Errorf("remaining = %d, want 1", store.Count())
+	if sessionCount(t, store) != 1 {
+		t.Errorf("remaining = %d, want 1", sessionCount(t, store))
 	}
 }
 
@@ -208,10 +212,10 @@ func TestMemoryStoreSatisfiesManageableStore(t *testing.T) {
 	if !ok {
 		t.Fatal("MemoryStore should satisfy ManageableStore")
 	}
-	if manageable.Count() != 0 {
-		t.Errorf("Count = %d", manageable.Count())
+	if sessionCount(t, manageable) != 0 {
+		t.Errorf("Count = %d", sessionCount(t, manageable))
 	}
-	if len(manageable.All()) != 0 {
+	if len(allSessions(t, manageable)) != 0 {
 		t.Error("All should start empty")
 	}
 }

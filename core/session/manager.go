@@ -92,7 +92,12 @@ func (m *Manager) Lifetime() time.Duration { return m.lifetime }
 func (m *Manager) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sess := m.load(r)
-		sw := &sessionWriter{ResponseWriter: w, manager: m, session: sess}
+		sw := &sessionWriter{
+			ResponseWriter: w,
+			manager:        m,
+			session:        sess,
+			ctx:            context.WithoutCancel(r.Context()),
+		}
 		r = r.WithContext(context.WithValue(r.Context(), sessionContextKey, sess))
 		defer sw.commit()
 		next.ServeHTTP(sw, r)
@@ -102,7 +107,7 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 func (m *Manager) load(r *http.Request) *Session {
 	cookie, err := r.Cookie(m.cookieName)
 	if err == nil && cookie.Value != "" {
-		if sess, ok := m.carrier.load(cookie.Value); ok {
+		if sess, ok := m.carrier.load(r.Context(), cookie.Value); ok {
 			if m.rolling {
 				sess.touch(m.lifetime)
 			}

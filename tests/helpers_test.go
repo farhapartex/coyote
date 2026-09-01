@@ -95,6 +95,24 @@ func syncSchema(t *testing.T, a *app.App) {
 	}
 }
 
+func sessionCount(t *testing.T, store session.ManageableStore) int {
+	t.Helper()
+	total, err := store.Count(t.Context())
+	if err != nil {
+		t.Fatalf("counting sessions: %v", err)
+	}
+	return total
+}
+
+func allSessions(t *testing.T, store session.ManageableStore) []*session.Session {
+	t.Helper()
+	live, err := store.All(t.Context())
+	if err != nil {
+		t.Fatalf("listing sessions: %v", err)
+	}
+	return live
+}
+
 func newTestManager() *session.Manager {
 	return session.NewManager(session.Options{
 		Store:    session.NewMemoryStore(0),

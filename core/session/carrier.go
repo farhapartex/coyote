@@ -2,30 +2,35 @@ package session
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"time"
 )
 
 type carrier interface {
-	load(value string) (*Session, bool)
-	persist(s *Session) (string, error)
-	forget(id string) error
+	load(ctx context.Context, value string) (*Session, bool)
+	persist(ctx context.Context, s *Session) (string, error)
+	forget(ctx context.Context, id string) error
 }
 
 type storeCarrier struct {
 	store Store
 }
 
-func (c storeCarrier) load(value string) (*Session, bool) { return c.store.Load(value) }
+func (c storeCarrier) load(ctx context.Context, value string) (*Session, bool) {
+	return c.store.Load(ctx, value)
+}
 
-func (c storeCarrier) persist(s *Session) (string, error) {
-	if err := c.store.Save(s); err != nil {
+func (c storeCarrier) persist(ctx context.Context, s *Session) (string, error) {
+	if err := c.store.Save(ctx, s); err != nil {
 		return "", err
 	}
 	return s.ID(), nil
 }
 
-func (c storeCarrier) forget(id string) error { return c.store.Delete(id) }
+func (c storeCarrier) forget(ctx context.Context, id string) error {
+	return c.store.Delete(ctx, id)
+}
 
 type sealedSession struct {
 	ID      string
@@ -38,7 +43,7 @@ type cookieCarrier struct {
 	sealer *Sealer
 }
 
-func (c cookieCarrier) load(value string) (*Session, bool) {
+func (c cookieCarrier) load(_ context.Context, value string) (*Session, bool) {
 	payload, err := c.sealer.Open(value)
 	if err != nil {
 		return nil, false
@@ -53,7 +58,7 @@ func (c cookieCarrier) load(value string) (*Session, bool) {
 	return Restore(decoded.ID, decoded.Values, decoded.Created, decoded.Expires), true
 }
 
-func (c cookieCarrier) persist(s *Session) (string, error) {
+func (c cookieCarrier) persist(_ context.Context, s *Session) (string, error) {
 	buffer := &bytes.Buffer{}
 	payload := sealedSession{
 		ID:      s.ID(),
@@ -67,4 +72,4 @@ func (c cookieCarrier) persist(s *Session) (string, error) {
 	return c.sealer.Seal(buffer.Bytes())
 }
 
-func (c cookieCarrier) forget(string) error { return nil }
+func (c cookieCarrier) forget(context.Context, string) error { return nil }

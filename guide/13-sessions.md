@@ -117,9 +117,9 @@ s.Sessions.Domain     = ""
 
 ```go
 type Store interface {
-	Load(id string) (*Session, bool)
-	Save(s *Session) error
-	Delete(id string) error
+	Load(ctx context.Context, id string) (*Session, bool)
+	Save(ctx context.Context, s *Session) error
+	Delete(ctx context.Context, id string) error
 }
 ```
 
@@ -128,7 +128,21 @@ s.Sessions.Store = myRedisStore{}
 ```
 
 Add `Count`, `All` and `DeleteByUserID` — the `ManageableStore` interface — if you want the admin's
-session list and revoke to work against it.
+session list and revoke to work against it:
+
+```go
+type ManageableStore interface {
+	Store
+	Count(ctx context.Context) (int, error)
+	All(ctx context.Context) ([]*Session, error)
+	DeleteByUserID(ctx context.Context, userID string) (int, error)
+}
+```
+
+**The context on a read is the request's, so a client that disconnects cancels it.** The context on
+a write is deliberately not: the session is written on the way out, and a browser closing the
+connection mid-response must not lose the login it just performed. The write carries the request's
+values without its cancellation, so your store still sees the request id and locale.
 
 ## Session fixation
 

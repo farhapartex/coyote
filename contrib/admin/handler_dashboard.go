@@ -24,7 +24,7 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request) {
 		"UserCount":       len(users),
 		"SuperadminCount": superadmins,
 		"StaffCount":      staff,
-		"SessionCount":    a.sessionCount(),
+		"SessionCount":    a.sessionCount(r.Context()),
 		"Uptime":          time.Since(a.app.Started).Round(time.Second).String(),
 		"Recent":          recentUsers(users, 5),
 	})

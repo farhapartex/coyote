@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ type sessionWriter struct {
 	http.ResponseWriter
 	manager     *Manager
 	session     *Session
+	ctx         context.Context
 	once        sync.Once
 	wroteHeader bool
 }
@@ -44,17 +46,17 @@ func (w *sessionWriter) commit() {
 		}
 		m, sess := w.manager, w.session
 		if old := sess.takeOldID(); old != "" {
-			_ = m.carrier.forget(old)
+			_ = m.carrier.forget(w.ctx, old)
 		}
 		if sess.Destroyed() {
-			_ = m.carrier.forget(sess.ID())
+			_ = m.carrier.forget(w.ctx, sess.ID())
 			http.SetCookie(w.ResponseWriter, m.cookie("", -1))
 			return
 		}
 		if !sess.Modified() || (sess.isFresh() && sess.isEmpty()) {
 			return
 		}
-		value, err := m.carrier.persist(sess)
+		value, err := m.carrier.persist(w.ctx, sess)
 		if err != nil {
 			m.report(err)
 			return

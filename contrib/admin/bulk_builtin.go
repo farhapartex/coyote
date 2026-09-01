@@ -31,7 +31,7 @@ func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 			view.Redirect(w, r, back)
 			return
 		}
-		a.revokeUserSessions(id)
+		a.revokeUserSessions(r.Context(), id)
 		deleted++
 	}
 
@@ -86,7 +86,7 @@ func (a *Admin) sessionBulk(w http.ResponseWriter, r *http.Request) {
 
 	revoked := 0
 	for _, id := range ids {
-		if err := sessions.Delete(id); err == nil {
+		if err := sessions.Delete(r.Context(), id); err == nil {
 			revoked++
 		}
 	}

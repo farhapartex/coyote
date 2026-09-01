@@ -174,7 +174,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		user.Password = hash
-		a.revokeUserSessions(user.ID)
+		a.revokeUserSessions(r.Context(), user.ID)
 	}
 
 	if err := a.app.Auth.Users().Update(user); err != nil {
@@ -204,7 +204,7 @@ func (a *Admin) userDelete(w http.ResponseWriter, r *http.Request) {
 		view.Redirect(w, r, a.prefix+"/users")
 		return
 	}
-	a.revokeUserSessions(id)
+	a.revokeUserSessions(r.Context(), id)
 	view.Flash(r, "success", i18n.T(r.Context(), "User deleted."))
 	view.Redirect(w, r, a.prefix+"/users")
 }

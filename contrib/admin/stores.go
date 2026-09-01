@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/farhapartex/coyote/core/auth"
@@ -15,15 +16,20 @@ func (a *Admin) sessionStore() (session.ManageableStore, bool) {
 	return a.app.ManageableSessions()
 }
 
-func (a *Admin) sessionCount() int {
-	if store, ok := a.sessionStore(); ok {
-		return store.Count()
+func (a *Admin) sessionCount(ctx context.Context) int {
+	store, ok := a.sessionStore()
+	if !ok {
+		return -1
 	}
-	return -1
+	total, err := store.Count(ctx)
+	if err != nil {
+		return -1
+	}
+	return total
 }
 
-func (a *Admin) revokeUserSessions(userID string) {
+func (a *Admin) revokeUserSessions(ctx context.Context, userID string) {
 	if store, ok := a.sessionStore(); ok {
-		store.DeleteByUserID(userID)
+		_, _ = store.DeleteByUserID(ctx, userID)
 	}
 }

@@ -130,13 +130,13 @@ func TestBulkRevokingSessions(t *testing.T) {
 	if !ok {
 		t.Skip("session store is not manageable")
 	}
-	before := sessions.Count()
+	before := sessionCount(t, sessions)
 	if before < 2 {
 		t.Fatalf("expected at least two sessions, got %d", before)
 	}
 
 	ids := []string{}
-	for _, s := range sessions.All() {
+	for _, s := range allSessions(t, sessions) {
 		ids = append(ids, s.ID())
 	}
 
@@ -147,8 +147,8 @@ func TestBulkRevokingSessions(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d", rec.Code)
 	}
-	if sessions.Count() >= before {
-		t.Errorf("sessions should have been revoked: %d before, %d after", before, sessions.Count())
+	if sessionCount(t, sessions) >= before {
+		t.Errorf("sessions should have been revoked: %d before, %d after", before, sessionCount(t, sessions))
 	}
 }
 
