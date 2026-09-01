@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -124,4 +125,53 @@ func TestCSPReportOnlyWithoutPolicyIsRejected(t *testing.T) {
 		t.Fatal("report-only without a policy should be rejected")
 	}
 	mustContain(t, problemsOf(t, err), "CSPReportOnly")
+}
+
+func TestSecureHeadersCarryTheCrossOriginPolicies(t *testing.T) {
+	a := newTestApp(t)
+	a.Get("/page", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "ok") })
+
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/page", nil))
+
+	want := map[string]string{
+		"X-Content-Type-Options":       "nosniff",
+		"X-Frame-Options":              "DENY",
+		"Referrer-Policy":              "same-origin",
+		"Cross-Origin-Opener-Policy":   "same-origin",
+		"Cross-Origin-Resource-Policy": "same-origin",
+		"Permissions-Policy":           "camera=(), microphone=(), geolocation=()",
+	}
+	for name, value := range want {
+		if got := rec.Header().Get(name); got != value {
+			t.Errorf("%s = %q, want %q", name, got, value)
+		}
+	}
+}
+
+func TestFrameOptionsCanBeRelaxedOrDropped(t *testing.T) {
+	same := newTestApp(t, func(s *settings.Settings) { s.Security.FrameOptions = "SAMEORIGIN" })
+	same.Get("/page", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "ok") })
+	rec := httptest.NewRecorder()
+	same.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/page", nil))
+	if got := rec.Header().Get("X-Frame-Options"); got != "SAMEORIGIN" {
+		t.Errorf("X-Frame-Options = %q, want SAMEORIGIN", got)
+	}
+
+	none := newTestApp(t, func(s *settings.Settings) { s.Security.FrameOptions = "" })
+	none.Get("/page", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "ok") })
+	rec = httptest.NewRecorder()
+	none.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/page", nil))
+	if got := rec.Header().Get("X-Frame-Options"); got != "" {
+		t.Errorf("X-Frame-Options = %q, want the header omitted", got)
+	}
+}
+
+func TestFrameOptionsIsValidated(t *testing.T) {
+	_, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Security.FrameOptions = "ALLOW-FROM https://evil.test"
+	})...)
+	if err == nil || !strings.Contains(err.Error(), "Security.FrameOptions") {
+		t.Errorf("error = %v, want a complaint about the frame options", err)
+	}
 }

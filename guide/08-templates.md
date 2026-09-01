@@ -135,3 +135,18 @@ inline blocks carry the nonce:
 ## Next
 
 [Static files →](09-static-files.md)
+
+## Two sharp edges
+
+`safe` marks a string as trusted HTML, which switches escaping off for that value:
+
+```html
+{{.Body | safe}}
+```
+
+Use it only on markup you generated. Passing anything a visitor typed through `safe` is a
+cross-site scripting hole with extra steps.
+
+`.Request` is the live `*http.Request`. It is there for `.Request.URL.Path` and friends, but it also
+reaches `.Request.Header`, and printing that into a page would put the visitor's own session cookie
+on screen. Read what you need from it; do not render it whole.

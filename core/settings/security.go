@@ -3,6 +3,8 @@ package settings
 type Security struct {
 	TrustRequestID    bool
 	TrustedProxyCount int
+	FrameOptions      string
+	PermissionsPolicy string
 	CSRF              bool
 	CSRFExempt        []string
 	CSP               string
@@ -12,6 +14,10 @@ type Security struct {
 	CompressLevel     int
 	RateLimit         RateLimit
 }
+
+const DefaultFrameOptions = "DENY"
+
+const DefaultPermissionsPolicy = "camera=(), microphone=(), geolocation=()"
 
 const DefaultCSP = "default-src 'self'; " +
 	"script-src 'self' {nonce}; " +

@@ -165,6 +165,8 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Security.TrustedProxyCount` | `0` | Proxies in front; how far into `X-Forwarded-For` to trust |
 | `Security.CSRF` | `true` | Guard every unsafe request — [CSRF](18-csrf.md) |
 | `Security.CSRFExempt` | none | Path prefixes the guard skips |
+| `Security.FrameOptions` | `DENY` | `DENY`, `SAMEORIGIN`, or empty to omit |
+| `Security.PermissionsPolicy` | camera, mic, geo denied | Sent as `Permissions-Policy` |
 | `Security.CSP` | none | Content Security Policy; off until set |
 | `Security.CSPReportOnly` | `false` | Report violations instead of blocking |
 | `Security.CORS` | off | See [CORS](20-cors.md) |

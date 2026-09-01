@@ -31,7 +31,9 @@ func Default() Settings {
 			},
 		},
 		Security: Security{
-			CSRF: true,
+			CSRF:              true,
+			FrameOptions:      DefaultFrameOptions,
+			PermissionsPolicy: DefaultPermissionsPolicy,
 		},
 		Server: Server{
 			Host:              "127.0.0.1",

@@ -420,3 +420,32 @@ func TestPageCacheIsLostByACSRFTokenInASharedPartial(t *testing.T) {
 		t.Error("a page that mints a CSRF token sets a cookie, so it must never be cached")
 	}
 }
+
+func TestPageCacheIgnoresQueryParametersItWasNotToldAbout(t *testing.T) {
+	a, renders := newPageCacheApp(t, func(s *settings.Settings) {
+		s.PageCache = settings.PageCache{
+			Enabled: true, TTL: time.Minute, Paths: []string{"/"}, Vary: []string{"page"},
+		}
+	})
+
+	status := func(target string) string {
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		return rec.Header().Get(middleware.CacheStatusHeader)
+	}
+
+	if got := status("/page?page=2"); got != middleware.CacheMiss {
+		t.Fatalf("first request = %q, want MISS", got)
+	}
+	for _, target := range []string{"/page?page=2&utm_source=x", "/page?utm_source=y&page=2", "/page?page=2&z=1"} {
+		if got := status(target); got != middleware.CacheHit {
+			t.Errorf("%s = %q, want HIT; only page was declared", target, got)
+		}
+	}
+	if got := status("/page?page=3"); got != middleware.CacheMiss {
+		t.Errorf("a declared parameter changing = %q, want MISS", got)
+	}
+	if renders.Load() != 2 {
+		t.Errorf("the handler ran %d times, want one per distinct page value", renders.Load())
+	}
+}

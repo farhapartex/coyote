@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/farhapartex/coyote/core/cache"
@@ -31,7 +32,7 @@ func PageCache(c cache.Cache, policy settings.PageCache, sessionCookie string) M
 			}
 			w.Header().Add("Vary", "Cookie")
 
-			base := baseKey(r)
+			base := baseKey(r, policy.Vary)
 			if entry, found := lookupPage(r, c, base); found {
 				entry.writeTo(w)
 				return
@@ -72,15 +73,32 @@ func carriesSession(r *http.Request, cookieName string) bool {
 	return err == nil
 }
 
-func baseKey(r *http.Request) string {
+func baseKey(r *http.Request, vary []string) string {
 	key := pagePrefix + r.Method + ":" + r.Host + r.URL.Path
-	if r.URL.RawQuery != "" {
-		key += "?" + r.URL.RawQuery
+	if query := keyedQuery(r, vary); query != "" {
+		key += "?" + query
 	}
 	if locale := i18n.From(r.Context()); locale != nil {
 		key += "#" + locale.Tag()
 	}
 	return key
+}
+
+func keyedQuery(r *http.Request, vary []string) string {
+	if r.URL.RawQuery == "" {
+		return ""
+	}
+	if len(vary) == 0 {
+		return r.URL.RawQuery
+	}
+	asked := r.URL.Query()
+	kept := url.Values{}
+	for _, name := range vary {
+		if values, found := asked[name]; found {
+			kept[name] = values
+		}
+	}
+	return kept.Encode()
 }
 
 func variantKey(r *http.Request, base string, names []string) string {

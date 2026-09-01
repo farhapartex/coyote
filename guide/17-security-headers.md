@@ -10,8 +10,26 @@ Every response carries:
 | --- | --- | --- |
 | `X-Content-Type-Options` | `nosniff` | stops the browser guessing a content type |
 | `X-Frame-Options` | `DENY` | no framing, so no clickjacking |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | full URLs stay inside your origin |
+| `Referrer-Policy` | `same-origin` | full URLs stay inside your origin |
+| `Cross-Origin-Opener-Policy` | `same-origin` | a page you open cannot reach back into yours |
+| `Cross-Origin-Resource-Policy` | `same-origin` | other origins cannot embed your responses |
+| `Permissions-Policy` | camera, microphone and geolocation denied | no silent access to hardware |
 | `X-Request-Id` | a generated id | correlates with the access log |
+
+Two of them are yours to change:
+
+```go
+s.Security.FrameOptions      = "SAMEORIGIN"   // or "" to omit the header entirely
+s.Security.PermissionsPolicy = "camera=(self)"
+```
+
+`FrameOptions` accepts `DENY`, `SAMEORIGIN`, or empty; anything else is a startup error, because
+`ALLOW-FROM` was removed from browsers years ago and a policy nobody enforces is worse than none —
+use `frame-ancestors` in a CSP for that.
+
+**`Cross-Origin-Opener-Policy` breaks a popup that talks back to its opener**, which is how some
+OAuth flows finish, and `Cross-Origin-Resource-Policy` stops another origin embedding your images.
+If you serve assets or run a popup sign-in, set those two yourself in a wrapper.
 
 ## Allowed hosts
 

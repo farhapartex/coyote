@@ -109,6 +109,11 @@ func (s Settings) validateSecurity(add func(string)) {
 			add("Security.CSRFExempt paths must start with \"/\"; " + strconv.Quote(prefix) + " does not")
 		}
 	}
+	switch strings.ToUpper(strings.TrimSpace(s.Security.FrameOptions)) {
+	case "", "DENY", "SAMEORIGIN":
+	default:
+		add("Security.FrameOptions must be \"DENY\", \"SAMEORIGIN\", or empty to omit the header")
+	}
 	if s.Security.CSPReportOnly && s.Security.CSP == "" {
 		add("Security.CSPReportOnly is set but Security.CSP is empty, so no policy would be reported")
 	}

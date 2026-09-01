@@ -236,7 +236,18 @@ Per-request headers are never stored: the CSP policy and its nonce, `X-Request-I
 request headers, so two languages get two entries. `Vary: *` is never cached. A `max-age` or
 `s-maxage` on the response overrides the policy TTL.
 
-`Cookie` is the one `Vary` name never keyed on. The rule above already settled it, and keying on it
+By default the whole query string is part of the key, which means `?utm_source=…` splits the cache
+and `?x=1` through `?x=99999` fills it. Name the parameters that actually change the page and the
+rest are ignored:
+
+```go
+s.PageCache.Vary = []string{"page", "tag"}
+```
+
+Get that list wrong in the other direction and a page that really does vary on an unlisted parameter
+will serve the wrong body, so name every parameter your handler reads.
+
+`Cookie` is the one response `Vary` name never keyed on. The rule above already settled it, and keying on it
 would hand every visitor holding any cookie at all their own entry.
 
 The middleware sits **inside** `Compress`, so one uncompressed copy is stored and gzip runs per

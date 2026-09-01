@@ -74,6 +74,11 @@ func (s Settings) validatePageCache(add func(string)) {
 			add("PageCache.Alias " + strconv.Quote(page.Alias) + " does not match any entry in Caches")
 		}
 	}
+	for _, name := range page.Vary {
+		if strings.TrimSpace(name) == "" {
+			add("PageCache.Vary contains an empty parameter name")
+		}
+	}
 	for _, prefix := range append(append([]string{}, page.Paths...), page.Skip...) {
 		if !strings.HasPrefix(prefix, "/") {
 			add("PageCache paths must start with \"/\"; " + strconv.Quote(prefix) + " does not")
