@@ -636,3 +636,42 @@ func TestAnUnchangedIndexProducesNothing(t *testing.T) {
 		t.Errorf("an unchanged schema must not churn migrations, got %d op(s)", len(change.Ops))
 	}
 }
+
+func TestSQLiteNeedsNoAdvisoryLockToMigrate(t *testing.T) {
+	handle := newTestDB(t)
+	runner := migrate.NewRunner(handle, settings.SQLite, nil)
+
+	ran := false
+	if err := runner.WithLock(t.Context(), func() error {
+		ran = true
+		return nil
+	}); err != nil {
+		t.Fatalf("WithLock: %v", err)
+	}
+	if !ran {
+		t.Error("the body should still run on an engine with no advisory lock")
+	}
+}
+
+func TestWithLockCarriesTheBodysError(t *testing.T) {
+	handle := newTestDB(t)
+	runner := migrate.NewRunner(handle, settings.SQLite, nil)
+
+	want := errors.New("the migration failed")
+	if err := runner.WithLock(t.Context(), func() error { return want }); !errors.Is(err, want) {
+		t.Errorf("error = %v, want the body's own error", err)
+	}
+}
+
+func TestEnginesReportWhetherTheirDDLIsTransactional(t *testing.T) {
+	for engine, want := range map[settings.Engine]bool{
+		settings.SQLite:   true,
+		settings.Postgres: true,
+		settings.MySQL:    false,
+	} {
+		runner := migrate.NewRunner(newTestDB(t), engine, nil)
+		if got := runner.TransactionalDDL(); got != want {
+			t.Errorf("%s TransactionalDDL = %v, want %v", engine, got, want)
+		}
+	}
+}

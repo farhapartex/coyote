@@ -44,7 +44,8 @@ func main() {
 - **Forms and uploads** — struct or schema binding with validation, and file uploads that stage,
   sniff, and clean up after themselves.
 - **Migrations** — versioned, written in Go rather than SQL, checksummed so an edited migration is
-  caught rather than silently skipped, and applied in a transaction wherever the engine has one.
+  caught rather than silently skipped, applied in a transaction wherever the engine has one, and
+  behind an advisory lock so two deploying instances cannot race.
 - **Security on by default** — CSRF on every route, login throttling, allowed hosts, secure headers,
   a request body cap, and a session cookie that a deployed environment refuses to send in clear.
   **Opt in** to CSP with per-request nonces, rate limiting, CORS, gzip, HSTS and Let's Encrypt
