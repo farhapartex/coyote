@@ -96,9 +96,11 @@ check_the_graph_migration_content() {
 	fi
 
 	assert_output_contains "containers reference their shipment" \
-		'{Name: "shipment_id", Kind: model.KindString, Size: 36}' cat "$GRAPH_MIGRATION"
+		'{Name: "shipment_id", Kind: model.KindString, Size: 36, References: migrate.Reference{Table: "shipments", Column: "id"}}' \
+		cat "$GRAPH_MIGRATION"
 	assert_output_contains "tracking events reference their container" \
-		'{Name: "container_id", Kind: model.KindString, Size: 36}' cat "$GRAPH_MIGRATION"
+		'{Name: "container_id", Kind: model.KindString, Size: 36, References: migrate.Reference{Table: "containers", Column: "id"}}' \
+		cat "$GRAPH_MIGRATION"
 	assert_output_contains "the container number is unique" \
 		'idx_containers_number' cat "$GRAPH_MIGRATION"
 	assert_output_contains "the migration drops both tables when reversed" \

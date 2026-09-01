@@ -260,24 +260,57 @@ $(truncated_output "$APP_OUTPUT")"
 		"$(app_sqlite_query "SELECT count(*) FROM pragma_table_info('shipments') WHERE name='carrier_name';")"
 
 	if grep -q carrier_name "$(app_snapshot_path)" 2>/dev/null; then
-		check_failed "the snapshot does not record a change that failed to apply" \
-			"snapshot.json lists carrier_name although migrate rejected 0005
-the snapshot is written when the migration is generated, not when it is applied, so a failed
-migration leaves the recorded model state ahead of the database"
-		note "snapshot after a failure" \
-			"the developer must delete the migration and hand-edit snapshot.json to get back in step"
+		check_passed "the snapshot still describes the migration files, not the database"
 	else
-		check_passed "the snapshot does not record a change that failed to apply"
+		check_failed "the snapshot still describes the migration files, not the database" \
+			"snapshot.json has already dropped carrier_name; the diff is measured against the files"
+	fi
+	note "why the snapshot leads the ledger" \
+		"it is written at generation time so makemigrations works with nothing connected; the ledger is what tracks the database"
+
+	app_run_command makemigrations --undo --no-input
+	assert_equal "makemigrations --undo exits cleanly" "0" "$CAPTURED_STATUS"
+
+	case "$APP_OUTPUT" in
+	*"rewound"*)
+		check_passed "undo says it rewound the snapshot"
+		;;
+	*)
+		check_failed "undo says it rewound the snapshot" "$(truncated_output "$APP_OUTPUT")"
+		;;
+	esac
+
+	if [ -f "$REQUIRED_MIGRATION" ]; then
+		check_failed "undo deleted the migration it backed out" "$REQUIRED_MIGRATION is still there"
+	else
+		check_passed "undo deleted the migration it backed out"
 	fi
 
-	rm -f "$REQUIRED_MIGRATION"
+	if grep -q carrier_name "$(app_snapshot_path)" 2>/dev/null; then
+		check_failed "undo took carrier_name back out of the snapshot" \
+			"snapshot.json still lists a column no migration declares"
+	else
+		check_passed "undo took carrier_name back out of the snapshot"
+	fi
+
 	app_write_shipment_model 3
-	app_restore_snapshot
 	cd "$EXAMPLE_DIR"
 	assert_succeeds "the project builds again after backing the change out" go build ./...
 	cd "$E2E_ROOT"
 	assert_equal "the ladder is back to where it was" "$((STEPS_BEFORE + 2))" \
 		"$(app_migration_files | wc -l | tr -d ' ')"
+
+	app_run_command makemigrations
+	assert_equal "makemigrations is quiet once the ladder is back in step" "0" "$CAPTURED_STATUS"
+	case "$APP_OUTPUT" in
+	*"no model changes detected"*)
+		check_passed "the recovered snapshot agrees with the models again"
+		;;
+	*)
+		check_failed "the recovered snapshot agrees with the models again" \
+			"a further migration was generated: $(truncated_output "$APP_OUTPUT")"
+		;;
+	esac
 }
 
 check_the_new_columns_are_writable_through_the_admin() {

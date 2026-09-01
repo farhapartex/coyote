@@ -156,16 +156,24 @@ record_how_float_money_is_stored() {
 	cents="$(app_sqlite_query "SELECT CAST(declared_value * 100 AS INTEGER) FROM shipments WHERE reference='MRF-000001';")"
 
 	assert_equal "a float money column still converts to the right number of cents" "1850050" "$cents"
-	note "float64 storage" "18500.50 is held as $stored, so bit equality differs from the decimal even though the cents recover"
+	note "float64 rendering" "sqlite printf renders 18500.50 as $stored, which is a formatting artefact and not a storage error: .5 is exact in binary and the cents recover"
 
-	if grep -q 'KindDecimal' "$E2E_ROOT/core/model/kind.go" 2>/dev/null; then
-		check_passed "the framework offers a decimal kind for money"
+	if grep -q 'minor units' "$E2E_ROOT/guide/10-models.md" 2>/dev/null; then
+		check_passed "the guide tells you to keep money in integer minor units"
 	else
-		check_skipped "the framework offers a decimal kind for money" \
-			"core/model has string, text, int, float, bool, time, bytes and file; money is best kept in integer minor units, as this chunk does"
-		note "guide example" \
-			"guide/10-models.md:15 uses Price float64 in its model example, which steers a developer toward floating point money"
+		check_failed "the guide tells you to keep money in integer minor units" \
+			"guide/10-models.md does not say how to store currency, so a reader will reach for float64"
 	fi
+
+	if grep -q 'Price *float64' "$E2E_ROOT/guide/10-models.md" 2>/dev/null; then
+		check_failed "the guide's model example does not use float64 for money" \
+			"guide/10-models.md still shows Price float64, which steers a developer toward floating point money"
+	else
+		check_passed "the guide's model example does not use float64 for money"
+	fi
+
+	note "no decimal kind, by decision" \
+		"core/model has string, text, int, float, bool, time, bytes and file; currency belongs in an int64 of minor units, as the invoice lines in this chunk do"
 }
 
 seed_an_invoice_with_lines() {
