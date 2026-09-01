@@ -238,6 +238,7 @@ app_write_settings() {
 		fi
 		if [ "$per_page" != "0" ]; then
 			printf '\t\t\ts.Pagination.PerPage = %s\n\n' "$per_page"
+		fi
 		if [ "$locales" = "1" ]; then
 			printf '\t\t\ts.I18N = settings.I18N{\n'
 			printf '\t\t\t\tDefault:   "en",\n'
@@ -267,7 +268,6 @@ app_write_settings() {
 		fi
 		if [ "$force_debug" = "1" ]; then
 			printf '\t\t\ts.Debug = true\n\n'
-		fi
 		fi
 		printf '\t\t\ts.Admin.SiteName = "Example administration"\n'
 		printf '\t\t},\n'
