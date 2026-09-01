@@ -5,9 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/settings"
 )
 
 func TestPasswordRoundTrip(t *testing.T) {
@@ -380,5 +382,62 @@ func TestAuthenticateHonoursTheContext(t *testing.T) {
 	cancel()
 	if _, err := a.Auth.Authenticate(cancelled, "jane", "unrelated-and-long"); err == nil {
 		t.Error("signing in on a cancelled context should not reach the database")
+	}
+}
+
+func TestSigningInUpgradesAnOldHash(t *testing.T) {
+	a := newTestApp(t, func(s *settings.Settings) { s.Auth.PBKDF2Iterations = 5000 })
+
+	created, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
+		Username: "ada", Password: "unrelated-and-long",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	weak := auth.Hasher{Iterations: 1000}
+	stale, err := weak.Hash("unrelated-and-long")
+	if err != nil {
+		t.Fatal(err)
+	}
+	created.Password = stale
+	if err := a.Auth.Users().Update(t.Context(), created); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := a.Auth.Authenticate(t.Context(), "ada", "unrelated-and-long"); err != nil {
+		t.Fatalf("the old hash should still let her in: %v", err)
+	}
+
+	after, err := a.Auth.Users().ByUsername(t.Context(), "ada")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Password == stale {
+		t.Error("the hash was left at 1000 iterations after a successful sign-in")
+	}
+	if _, err := a.Auth.Authenticate(t.Context(), "ada", "unrelated-and-long"); err != nil {
+		t.Errorf("the rewritten hash should still verify: %v", err)
+	}
+	if _, err := a.Auth.Authenticate(t.Context(), "ada", "wrong-password-entirely"); err == nil {
+		t.Error("the rewritten hash accepted the wrong password")
+	}
+}
+
+func TestPasswordLengthCountsCharactersNotBytes(t *testing.T) {
+	if err := auth.ValidatePasswordLength("héllo", 8); !errors.Is(err, auth.ErrPasswordTooShort) {
+		t.Errorf("error = %v; five characters must not pass an eight character minimum", err)
+	}
+	if err := auth.ValidatePasswordLength("héllo-there", 8); err != nil {
+		t.Errorf("error = %v; eleven characters should pass", err)
+	}
+}
+
+func TestAnAbsurdlyLongPasswordIsRefused(t *testing.T) {
+	long := strings.Repeat("a", auth.MaxPasswordLength+1)
+	if err := auth.ValidatePasswordLength(long, 8); !errors.Is(err, auth.ErrPasswordTooLong) {
+		t.Errorf("error = %v, want ErrPasswordTooLong", err)
+	}
+	if err := auth.ValidatePasswordLength(strings.Repeat("a", auth.MaxPasswordLength), 8); err != nil {
+		t.Errorf("error = %v; exactly the maximum should pass", err)
 	}
 }

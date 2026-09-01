@@ -10,12 +10,14 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
 	pbkdf2Algorithm        = "pbkdf2_sha256"
 	DefaultIterations      = 600000
 	DefaultMinPasswordLen  = 8
+	MaxPasswordLength      = 1024
 	pbkdf2KeyLength        = 32
 	saltLength             = 16
 	minSupportedIterations = 1000
@@ -24,6 +26,7 @@ const (
 var (
 	ErrInvalidHash      = errors.New("coyote/auth: malformed password hash")
 	ErrPasswordTooShort = errors.New("coyote/auth: password is too short")
+	ErrPasswordTooLong  = errors.New("coyote/auth: password is too long")
 	ErrPasswordRejected = errors.New("coyote/auth: password rejected")
 )
 
@@ -117,8 +120,11 @@ func ValidatePasswordLength(password string, minLength int) error {
 	if minLength < 1 {
 		minLength = DefaultMinPasswordLen
 	}
-	if len(password) < minLength {
+	if utf8.RuneCountInString(password) < minLength {
 		return fmt.Errorf("%w: minimum is %d characters", ErrPasswordTooShort, minLength)
+	}
+	if len(password) > MaxPasswordLength {
+		return fmt.Errorf("%w: maximum is %d bytes", ErrPasswordTooLong, MaxPasswordLength)
 	}
 	return nil
 }

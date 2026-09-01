@@ -133,7 +133,13 @@ a.Auth.ValidatePassword("candidate")      // length policy
 a.Auth.MinPasswordLength()
 ```
 
-Lower the iteration count in tests; leave it alone in production.
+Lower the iteration count in tests; leave it alone in production. **Raising it upgrades existing
+users as they sign in:** a correct password against a hash below the current cost is rewritten at the
+new cost before the request finishes, so nobody has to reset anything.
+
+Length is counted in **characters, not bytes**, so a passphrase of five emoji does not satisfy a
+minimum of eight. A password over `auth.MaxPasswordLength` (1024 bytes) is refused, because hashing
+is deliberately expensive and the size of the input is the caller's choice.
 
 ## Signing in and out
 

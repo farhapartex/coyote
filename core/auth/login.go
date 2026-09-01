@@ -40,7 +40,24 @@ func (s *Service) authenticate(ctx context.Context, key, username, password stri
 	if s.limiter != nil {
 		s.limiter.Reset(key)
 	}
+	s.rehash(ctx, u, password)
 	return u, nil
+}
+
+func (s *Service) rehash(ctx context.Context, u *User, password string) {
+	if !s.hasher.NeedsRehash(u.Password) {
+		return
+	}
+	hash, err := s.hasher.Hash(password)
+	if err != nil {
+		return
+	}
+	stored := u.Clone()
+	stored.Password = hash
+	if err := s.users.Update(ctx, stored); err != nil {
+		return
+	}
+	u.Password = hash
 }
 
 func (s *Service) recordFailure(key string) {
