@@ -69,5 +69,9 @@ func (s *Service) SetPassword(ctx context.Context, id, password string) error {
 		return err
 	}
 	u.Password = hash
-	return s.users.Update(ctx, u)
+	if err := s.users.Update(ctx, u); err != nil {
+		return err
+	}
+	s.revokeSessions(ctx, u.ID)
+	return nil
 }

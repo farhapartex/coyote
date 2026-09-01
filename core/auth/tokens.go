@@ -98,10 +98,13 @@ func (s *Service) UseResetToken(ctx context.Context, plain string, in PasswordCh
 	if in.New != in.Confirm {
 		return nil, ErrPasswordMismatch
 	}
-	if err := s.SetPassword(ctx, user.ID, in.New); err != nil {
+	if err := s.tokens.MarkUsed(ctx, TokenDigest(plain), time.Now()); err != nil {
 		return nil, err
 	}
-	if err := s.tokens.MarkUsed(ctx, TokenDigest(plain), time.Now()); err != nil {
+	if err := s.tokens.DeleteForUser(ctx, user.ID); err != nil {
+		return nil, err
+	}
+	if err := s.SetPassword(ctx, user.ID, in.New); err != nil {
 		return nil, err
 	}
 	return user, nil

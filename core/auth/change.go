@@ -59,12 +59,29 @@ func (s *Service) ResetPassword(ctx context.Context, userID string, in PasswordC
 	return s.SetPassword(ctx, userID, in.New)
 }
 
-func (s *Service) RevokeOtherSessions(r *http.Request) int {
-	current := session.FromRequest(r)
-	if current == nil || s.sessions == nil {
-		return 0
+func (s *Service) manageableSessions() (session.ManageableStore, bool) {
+	if s.sessions == nil {
+		return nil, false
 	}
 	store, ok := s.sessions.Store().(session.ManageableStore)
+	return store, ok
+}
+
+func (s *Service) revokeSessions(ctx context.Context, userID string) {
+	if userID == "" {
+		return
+	}
+	if store, ok := s.manageableSessions(); ok {
+		_, _ = store.DeleteByUserID(ctx, userID)
+	}
+}
+
+func (s *Service) RevokeOtherSessions(r *http.Request) int {
+	current := session.FromRequest(r)
+	if current == nil {
+		return 0
+	}
+	store, ok := s.manageableSessions()
 	if !ok {
 		return 0
 	}

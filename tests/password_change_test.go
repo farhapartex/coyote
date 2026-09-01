@@ -262,3 +262,62 @@ func TestResetTokensAreOffUnlessAskedFor(t *testing.T) {
 		t.Errorf("error = %v, want ErrNoTokenStore", err)
 	}
 }
+
+func resetPortal(t *testing.T) (*app.App, *client) {
+	t.Helper()
+	return changeApp(t, func(s *settings.Settings) {
+		s.Auth.ResetTokens = true
+		s.Auth.ResetTokenLifetime = time.Hour
+	})
+}
+
+func janesResetToken(t *testing.T, a *app.App) string {
+	t.Helper()
+	user, err := a.Auth.Users().ByUsername(t.Context(), "jane")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := a.Auth.CreateResetToken(t.Context(), user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
+}
+
+func TestUsingAResetTokenKillsTheUsersOtherSessions(t *testing.T) {
+	a, laptop := resetPortal(t)
+	signedInAsJane(t, laptop)
+	if rec := laptop.get("/accounts/profile"); rec.Code != http.StatusOK {
+		t.Fatalf("the laptop should start out signed in: %d", rec.Code)
+	}
+
+	if _, err := a.Auth.UseResetToken(t.Context(), janesResetToken(t, a), auth.PasswordChange{
+		New: "her-second-secret", Confirm: "her-second-secret",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if rec := laptop.get("/accounts/profile"); rec.Code == http.StatusOK {
+		t.Error("a reset is what you do when an account is compromised; the old session survived it")
+	}
+}
+
+func TestUsingAResetTokenInvalidatesTheUsersOtherTokens(t *testing.T) {
+	a, _ := resetPortal(t)
+
+	first := janesResetToken(t, a)
+	second := janesResetToken(t, a)
+
+	if _, err := a.Auth.UseResetToken(t.Context(), second, auth.PasswordChange{
+		New: "her-second-secret", Confirm: "her-second-secret",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := a.Auth.CheckResetToken(t.Context(), first); !errors.Is(err, auth.ErrTokenInvalid) {
+		t.Errorf("error = %v; an earlier link must die with the one that was used", err)
+	}
+	if _, err := a.Auth.CheckResetToken(t.Context(), second); !errors.Is(err, auth.ErrTokenInvalid) {
+		t.Errorf("error = %v; a used link must not work twice", err)
+	}
+}

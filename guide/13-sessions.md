@@ -154,6 +154,10 @@ values without its cancellation, so your store still sees the request id and loc
 `a.Auth.Login` rotates the session id, so a token captured before sign-in is worthless afterwards.
 You get that for free; no call is needed.
 
+Changing a password ends every session for that account, so a stolen cookie stops working the
+moment the owner notices. The device doing the changing is signed straight back in, because
+`ChangePassword` calls `Login` afterwards.
+
 ## Next
 
 [Authentication →](14-authentication.md)

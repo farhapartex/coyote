@@ -260,6 +260,13 @@ user, err := a.Auth.UseResetToken(r.Context(), token, auth.PasswordChange{
 
 - Tokens are **hashed before storage**, so a leaked database does not hand over working reset links.
 - Single use: `UseResetToken` marks it used, and a second attempt fails.
+- **Using one kills the account's other outstanding links**, so two reset emails in flight do not
+  leave a second door open.
+- **Using one signs every other session out.** A reset is what someone does when their account may
+  already be in the wrong hands, so leaving the intruder's session alive would defeat it. Any change
+  through `SetPassword` does this, whichever path reached it.
+- The token is burned *before* the password is written. If the write then fails, the link is dead
+  and the password is unchanged — the safe direction to fail in.
 - Expiring, with `Tokens().Sweep(before)` to clear old rows.
 - The table only exists when `ResetTokens` is on, so projects that do not want it get no schema.
 
