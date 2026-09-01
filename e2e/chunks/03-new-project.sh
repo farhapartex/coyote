@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/bootstrap.sh"
+. "$E2E_DIR/lib/server.sh"
 
 chunk_begin "03" "A project from scratch"
 
@@ -147,6 +148,67 @@ check_the_scaffold_compiles() {
 	cd "$E2E_ROOT"
 }
 
+check_the_scaffold_serves_and_exits_zero() {
+	local binary="$E2E_WORK_DIR/scaffold-binary" log="$E2E_WORK_DIR/scaffold-run.log" status=0
+
+	cd "$SCAFFOLD_PROJECT"
+	if ! go build -o "$binary" . >/dev/null 2>&1; then
+		cd "$E2E_ROOT"
+		check_failed "the scaffolded application serves and exits zero when signalled" \
+			"the scaffolded project did not build"
+		return
+	fi
+	cd "$E2E_ROOT"
+
+	port_is_free || force_free_the_port
+
+	PORT="$E2E_PORT" "$binary" >"$log" 2>&1 &
+	local probe_pid=$!
+
+	local attempt=0
+	while [ "$attempt" -lt 40 ] && port_is_free; do
+		sleep 0.25
+		attempt=$((attempt + 1))
+	done
+
+	if port_is_free; then
+		kill -KILL "$probe_pid" 2>/dev/null || true
+		wait "$probe_pid" 2>/dev/null || true
+		rm -f "$binary"
+		check_failed "the scaffolded application serves and exits zero when signalled" \
+			"it never listened on $E2E_PORT
+$(tail -5 "$log")"
+		return
+	fi
+	check_passed "the scaffolded application listens on the port it was given"
+
+	kill -TERM "$probe_pid" 2>/dev/null || true
+	set +e
+	wait "$probe_pid"
+	status=$?
+	set -e
+	rm -f "$binary"
+
+	if [ "$status" -eq 0 ]; then
+		check_passed "the scaffolded application exits zero on a clean shutdown"
+	else
+		check_failed "the scaffolded application exits zero on a clean shutdown" \
+			"the process exited $status
+main.go must not read log.Fatal(a.Run()); Run() returns nil on a graceful shutdown
+$(tail -3 "$log")"
+	fi
+
+	if grep -q "shutting down" "$log" 2>/dev/null; then
+		check_passed "the scaffolded application logs its shutdown"
+	else
+		check_failed "the scaffolded application logs its shutdown" "$(tail -5 "$log")"
+	fi
+
+	force_free_the_port >/dev/null 2>&1 || true
+	note "why this runs here" \
+		"the probe project is still the untouched output of coyote new, so this tests the template rather than the example"
+}
+
 create_the_example_application() {
 	if [ -d "$EXAMPLE_DIR" ]; then
 		note "example directory" "already present, reused; run with --fresh to build it from scratch"
@@ -209,6 +271,7 @@ check_two_projects_get_different_keys
 check_the_module_flag_reaches_the_source
 check_a_used_directory_is_protected
 check_the_scaffold_compiles
+check_the_scaffold_serves_and_exits_zero
 create_the_example_application
 check_the_example_application_builds
 check_the_example_is_ignored_by_git

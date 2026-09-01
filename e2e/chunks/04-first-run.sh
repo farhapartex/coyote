@@ -130,48 +130,6 @@ every scaffolded project therefore reports failure on success; it should read
 	check_passed "the scaffolded main.go exits zero on a clean shutdown"
 }
 
-check_the_running_app_exits_zero() {
-	local binary="$E2E_WORK_DIR/example-binary" status=0
-
-	if ! grep -q 'log\.Fatal(a\.Run())' "$EXAMPLE_DIR/main.go" 2>/dev/null; then
-		check_skipped "the built application exits zero on a clean shutdown" \
-			"example/main.go is no longer the scaffolded one, so this would not test the template"
-		return
-	fi
-
-	cd "$EXAMPLE_DIR"
-	if ! go build -o "$binary" . >/dev/null 2>&1; then
-		cd "$E2E_ROOT"
-		check_failed "the built application exits zero on a clean shutdown" "the example did not build"
-		return
-	fi
-	cd "$E2E_ROOT"
-
-	PORT="$E2E_PORT" "$binary" >"$E2E_WORK_DIR/direct.log" 2>&1 &
-	local direct_pid=$!
-
-	local attempt=0
-	while [ "$attempt" -lt 40 ] && port_is_free; do
-		sleep 0.25
-		attempt=$((attempt + 1))
-	done
-
-	kill -TERM "$direct_pid" 2>/dev/null || true
-	set +e
-	wait "$direct_pid"
-	status=$?
-	set -e
-	rm -f "$binary"
-
-	if [ "$status" -eq 0 ]; then
-		check_passed "the built application exits zero on a clean shutdown"
-		return
-	fi
-	check_failed "the built application exits zero on a clean shutdown" \
-		"the process exited $status after logging a graceful shutdown
-$(tail -2 "$E2E_WORK_DIR/direct.log")"
-}
-
 check_coyote_start_does_not_orphan_the_server() {
 	server_start 0
 	if ! server_wait_for_http; then
@@ -225,7 +183,6 @@ else
 fi
 
 check_the_scaffold_returns_a_clean_exit_code
-check_the_running_app_exits_zero
 check_coyote_start_does_not_orphan_the_server
 check_the_port_is_free_afterwards
 
