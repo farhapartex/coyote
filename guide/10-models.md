@@ -60,6 +60,18 @@ nullable; a value field is not.
 | `[]byte` | `bytes` | — |
 | `upload.Ref` | `file` | `file`, with a link to the current file |
 
+## Defaults reach the DDL verbatim
+
+A `default:` in a gorm tag is written into the generated `CREATE TABLE` exactly as you typed it, so
+a string default needs its own quotes:
+
+```go
+Status string `gorm:"size:20;not null;default:'draft'"`
+```
+
+`default:draft` without them produces `DEFAULT draft`, which the database reads as a column name.
+The value is SQL, and it is yours.
+
 ## Sensitive fields
 
 A sensitive field is rendered as a password input, left alone when its form field comes back empty,

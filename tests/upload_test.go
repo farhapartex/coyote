@@ -592,3 +592,40 @@ func TestASignatureCannotBeMovedBetweenKeyAndExpiry(t *testing.T) {
 		t.Error("a digit moved from the expiry into the key produced the same signature")
 	}
 }
+
+func TestOnlyImagesAreServedInline(t *testing.T) {
+	service, ctx := uploads(t, upload.Rules{Allowed: []string{"application/pdf", "image/png"}}, 0)
+	handler := service.Handler(upload.HandlerOptions{Prefix: "/media/"})
+
+	stored := func(body []byte, name, declared string) upload.Ref {
+		t.Helper()
+		file, err := service.Store(ctx, bytes.NewReader(body), name, declared, int64(len(body)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ref := file.Ref
+		if err := service.Commit(ctx, &ref); err != nil {
+			t.Fatal(err)
+		}
+		return ref
+	}
+
+	disposition := func(ref upload.Ref) string {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/media/"+string(ref), nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d for %s", rec.Code, ref)
+		}
+		return rec.Header().Get("Content-Disposition")
+	}
+
+	pdf := stored([]byte("%PDF-1.4\ntrailer\n%%EOF\n"), "receipt.pdf", "application/pdf")
+	if got := disposition(pdf); got != "attachment" {
+		t.Errorf("PDF Content-Disposition = %q; it must download rather than render in the tab", got)
+	}
+
+	png := stored(pngBytes(t, 2, 2), "a.png", "image/png")
+	if got := disposition(png); got != "" {
+		t.Errorf("image Content-Disposition = %q, want it served inline", got)
+	}
+}

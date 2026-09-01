@@ -12,11 +12,10 @@ import (
 )
 
 var inlineTypes = map[string]bool{
-	"image/jpeg":      true,
-	"image/png":       true,
-	"image/gif":       true,
-	"image/webp":      true,
-	"application/pdf": true,
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/gif":  true,
+	"image/webp": true,
 }
 
 type HandlerOptions struct {

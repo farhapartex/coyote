@@ -122,6 +122,7 @@ The filename and the `Content-Type` header both come from the client, so neither
 | Sniffing the first 512 bytes | a `.png` that is really a script |
 | Sniffed type must match the declared one | a spoofed header |
 | Extension derived from the **sniffed** type | traversal and double extensions |
+| Only images render inline; everything else downloads | a same-origin PDF viewer running script |
 | The key is the content hash, never the name | `../../etc/passwd`, null bytes, reserved names |
 | `image.DecodeConfig` over the whole file, against `MaxPixels` | decompression bombs, and images that will not decode |
 | Empty files rejected | zero-byte junk |
