@@ -36,13 +36,20 @@ The `production` preset already turns `Debug` off, switches logging to JSON at `
 `AllowedHosts`, sets `Sessions.Secure`, caches templates, and applies server timeouts. Validation
 refuses to start on an unsafe combination, so a bad config fails before it serves traffic.
 
+**`Preset` is what applies that hardening, not the `Environment` value.** Setting
+`s.Environment = settings.Production` by hand labels the environment and nothing more, so
+validation asks for the pieces the preset would have set — `Sessions.Secure`,
+`Server.WriteTimeout` — by name. That is deliberate: nothing rewrites a choice you made on purpose,
+such as a longer write timeout for a streaming endpoint.
+
 ## Checklist
 
 - [ ] `SecretKey` from the environment, at least 32 random characters, not in source control
 - [ ] `AllowedHosts` listing the real host names — never `"*"`
-- [ ] `Environment` set to `production` (or `staging`)
+- [ ] `Environment` set to `production` (or `staging`), ideally through `settings.Preset`
 - [ ] TLS terminated, either [in-process](22-https.md) or by a proxy
-- [ ] `Sessions.Secure = true`
+- [ ] `Sessions.Secure = true` — refused otherwise, so this one cannot be forgotten
+- [ ] `Server.ReadTimeout` and `Server.WriteTimeout` set — also refused otherwise
 - [ ] Migrations applied as part of the release, before the new binary takes traffic
 - [ ] A superadmin created once, then `createsuperadmin` no longer needed
 - [ ] `Server.TLS.CacheDir` kept across deploys if you use Autocert

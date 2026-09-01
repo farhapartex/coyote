@@ -148,8 +148,8 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Server.Host` | `127.0.0.1` | |
 | `Server.Port` | `8000` | |
 | `Server.MaxBodyBytes` | `32 MB` | Cap on any request body; 0 lifts it |
-| `Server.ReadTimeout` | none | |
-| `Server.WriteTimeout` | none | |
+| `Server.ReadTimeout` | `15s` | Whole-request read deadline |
+| `Server.WriteTimeout` | none, `30s` when deployed | Left unset so streaming works; required when deployed |
 | `Server.IdleTimeout` | `2m` | |
 | `Server.ReadHeaderTimeout` | `10s` | |
 | `Server.ShutdownTimeout` | `10s` | Grace period on SIGINT/SIGTERM |

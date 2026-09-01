@@ -53,6 +53,16 @@ func (s Settings) validateServer(add func(string)) {
 	if s.Server.ShutdownTimeout < 0 {
 		add("Server.ShutdownTimeout cannot be negative")
 	}
+	if s.Environment.Deployed() {
+		if s.Server.ReadTimeout <= 0 {
+			add("Server.ReadTimeout is unset while Environment is " + string(s.Environment) +
+				"; a client that dribbles a request body holds a connection open forever")
+		}
+		if s.Server.WriteTimeout <= 0 {
+			add("Server.WriteTimeout is unset while Environment is " + string(s.Environment) +
+				"; set one, or a deliberately long one if this app streams responses")
+		}
+	}
 	if s.Server.MaxBodyBytes < 0 {
 		add("Server.MaxBodyBytes cannot be negative; use 0 to lift the cap")
 	}
@@ -83,6 +93,10 @@ func (s Settings) validateSessions(add func(string)) {
 		add("Sessions.Backend is \"" + string(s.Sessions.Backend) + "\" but Sessions.Store is also set; choose one")
 	}
 
+	if s.Environment.Deployed() && !s.Sessions.Secure {
+		add("Sessions.Secure is off while Environment is " + string(s.Environment) +
+			"; the session cookie would travel in clear text over plain HTTP")
+	}
 	if s.Sessions.CookieName == "" {
 		add("Sessions.CookieName is empty")
 	}

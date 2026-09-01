@@ -37,6 +37,7 @@ func Default() Settings {
 			Host:              "127.0.0.1",
 			Port:              8000,
 			MaxBodyBytes:      32 << 20,
+			ReadTimeout:       15 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
 			IdleTimeout:       2 * time.Minute,
 			ShutdownTimeout:   10 * time.Second,

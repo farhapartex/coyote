@@ -325,8 +325,7 @@ func TestServerConfigureHook(t *testing.T) {
 func autocertSettings(t *testing.T, fns ...func(*settings.Settings)) []func(*settings.Settings) {
 	t.Helper()
 	base := func(s *settings.Settings) {
-		s.Environment = settings.Production
-		s.Debug = false
+		settings.Production.Apply(s)
 		s.SecretKey = strings.Repeat("k", 48)
 		s.AllowedHosts = []string{"example.com", "www.example.com"}
 		s.Server.Port = 443

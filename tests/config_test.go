@@ -149,8 +149,7 @@ func TestDotEnvDrivesSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resolved, err := settings.New(func(s *settings.Settings) {
-		s.Environment = settings.Production
+	resolved, err := settings.New(settings.Preset("production"), func(s *settings.Settings) {
 		s.SecretKey = settings.Env("SECRET_KEY", "")
 		s.Server.Port = settings.EnvInt("PORT", 8000)
 		s.AllowedHosts = settings.EnvList("ALLOWED_HOSTS", nil)
@@ -368,5 +367,44 @@ func TestAnExplicitPoolSettingIsLeftAlone(t *testing.T) {
 	if db.MaxOpenConns != 4 || db.ConnMaxLifetime != time.Minute {
 		t.Errorf("pool = %d open, %v lifetime; what the project set should survive",
 			db.MaxOpenConns, db.ConnMaxLifetime)
+	}
+}
+
+func TestSettingEnvironmentByHandStillDemandsTheHardening(t *testing.T) {
+	_, err := settings.New(append(prodSettings(), func(s *settings.Settings) {
+		s.Environment = settings.Production
+	})...)
+	if err == nil {
+		t.Fatal("a hand-written production config with no hardening should not start")
+	}
+	for _, want := range []string{"Sessions.Secure is off", "Server.WriteTimeout is unset"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %v, want it to name %s", err, want)
+		}
+	}
+}
+
+func TestThePresetSatisfiesTheDeployedRequirements(t *testing.T) {
+	resolved, err := settings.New(settings.Preset("production"), func(s *settings.Settings) {
+		s.SecretKey = strings.Repeat("k", 48)
+		s.AllowedHosts = []string{"example.com"}
+	})
+	if err != nil {
+		t.Fatalf("the documented path should start cleanly: %v", err)
+	}
+	if !resolved.Sessions.Secure {
+		t.Error("the preset should have turned Sessions.Secure on")
+	}
+	if resolved.Server.WriteTimeout == 0 || resolved.Server.ReadTimeout == 0 {
+		t.Errorf("timeouts = %v read, %v write", resolved.Server.ReadTimeout, resolved.Server.WriteTimeout)
+	}
+}
+
+func TestReadTimeoutIsSetInEveryEnvironment(t *testing.T) {
+	if got := settings.Default().Server.ReadTimeout; got != 15*time.Second {
+		t.Errorf("ReadTimeout = %v, want 15s so a dribbled body is capped everywhere", got)
+	}
+	if got := settings.Default().Server.WriteTimeout; got != 0 {
+		t.Errorf("WriteTimeout = %v; it stays unset so streaming handlers are not cut off", got)
 	}
 }
