@@ -428,3 +428,142 @@ func TestRebuildRefusesToRecordWithADanglingChild(t *testing.T) {
 		}
 	}
 }
+
+func TestRollingBackARebuildOfAReferencedTable(t *testing.T) {
+	handle := newTestDB(t)
+	desired := relatedSnapshot(t, handle)
+	initial := migrate.Diff(migrate.Snapshot{Version: 1}, desired)
+
+	categories, _ := desired.Table("categories")
+	widened := migrate.Table{Name: categories.Name, Indexes: categories.Indexes}
+	for _, column := range categories.Columns {
+		if column.Name == "name" {
+			column.Size = 250
+		}
+		widened.Columns = append(widened.Columns, column)
+	}
+	from, _ := categories.Column("name")
+	to, _ := widened.Column("name")
+	rebuild := migrate.AlterColumn{
+		Table: "categories", From: from, To: to,
+		Columns: widened.Columns, Indexes: widened.Indexes,
+	}
+
+	migrate.Reset()
+	t.Cleanup(migrate.Reset)
+	migrate.Register(
+		migrate.Migration{ID: "0001_initial", Up: initial.Ops},
+		migrate.Migration{ID: "0002_widen_name", Up: []migrate.Op{rebuild}},
+	)
+
+	runner := migrate.NewRunner(handle, settings.SQLite, migrate.Registered())
+	background := context.Background()
+	if err := runner.Prepare(background); err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range migrate.Registered() {
+		if err := runner.Apply(background, entry); err != nil {
+			t.Fatalf("applying %s: %v", entry.ID, err)
+		}
+	}
+
+	if err := handle.Exec(`INSERT INTO categories (id, name) VALUES ('c1', 'Kitchen')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := handle.Exec(`INSERT INTO items (id, title, category_id) VALUES ('i1', 'Pan', 'c1')`).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := runner.PlanRollback(background, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan) != 1 {
+		t.Fatalf("expected one migration to roll back, got %d", len(plan))
+	}
+	if err := runner.Undo(background, plan[0]); err != nil {
+		t.Fatalf("rolling back a rebuild of a referenced table should work: %v", err)
+	}
+
+	var rows int64
+	if err := handle.Raw(`SELECT count(*) FROM items`).Scan(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if rows != 1 {
+		t.Errorf("the child rows should survive the rollback, got %d", rows)
+	}
+	if err := handle.Raw(`SELECT count(*) FROM categories`).Scan(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if rows != 1 {
+		t.Errorf("the parent rows should survive the rollback, got %d", rows)
+	}
+
+	err = handle.Exec(`INSERT INTO items (id, title, category_id) VALUES ('i9', 'Ghost', 'nope')`).Error
+	if err == nil {
+		t.Error("the foreign key should still be enforced after a rollback")
+	}
+}
+
+func TestARebuildRefusesWhenTheDataIsAlreadyBroken(t *testing.T) {
+	handle := newTestDB(t)
+	desired := relatedSnapshot(t, handle)
+	initial := migrate.Diff(migrate.Snapshot{Version: 1}, desired)
+
+	items, _ := desired.Table("items")
+	widened := migrate.Table{Name: items.Name, Indexes: items.Indexes}
+	for _, column := range items.Columns {
+		if column.Name == "title" {
+			column.Size = 250
+		}
+		widened.Columns = append(widened.Columns, column)
+	}
+	from, _ := items.Column("title")
+	to, _ := widened.Column("title")
+
+	migrate.Reset()
+	t.Cleanup(migrate.Reset)
+	migrate.Register(
+		migrate.Migration{ID: "0001_initial", Up: initial.Ops},
+		migrate.Migration{ID: "0002_widen_title", Up: []migrate.Op{migrate.AlterColumn{
+			Table: "items", From: from, To: to,
+			Columns: widened.Columns, Indexes: widened.Indexes,
+		}}},
+	)
+
+	runner := migrate.NewRunner(handle, settings.SQLite, migrate.Registered())
+	background := context.Background()
+	if err := runner.Prepare(background); err != nil {
+		t.Fatal(err)
+	}
+	pool := migrate.Registered()
+	if err := runner.Apply(background, pool[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, statement := range []string{
+		"PRAGMA foreign_keys = OFF",
+		`INSERT INTO items (id, title, category_id) VALUES ('i1', 'Ghost', 'no-such-category')`,
+		"PRAGMA foreign_keys = ON",
+	} {
+		if err := handle.Exec(statement).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err := runner.Apply(background, pool[1])
+	if err == nil {
+		t.Fatal("a rebuild must refuse to run over data that already violates a foreign key")
+	}
+	if !strings.Contains(err.Error(), "already holds") {
+		t.Errorf("the refusal should say the data was broken before the rebuild, got %v", err)
+	}
+
+	var width string
+	if err := handle.Raw(`SELECT sql FROM sqlite_master WHERE name = 'items'`).Scan(&width).Error; err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(width, "250") {
+		t.Error("a refused rebuild must leave the table alone")
+	}
+}
