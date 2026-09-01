@@ -3,24 +3,9 @@ package admin
 import (
 	"net/http"
 
-	"github.com/farhapartex/coyote/core/form"
 	"github.com/farhapartex/coyote/core/i18n"
 	"github.com/farhapartex/coyote/core/view"
 )
-
-func (a *Admin) selected(w http.ResponseWriter, r *http.Request, back string) ([]string, bool) {
-	if err := form.Parse(r, uploadMemory); err != nil {
-		http.Error(w, "400 bad request", http.StatusBadRequest)
-		return nil, false
-	}
-	ids := r.PostForm["ids"]
-	if len(ids) == 0 {
-		view.Flash(r, "error", i18n.T(r.Context(), "Nothing was selected."))
-		view.Redirect(w, r, back)
-		return nil, false
-	}
-	return ids, true
-}
 
 func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 	back := a.prefix + "/users"

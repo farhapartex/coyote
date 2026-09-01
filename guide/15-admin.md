@@ -112,8 +112,9 @@ Your own actions come from an interface:
 ```go
 func (productResource) Actions() []admin.Action {
 	return []admin.Action{{
-		Name:  "publish",
-		Label: "Publish",
+		Name:       "publish",
+		Label:      "Publish",
+		Permission: auth.ActionUpdate,
 		Run: func(r *http.Request, ids []string) (int, error) {
 			return publish(r.Context(), ids)
 		},
@@ -124,6 +125,16 @@ func (productResource) Actions() []admin.Action {
 `Run` receives the selected ids and returns how many it changed. An error is shown to the operator
 verbatim, so write it for them. Nothing is deleted or changed unless an action was chosen and rows
 were ticked.
+
+**Every action is behind a permission.** `Permission` names one of
+[the four actions](28-permissions.md) on this resource, and left empty it means `update` — so an
+action you write without thinking about it is guarded rather than open. Reaching the bulk route at
+all needs `read`, on the principle that you cannot act on rows you are not allowed to see. Naming a
+permission outside the standard four works, but nothing generates those rows for you, so only a
+superadmin would ever hold one.
+
+One action takes at most 1000 rows. Over that it is refused rather than truncated, because an action
+that silently half-ran is worse than one that did not run.
 
 ## Relation fields
 

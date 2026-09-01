@@ -9,7 +9,30 @@ import (
 	"github.com/farhapartex/coyote/core/view"
 )
 
-const DeleteAction = "delete"
+const (
+	DeleteAction = "delete"
+	maxBulkIDs   = 1000
+)
+
+func (a *Admin) selected(w http.ResponseWriter, r *http.Request, back string) ([]string, bool) {
+	if err := form.Parse(r, uploadMemory); err != nil {
+		http.Error(w, "400 bad request", http.StatusBadRequest)
+		return nil, false
+	}
+	ids := r.PostForm["ids"]
+	if len(ids) == 0 {
+		view.Flash(r, "error", i18n.T(r.Context(), "Nothing was selected."))
+		view.Redirect(w, r, back)
+		return nil, false
+	}
+	if len(ids) > maxBulkIDs {
+		view.Flash(r, "error", i18n.Tf(r.Context(),
+			"That is %d rows; %d is the most one action can take at a time.", len(ids), maxBulkIDs))
+		view.Redirect(w, r, back)
+		return nil, false
+	}
+	return ids, true
+}
 
 func (a *Admin) resourceBulk(entry managed) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -17,16 +40,10 @@ func (a *Admin) resourceBulk(entry managed) http.HandlerFunc {
 			a.render(w, r, http.StatusForbidden, "forbidden.html", nil)
 			return
 		}
-		if err := form.Parse(r, uploadMemory); err != nil {
-			http.Error(w, "400 bad request", http.StatusBadRequest)
-			return
-		}
 
-		ids := r.PostForm["ids"]
 		back := a.prefix + "/" + entry.Slug()
-		if len(ids) == 0 {
-			view.Flash(r, "error", i18n.T(r.Context(), "Nothing was selected."))
-			view.Redirect(w, r, back)
+		ids, ok := a.selected(w, r, back)
+		if !ok {
 			return
 		}
 
@@ -39,6 +56,10 @@ func (a *Admin) resourceBulk(entry managed) http.HandlerFunc {
 		for _, action := range entry.actions {
 			if action.Name != name || action.Run == nil {
 				continue
+			}
+			if !a.may(r, entry, action.permission()) {
+				a.render(w, r, http.StatusForbidden, "forbidden.html", nil)
+				return
 			}
 			affected, err := action.Run(r, ids)
 			if err != nil {
