@@ -20,11 +20,17 @@ type Options struct {
 	PerPage   int
 	Paginator Paginator
 	Order     string
+	Fields    []string
+	Exclude   []string
 	Filter    func(*http.Request, model.Query) model.Query
 	Allow     func(*http.Request) bool
 	Data      func(*http.Request, Data) Data
 	Redirect  string
 	IDParam   string
+}
+
+func (o Options) bindable() []model.Field {
+	return o.Schema.BindableFields(o.Fields, o.Exclude)
 }
 
 func (o Options) idOf(r *http.Request) string {
@@ -138,7 +144,7 @@ func Create(opts Options) http.HandlerFunc {
 			return
 		}
 
-		bound := form.Record(r.PostForm, opts.Schema, true)
+		bound := form.RecordOf(r.PostForm, opts.Schema, opts.bindable(), true)
 		if !bound.Valid() {
 			opts.render(w, r, http.StatusUnprocessableEntity, Data{
 				"Record": bound.Record, "IsNew": true, "Problems": bound.Problems,
@@ -176,7 +182,7 @@ func Update(opts Options) http.HandlerFunc {
 			return
 		}
 
-		bound := form.Record(r.PostForm, opts.Schema, false)
+		bound := form.RecordOf(r.PostForm, opts.Schema, opts.bindable(), false)
 		if !bound.Valid() {
 			opts.render(w, r, http.StatusUnprocessableEntity, Data{
 				"Record": bound.Record, "IsNew": false, "Problems": bound.Problems,

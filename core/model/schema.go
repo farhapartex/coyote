@@ -78,6 +78,29 @@ func (s *Schema) FormFields() []Field {
 	return out
 }
 
+func (s *Schema) BindableFields(only, except []string) []Field {
+	allowed := map[string]bool{}
+	for _, column := range only {
+		allowed[column] = true
+	}
+	blocked := map[string]bool{}
+	for _, column := range except {
+		blocked[column] = true
+	}
+
+	out := make([]Field, 0, len(s.Fields))
+	for _, f := range s.FormFields() {
+		if len(allowed) > 0 && !allowed[f.Column] {
+			continue
+		}
+		if blocked[f.Column] {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 func (s *Schema) DisplayFields(includeKey bool) []Field {
 	out := make([]Field, 0, len(s.Fields)+1)
 	if includeKey && !s.hidden[s.Key.Column] {

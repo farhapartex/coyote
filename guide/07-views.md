@@ -158,6 +158,7 @@ opts := view.Options{
 	Template: "pages/products.html",
 	PerPage:  20,
 	Order:    "name asc",   // validated against the schema, like Sort
+	Fields:   []string{"name", "sku", "price"},
 	Redirect: "/products",
 }
 
@@ -176,6 +177,13 @@ Each returns an ordinary `http.HandlerFunc`, so middleware and guards compose as
 | `Filter func(*http.Request, model.Query) model.Query` | scope the query — tenant, owner, status |
 | `Data func(*http.Request, view.Data) view.Data` | add your own template data |
 | `IDParam` | the path wildcard holding the id, if not `id` |
+| `Fields []string` | the only columns `Create` and `Update` will bind from the request |
+| `Exclude []string` | columns they will never bind, whatever the form sends |
+
+**Name `Fields` on anything the public can post to.** Without it, `Create` and `Update` bind every
+editable column on the model, so a hand-crafted form field can set `owner_id`, `is_published` or
+`price` whether or not your template renders them. `Fields` is the allow-list; `Exclude` is the
+subtractive form for when listing everything else is longer.
 
 `List` reads `?page=` and `?sort=` from the URL. `sort` is [validated against the
 schema](11-database.md), so passing it straight through is safe.

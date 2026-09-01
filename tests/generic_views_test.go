@@ -220,3 +220,57 @@ func TestGenericViewsAddCustomData(t *testing.T) {
 		t.Errorf("custom data should reach the template: %s", body)
 	}
 }
+
+func TestGenericCreateOnlyBindsTheNamedFields(t *testing.T) {
+	a, store, schema := genericApp(t, 0)
+
+	a.Any("/notes/new", view.Create(view.Options{
+		Store: store, Schema: schema, Template: "pages/form.html",
+		Renderer: a, Redirect: "/notes",
+		Fields: []string{"title"},
+	}))
+
+	rec := newClient(t, a.Handler()).do(http.MethodPost, "/notes/new", url.Values{
+		"title": {"Public note"}, "body": {"set by hand"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body.String())
+	}
+
+	page, err := store.List(t.Context(), schema, model.Query{Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := page.Records[0]
+	if row.String("title") != "Public note" {
+		t.Errorf("title = %q, the named field should bind", row.String("title"))
+	}
+	if row.String("body") != "" {
+		t.Errorf("body = %q, a column outside Fields must not bind from the request", row.String("body"))
+	}
+}
+
+func TestGenericCreateHonoursExclude(t *testing.T) {
+	a, store, schema := genericApp(t, 0)
+
+	a.Any("/notes/new", view.Create(view.Options{
+		Store: store, Schema: schema, Template: "pages/form.html",
+		Renderer: a, Redirect: "/notes",
+		Exclude: []string{"body"},
+	}))
+
+	rec := newClient(t, a.Handler()).do(http.MethodPost, "/notes/new", url.Values{
+		"title": {"Public note"}, "body": {"set by hand"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body.String())
+	}
+
+	page, err := store.List(t.Context(), schema, model.Query{Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body := page.Records[0].String("body"); body != "" {
+		t.Errorf("body = %q, an excluded column must not bind", body)
+	}
+}

@@ -42,6 +42,7 @@
       {{else if eq .Type "checkbox"}}
       <div class="checks">
         <label>
+          <input type="hidden" name="{{.Column}}" value="">
           <input type="checkbox" name="{{.Column}}" value="1" {{if .Checked}}checked{{end}} {{if .ReadOnly}}disabled{{end}}>
           <span>{{.Label}}{{if .Error}}<span class="hint" style="color:#8c2f21">{{.Error}}</span>{{end}}</span>
         </label>

@@ -136,6 +136,24 @@ superadmin would ever hold one.
 One action takes at most 1000 rows. Over that it is refused rather than truncated, because an action
 that silently half-ran is worse than one that did not run.
 
+## What a save writes
+
+**Only the columns the form actually sent.** A column the request never mentioned keeps the value it
+had, so a partial post — an upload form, a hand-written page, one screen of a wizard — no longer
+clears everything it left out.
+
+That leaves one thing the request cannot express: an unticked checkbox sends nothing at all, which
+would be indistinguishable from a column the form never carried. So every checkbox the admin renders
+is preceded by a hidden field of the same name, and the box is read as ticked when any submitted
+value is non-empty. Copy that pair into your own forms if you render a boolean by hand.
+
+A `not null` column that is absent altogether is a **problem**, not a guess:
+`Name was not submitted`. Guessing would mean writing a zero into a column the form forgot, and a
+person needs to decide that, not the framework.
+
+Concurrent edits still resolve last-write-wins on the fields they share. There is no version column
+yet, so two people editing the same field at the same time will not be told.
+
 ## Relation fields
 
 A belongs-to column renders as a `<select>` of the target rows, labelled by the target's `name`,
