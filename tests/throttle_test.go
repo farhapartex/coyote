@@ -2,8 +2,11 @@ package tests
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -192,4 +195,30 @@ func TestThrottleSettingsAreValidated(t *testing.T) {
 	problems := problemsOf(t, err)
 	mustContain(t, problems, "Auth.Throttle.MaxAttempts")
 	mustContain(t, problems, "Auth.Throttle.Window")
+}
+
+func TestForgedForwardingCannotEscapeTheLoginLockout(t *testing.T) {
+	a, c := setupAdmin(t, func(s *settings.Settings) { s.Security.TrustedProxyCount = 1 })
+	token := c.token("/admin/login")
+
+	guess := func(forged string) int {
+		form := url.Values{"csrf_token": {token}, "username": {"root"}, "password": {"wrong"}}
+		req := httptest.NewRequest(http.MethodPost, "/admin/login", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-Forwarded-For", forged+", 203.0.113.9")
+		req.AddCookie(c.cookie)
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	for attempt := range 5 {
+		if code := guess(fmt.Sprintf("9.9.9.%d", attempt)); code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d answered %d, want 401", attempt+1, code)
+		}
+	}
+	if code := guess("9.9.9.99"); code != http.StatusTooManyRequests {
+		t.Errorf("a guess from a fresh forged address answered %d, want 429; rotating the left of the "+
+			"chain must not buy a new allowance", code)
+	}
 }

@@ -161,6 +161,7 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Server.TLS.CacheDir` | `certs` | Where issued certificates are stored |
 | `Server.TLS.Staging` | `false` | Use the ACME staging directory while testing |
 | `Server.Configure` | none | `func(*http.Server)` hook called before listening |
+| `Security.TrustedProxyCount` | `0` | Proxies in front; how far into `X-Forwarded-For` to trust |
 | `Security.CSRF` | `true` | Guard every unsafe request — [CSRF](18-csrf.md) |
 | `Security.CSRFExempt` | none | Path prefixes the guard skips |
 | `Security.CSP` | none | Content Security Policy; off until set |

@@ -98,6 +98,9 @@ func (s Settings) validateSecurity(add func(string)) {
 		add("Security.CSRF is off while Environment is " + string(s.Environment) +
 			"; every form and every unsafe request would be forgeable from another site")
 	}
+	if s.Security.TrustedProxyCount < 0 {
+		add("Security.TrustedProxyCount cannot be negative; it counts the proxies in front of this app")
+	}
 	for _, prefix := range s.Security.CSRFExempt {
 		if !strings.HasPrefix(prefix, "/") {
 			add("Security.CSRFExempt paths must start with \"/\"; " + strconv.Quote(prefix) + " does not")

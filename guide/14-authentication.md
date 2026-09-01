@@ -180,7 +180,9 @@ Change the numbers, or set `Enabled: false` if you are putting your own limiter 
   reveal which accounts exist.
 - A successful sign-in clears the counter.
 - `Authenticate` alone keys on the username; `AuthenticateRequest(r, …)` adds the IP. The admin
-  portal uses the second.
+  portal uses the second. Behind a proxy, set
+  [`Security.TrustedProxyCount`](19-rate-limiting.md) or every request looks like it came from the
+  proxy and one lockout covers everybody.
 - Over the limit returns `auth.ErrTooManyAttempts`; the admin login renders it as a 429.
 
 `IsActive = false` is a separate, permanent block — throttling only limits the rate of attempts.

@@ -85,9 +85,10 @@ s.Logging.Logger = myLogger   // your own *slog.Logger, if you have one
 ## Behind a proxy
 
 Serve plain HTTP on a private address and let the proxy terminate TLS. Keep
-`middleware.RequireHTTPS` (it reads `X-Forwarded-Proto`), set `Sessions.Secure = true`, and turn on
-`Security.RateLimit.TrustProxy` / `Security.TrustRequestID` **only** if that proxy sets those
-headers itself.
+`middleware.RequireHTTPS`, set `Sessions.Secure = true`, and set `Security.TrustedProxyCount` to the
+number of proxies actually in front of the app — one for a single nginx or load balancer, two behind
+a CDN as well. Nothing reads a forwarding header until you do. Turn on `Security.TrustRequestID`
+**only** if that proxy sets `X-Request-Id` itself.
 
 ## Next
 

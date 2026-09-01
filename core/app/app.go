@@ -117,7 +117,7 @@ func NewFrom(s Settings) *App {
 		AllowChange:       s.Auth.AllowPasswordChange,
 		Tokens:            tokenStore(s, a),
 		TokenLifetime:     s.Auth.ResetTokenLifetime,
-		TrustProxy:        s.Security.RateLimit.TrustProxy,
+		TrustedProxyCount: s.Security.TrustedProxyCount,
 	})
 
 	a.global = []Middleware{

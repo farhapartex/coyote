@@ -20,7 +20,7 @@ func securityPolicies(s Settings) []Middleware {
 		out = append(out, middleware.Compress(s.Security.CompressLevel))
 	}
 	if s.Security.RateLimit.Enabled() {
-		out = append(out, middleware.RateLimit(s.Security.RateLimit))
+		out = append(out, middleware.RateLimit(s.Security.RateLimit, s.Security.TrustedProxyCount))
 	}
 	return out
 }

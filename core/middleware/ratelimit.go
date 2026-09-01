@@ -12,8 +12,8 @@ import (
 
 type KeyFunc func(*http.Request) string
 
-func RateLimit(policy settings.RateLimit) Middleware {
-	return RateLimitBy(policy, ClientIP(policy.TrustProxy))
+func RateLimit(policy settings.RateLimit, trustedProxies int) Middleware {
+	return RateLimitBy(policy, ClientIP(trustedProxies))
 }
 
 func RateLimitBy(policy settings.RateLimit, key KeyFunc) Middleware {
@@ -40,8 +40,8 @@ func RateLimitBy(policy settings.RateLimit, key KeyFunc) Middleware {
 	}
 }
 
-func ClientIP(trustProxy bool) KeyFunc {
-	return func(r *http.Request) string { return clientip.From(r, trustProxy) }
+func ClientIP(trustedProxies int) KeyFunc {
+	return func(r *http.Request) string { return clientip.From(r, trustedProxies) }
 }
 
 type bucket struct {

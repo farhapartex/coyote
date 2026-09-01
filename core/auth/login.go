@@ -53,7 +53,7 @@ func (s *Service) clientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	return clientip.From(r, s.trustProxy)
+	return clientip.From(r, s.trustedProxies)
 }
 
 func loginKey(username, ip string) string {
