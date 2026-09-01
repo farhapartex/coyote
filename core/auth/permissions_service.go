@@ -44,11 +44,11 @@ func (s *Service) CanAny(r *http.Request, codenames ...string) bool {
 	return false
 }
 
-func (s *Service) GrantedTo(userID string) ([]string, error) {
+func (s *Service) GrantedTo(ctx context.Context, userID string) ([]string, error) {
 	if s.permissions == nil {
 		return nil, nil
 	}
-	return s.permissions.CodenamesForUser(userID)
+	return s.permissions.CodenamesForUser(ctx, userID)
 }
 
 func (s *Service) codenames(r *http.Request, user *User) (map[string]struct{}, error) {
@@ -60,7 +60,7 @@ func (s *Service) codenames(r *http.Request, user *User) (map[string]struct{}, e
 		cache = &permissionCache{owner: user.ID}
 	}
 	cache.once.Do(func() {
-		granted, err := s.permissions.CodenamesForUser(user.ID)
+		granted, err := s.permissions.CodenamesForUser(r.Context(), user.ID)
 		if err != nil {
 			cache.err = err
 			return

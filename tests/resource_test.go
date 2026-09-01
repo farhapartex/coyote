@@ -208,7 +208,7 @@ func TestStoreCRUDRoundTrip(t *testing.T) {
 func adminWithResources(t *testing.T, resources ...admin.Resource) (*app.App, *client, *admin.Admin) {
 	t.Helper()
 	a := migratedApp(t, Product{})
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)

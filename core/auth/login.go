@@ -10,20 +10,20 @@ import (
 	"github.com/farhapartex/coyote/lib/clientip"
 )
 
-func (s *Service) Authenticate(username, password string) (*User, error) {
-	return s.authenticate(loginKey(username, ""), username, password)
+func (s *Service) Authenticate(ctx context.Context, username, password string) (*User, error) {
+	return s.authenticate(ctx, loginKey(username, ""), username, password)
 }
 
 func (s *Service) AuthenticateRequest(r *http.Request, username, password string) (*User, error) {
-	return s.authenticate(loginKey(username, s.clientBucket(r)), username, password)
+	return s.authenticate(r.Context(), loginKey(username, s.clientBucket(r)), username, password)
 }
 
-func (s *Service) authenticate(key, username, password string) (*User, error) {
+func (s *Service) authenticate(ctx context.Context, key, username, password string) (*User, error) {
 	if s.limiter != nil && !s.limiter.Allow(key) {
 		return nil, ErrTooManyAttempts
 	}
 
-	u, err := s.users.ByUsername(username)
+	u, err := s.users.ByUsername(ctx, username)
 	if err != nil {
 		_, _ = s.hasher.Hash(password)
 		s.recordFailure(key)
@@ -70,13 +70,14 @@ func (s *Service) Login(r *http.Request, u *User) error {
 	}
 	sess.SetUserID(u.ID)
 
-	stored, err := s.users.ByID(u.ID)
+	ctx := r.Context()
+	stored, err := s.users.ByID(ctx, u.ID)
 	if err != nil {
 		return err
 	}
 	now := time.Now()
 	stored.LastLoginAt = now
-	if err := s.users.Update(stored); err != nil {
+	if err := s.users.Update(ctx, stored); err != nil {
 		return err
 	}
 	u.LastLoginAt = now
@@ -103,7 +104,7 @@ func (s *Service) loadUser(r *http.Request) *User {
 	if id == "" {
 		return nil
 	}
-	u, err := s.users.ByID(id)
+	u, err := s.users.ByID(r.Context(), id)
 	if err != nil || !u.IsActive {
 		sess.ClearUser()
 		return nil

@@ -29,7 +29,7 @@ func permissionApp(t *testing.T, fns ...func(*settings.Settings)) *app.App {
 	a.RegisterModel(model.Of(Widget{}))
 	syncSchema(t, a)
 	a.Get("/test-signin/{id}", func(w http.ResponseWriter, r *http.Request) {
-		target, err := a.Auth.Users().ByID(r.PathValue("id"))
+		target, err := a.Auth.Users().ByID(r.Context(), r.PathValue("id"))
 		if err != nil {
 			http.Error(w, "no such user", http.StatusNotFound)
 			return
@@ -49,11 +49,11 @@ func grant(t *testing.T, a *app.App, userID string, codenames ...string) {
 	}
 
 	role := &auth.Role{Name: "role-" + userID + "-" + strings.Join(codenames, "-")}
-	if err := store.CreateRole(role); err != nil {
+	if err := store.CreateRole(t.Context(), role); err != nil {
 		t.Fatal(err)
 	}
 
-	all, err := store.AllPermissions()
+	all, err := store.AllPermissions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,10 +66,10 @@ func grant(t *testing.T, a *app.App, userID string, codenames ...string) {
 	if len(ids) != len(codenames) {
 		t.Fatalf("wanted %v, found %d matching permissions", codenames, len(ids))
 	}
-	if err := store.SetRolePermissions(role.ID, ids); err != nil {
+	if err := store.SetRolePermissions(t.Context(), role.ID, ids); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetUserRoles(userID, []string{role.ID}); err != nil {
+	if err := store.SetUserRoles(t.Context(), userID, []string{role.ID}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -104,7 +104,7 @@ func TestPermissionModelsAreRegisteredOnlyWhenEnabled(t *testing.T) {
 func TestSyncCreatesFourPermissionsPerModel(t *testing.T) {
 	a := permissionApp(t)
 
-	report, err := a.SyncPermissions()
+	report, err := a.SyncPermissions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestSyncCreatesFourPermissionsPerModel(t *testing.T) {
 		}
 	}
 
-	again, err := a.SyncPermissions()
+	again, err := a.SyncPermissions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,17 +142,17 @@ func TestSyncSkipsInternalJoinTables(t *testing.T) {
 
 func TestSyncReportsStalePermissionsWithoutDeletingThem(t *testing.T) {
 	a := permissionApp(t)
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 
 	store := a.Auth.Permissions()
-	before, err := store.AllPermissions()
+	before, err := store.AllPermissions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	report, err := store.SyncPermissions([]string{"users"})
+	report, err := store.SyncPermissions(t.Context(), []string{"users"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestSyncReportsStalePermissionsWithoutDeletingThem(t *testing.T) {
 		t.Errorf("a model that vanished should be reported, got %v", report.Stale)
 	}
 
-	after, err := store.AllPermissions()
+	after, err := store.AllPermissions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,15 +171,15 @@ func TestSyncReportsStalePermissionsWithoutDeletingThem(t *testing.T) {
 
 func TestCanFollowsRolesAndSuperadmin(t *testing.T) {
 	a := permissionApp(t)
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 
-	root, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long")
+	root, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long")
 	if err != nil {
 		t.Fatal(err)
 	}
-	helper, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
+	helper, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,10 +219,10 @@ func TestCanFollowsRolesAndSuperadmin(t *testing.T) {
 
 func TestRequirePermissionMiddleware(t *testing.T) {
 	a := permissionApp(t)
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	helper, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
+	helper, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,13 +250,13 @@ func TestRequirePermissionMiddleware(t *testing.T) {
 
 func TestAdminResourcesFollowPermissions(t *testing.T) {
 	a := permissionApp(t, func(s *settings.Settings) { s.Admin.SiteName = "Test admin" })
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
-	helper, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
+	helper, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestDisabledPermissionsLeaveTheAdminOpenToStaff(t *testing.T) {
 		s.Admin.SiteName = "Test admin"
 		s.Auth.Permissions = false
 	})
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true}); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)

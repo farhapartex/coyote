@@ -30,7 +30,7 @@ func formPortal(t *testing.T) *client {
 	a := app.NewFrom(devSettings(t, func(s *settings.Settings) { s.Admin.SiteName = "Test admin" }))
 	a.RegisterModel(model.Of(Article{}))
 	syncSchema(t, a)
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)

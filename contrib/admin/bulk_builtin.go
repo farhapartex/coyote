@@ -26,7 +26,7 @@ func (a *Admin) userBulk(w http.ResponseWriter, r *http.Request) {
 			skipped++
 			continue
 		}
-		if err := a.app.Auth.Users().Delete(id); err != nil {
+		if err := a.app.Auth.Users().Delete(r.Context(), id); err != nil {
 			view.Flash(r, "error", i18n.Tf(r.Context(), "Deleted %d, then stopped: %s", deleted, humanize(r.Context(), err)))
 			view.Redirect(w, r, back)
 			return
@@ -61,7 +61,7 @@ func (a *Admin) roleBulk(w http.ResponseWriter, r *http.Request) {
 
 	deleted := 0
 	for _, id := range ids {
-		if err := store.DeleteRole(id); err != nil {
+		if err := store.DeleteRole(r.Context(), id); err != nil {
 			view.Flash(r, "error", i18n.Tf(r.Context(), "Deleted %d, then stopped: %s", deleted, humanize(r.Context(), err)))
 			view.Redirect(w, r, back)
 			return

@@ -85,7 +85,7 @@ func (a *Accounts) registerSubmit(w http.ResponseWriter, r *http.Request) {
 		LastName:  strings.TrimSpace(r.PostForm.Get("last_name")),
 	}
 
-	user, err := a.app.Auth.CreateUser(auth.NewUser{
+	user, err := a.app.Auth.CreateUser(r.Context(), auth.NewUser{
 		Username:  form.Username,
 		Email:     form.Email,
 		FirstName: form.FirstName,
@@ -131,7 +131,7 @@ func (a *Accounts) profileSave(w http.ResponseWriter, r *http.Request) {
 	updated.LastName = strings.TrimSpace(r.PostForm.Get("last_name"))
 	updated.Email = strings.TrimSpace(r.PostForm.Get("email"))
 
-	if err := a.app.Auth.Users().Update(updated); err != nil {
+	if err := a.app.Auth.Users().Update(r.Context(), updated); err != nil {
 		a.render(w, r, http.StatusBadRequest, "profile.html", a.pages.Profile, view.Data{
 			"Title": i18n.T(r.Context(), "Your profile"), "Form": updated, "Error": humanize(r.Context(), err),
 		})

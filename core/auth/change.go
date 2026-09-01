@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -45,17 +46,17 @@ func (s *Service) ChangePassword(r *http.Request, in PasswordChange) error {
 		s.limiter.Reset(key)
 	}
 
-	if err := s.SetPassword(user.ID, in.New); err != nil {
+	if err := s.SetPassword(r.Context(), user.ID, in.New); err != nil {
 		return err
 	}
 	return s.Login(r, user)
 }
 
-func (s *Service) ResetPassword(userID string, in PasswordChange) error {
+func (s *Service) ResetPassword(ctx context.Context, userID string, in PasswordChange) error {
 	if in.New != in.Confirm {
 		return ErrPasswordMismatch
 	}
-	return s.SetPassword(userID, in.New)
+	return s.SetPassword(ctx, userID, in.New)
 }
 
 func (s *Service) RevokeOtherSessions(r *http.Request) int {

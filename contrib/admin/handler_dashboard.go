@@ -9,7 +9,11 @@ import (
 )
 
 func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request) {
-	users := a.app.Auth.Users().All()
+	users, err := a.app.Auth.Users().All(r.Context())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	superadmins, staff := 0, 0
 	for _, u := range users {
 		if u.IsSuperadmin {

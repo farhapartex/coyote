@@ -256,7 +256,7 @@ func TestDocumentedPasswordResetFlowEmailsAWorkingLink(t *testing.T) {
 		s.Email = settings.Email{From: "shop@example.test", Sender: outbox}
 	})
 
-	if _, err := a.Auth.CreateUser(auth.NewUser{
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
 		Username: "ada",
 		Email:    "ada@example.test",
 		Password: "her-first-secret",
@@ -308,15 +308,15 @@ func TestDocumentedPasswordResetFlowEmailsAWorkingLink(t *testing.T) {
 		t.Fatalf("the token is not url-safe: %v", err)
 	}
 
-	if _, err := a.Auth.CheckResetToken(token); err != nil {
+	if _, err := a.Auth.CheckResetToken(t.Context(), token); err != nil {
 		t.Fatalf("the emailed token does not work: %v", err)
 	}
-	if _, err := a.Auth.UseResetToken(token, auth.PasswordChange{
+	if _, err := a.Auth.UseResetToken(t.Context(), token, auth.PasswordChange{
 		New: "a-second-secret", Confirm: "a-second-secret",
 	}); err != nil {
 		t.Fatalf("consuming the emailed token: %v", err)
 	}
-	if _, err := a.Auth.CheckResetToken(token); err == nil {
+	if _, err := a.Auth.CheckResetToken(t.Context(), token); err == nil {
 		t.Error("the token should be single use")
 	}
 
@@ -330,9 +330,9 @@ func requestReset(a *app.App, sender mail.Sender, resetLog *strings.Builder) htt
 		r.ParseForm()
 		address := r.PostForm.Get("email")
 
-		user, err := a.Auth.Users().ByEmail(address)
+		user, err := a.Auth.Users().ByEmail(r.Context(), address)
 		if err == nil {
-			plain, err := a.Auth.CreateResetToken(user.ID)
+			plain, err := a.Auth.CreateResetToken(r.Context(), user.ID)
 			if err != nil {
 				resetLog.WriteString(err.Error())
 			} else {

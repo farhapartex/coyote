@@ -33,8 +33,9 @@ func ReportMigrationState(app Application) {
 		return
 	}
 
+	ctx := context.Background()
 	runner := migrate.NewRunner(handle, database.Engine, migrate.Registered())
-	state, err := runner.State(context.Background())
+	state, err := runner.State(ctx)
 	if err != nil {
 		log.Warn("cannot check migrations", slog.Any("error", err))
 		return
@@ -55,7 +56,10 @@ func ReportMigrationState(app Application) {
 		log.Info("migrations up to date", slog.Int("applied", state.Applied))
 	}
 
-	if !state.FreshDatabase() && app.AuthService().Users().Count() == 0 {
+	if state.FreshDatabase() {
+		return
+	}
+	if total, err := app.AuthService().Users().Count(ctx); err == nil && total == 0 {
 		log.Warn("there are no users yet, so nobody can sign in; run: coyote createsuperadmin")
 	}
 }

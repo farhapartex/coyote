@@ -142,7 +142,7 @@ func listPortal(t *testing.T, rows int, fns ...func(*settings.Settings)) *client
 		}
 	}
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)

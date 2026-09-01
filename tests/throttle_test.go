@@ -22,7 +22,7 @@ func throttledService(t *testing.T, policy auth.ThrottlePolicy) *auth.Service {
 		MinPasswordLength: 8,
 		Throttle:          policy,
 	})
-	if _, err := service.CreateUser(auth.NewUser{Username: "jane", Password: "unrelated-and-long"}); err != nil {
+	if _, err := service.CreateUser(t.Context(), auth.NewUser{Username: "jane", Password: "unrelated-and-long"}); err != nil {
 		t.Fatal(err)
 	}
 	return service
@@ -39,11 +39,11 @@ func TestThrottlingIsOnByDefault(t *testing.T) {
 
 	service := throttledService(t, policy)
 	for i := range policy.MaxAttempts {
-		if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
+		if _, err := service.Authenticate(t.Context(), "jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Fatalf("attempt %d: error = %v, want ErrInvalidCredentials", i, err)
 		}
 	}
-	if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
+	if _, err := service.Authenticate(t.Context(), "jane", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
 		t.Errorf("error = %v, want ErrTooManyAttempts once the default is spent", err)
 	}
 }
@@ -51,7 +51,7 @@ func TestThrottlingIsOnByDefault(t *testing.T) {
 func TestNoPolicyAtAllStillMeansNoThrottling(t *testing.T) {
 	service := throttledService(t, auth.ThrottlePolicy{})
 	for i := range 20 {
-		if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
+		if _, err := service.Authenticate(t.Context(), "jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Fatalf("attempt %d: error = %v, want ErrInvalidCredentials", i, err)
 		}
 	}
@@ -80,15 +80,15 @@ func TestLockoutAfterRepeatedFailures(t *testing.T) {
 	})
 
 	for i := range 3 {
-		if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
+		if _, err := service.Authenticate(t.Context(), "jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Fatalf("attempt %d: error = %v", i, err)
 		}
 	}
 
-	if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
+	if _, err := service.Authenticate(t.Context(), "jane", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
 		t.Errorf("error = %v, want ErrTooManyAttempts", err)
 	}
-	if _, err := service.Authenticate("jane", "unrelated-and-long"); !errors.Is(err, auth.ErrTooManyAttempts) {
+	if _, err := service.Authenticate(t.Context(), "jane", "unrelated-and-long"); !errors.Is(err, auth.ErrTooManyAttempts) {
 		t.Error("a locked account must be refused even with the right password")
 	}
 }
@@ -98,15 +98,15 @@ func TestSuccessClearsTheCounter(t *testing.T) {
 		Enabled: true, MaxAttempts: 3, Window: time.Minute,
 	})
 
-	service.Authenticate("jane", "wrong")
-	service.Authenticate("jane", "wrong")
+	service.Authenticate(t.Context(), "jane", "wrong")
+	service.Authenticate(t.Context(), "jane", "wrong")
 
-	if _, err := service.Authenticate("jane", "unrelated-and-long"); err != nil {
+	if _, err := service.Authenticate(t.Context(), "jane", "unrelated-and-long"); err != nil {
 		t.Fatalf("a good password below the limit should work: %v", err)
 	}
 
 	for i := range 3 {
-		if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
+		if _, err := service.Authenticate(t.Context(), "jane", "wrong"); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Errorf("attempt %d after a reset: error = %v", i, err)
 		}
 	}
@@ -117,15 +117,15 @@ func TestLockoutExpires(t *testing.T) {
 		Enabled: true, MaxAttempts: 2, Window: time.Minute, Lockout: 40 * time.Millisecond,
 	})
 
-	service.Authenticate("jane", "wrong")
-	service.Authenticate("jane", "wrong")
-	if _, err := service.Authenticate("jane", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
+	service.Authenticate(t.Context(), "jane", "wrong")
+	service.Authenticate(t.Context(), "jane", "wrong")
+	if _, err := service.Authenticate(t.Context(), "jane", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
 		t.Fatalf("expected a lockout, got %v", err)
 	}
 
 	time.Sleep(60 * time.Millisecond)
 
-	if _, err := service.Authenticate("jane", "unrelated-and-long"); err != nil {
+	if _, err := service.Authenticate(t.Context(), "jane", "unrelated-and-long"); err != nil {
 		t.Errorf("the lockout should have expired: %v", err)
 	}
 }
@@ -135,10 +135,10 @@ func TestUnknownUsernamesAreThrottledToo(t *testing.T) {
 		Enabled: true, MaxAttempts: 2, Window: time.Minute,
 	})
 
-	service.Authenticate("ghost", "wrong")
-	service.Authenticate("ghost", "wrong")
+	service.Authenticate(t.Context(), "ghost", "wrong")
+	service.Authenticate(t.Context(), "ghost", "wrong")
 
-	if _, err := service.Authenticate("ghost", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
+	if _, err := service.Authenticate(t.Context(), "ghost", "wrong"); !errors.Is(err, auth.ErrTooManyAttempts) {
 		t.Error("an unknown username must lock out like a real one, or the lockout reveals which accounts exist")
 	}
 }
@@ -170,7 +170,7 @@ func TestAdminLoginReportsALockout(t *testing.T) {
 		s.Auth.Throttle = auth.ThrottlePolicy{Enabled: true, MaxAttempts: 2, Window: time.Minute}
 	}
 	a := newTestApp(t, base)
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	admin.Mount(a)

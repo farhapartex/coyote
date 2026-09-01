@@ -45,7 +45,7 @@ func (c CreateSuperadmin) Run(ctx Context) error {
 		return err
 	}
 
-	user, err := ctx.App.AuthService().CreateSuperadmin(username, email, password)
+	user, err := ctx.App.AuthService().CreateSuperadmin(ctx.Context(), username, email, password)
 	if err != nil {
 		return err
 	}

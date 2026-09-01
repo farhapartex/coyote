@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+
 	"github.com/farhapartex/coyote/core/auth"
 )
 
@@ -25,7 +27,7 @@ func (a *App) PermissionResources() ([]string, error) {
 	return out, nil
 }
 
-func (a *App) SyncPermissions() (auth.SyncReport, error) {
+func (a *App) SyncPermissions(ctx context.Context) (auth.SyncReport, error) {
 	permissions := a.Auth.Permissions()
 	if permissions == nil {
 		return auth.SyncReport{}, nil
@@ -34,5 +36,5 @@ func (a *App) SyncPermissions() (auth.SyncReport, error) {
 	if err != nil {
 		return auth.SyncReport{}, err
 	}
-	return permissions.SyncPermissions(resources)
+	return permissions.SyncPermissions(ctx, resources)
 }

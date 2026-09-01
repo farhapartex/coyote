@@ -54,7 +54,7 @@ func volumePortal(t *testing.T) (*app.App, *client) {
 		t.Fatal(err)
 	}
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)

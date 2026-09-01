@@ -16,10 +16,10 @@ func setupAdmin(t *testing.T, fns ...func(*settings.Settings)) (*app.App, *clien
 	t.Helper()
 	base := func(s *settings.Settings) { s.Admin.SiteName = "Test admin" }
 	a := newTestApp(t, append([]func(*settings.Settings){base}, fns...)...)
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "plain", Password: "supersecret"}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "plain", Password: "supersecret"}); err != nil {
 		t.Fatal(err)
 	}
 	admin.Mount(a)
@@ -107,7 +107,7 @@ func TestAdminUserLifecycle(t *testing.T) {
 		t.Fatalf("create: %d, want 303", rec.Code)
 	}
 
-	jane, err := a.Auth.Users().ByUsername("jane")
+	jane, err := a.Auth.Users().ByUsername(t.Context(), "jane")
 	if err != nil {
 		t.Fatalf("user not created: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestAdminUserLifecycle(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update: %d, want 303", rec.Code)
 	}
-	jane, _ = a.Auth.Users().ByUsername("jane")
+	jane, _ = a.Auth.Users().ByUsername(t.Context(), "jane")
 	if jane.FullName() != "Jane Q Doe" || jane.Email != "jane@corp.com" {
 		t.Errorf("update did not apply: %+v", jane)
 	}
@@ -146,7 +146,7 @@ func TestAdminUserLifecycle(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("delete: %d, want 303", rec.Code)
 	}
-	if _, err := a.Auth.Users().ByUsername("jane"); err == nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "jane"); err == nil {
 		t.Error("user should be deleted")
 	}
 }
@@ -154,12 +154,12 @@ func TestAdminUserLifecycle(t *testing.T) {
 func TestAdminCannotDeleteSelf(t *testing.T) {
 	a, c := setupAdmin(t)
 	c.login("/admin/login", "root", "supersecret")
-	root, _ := a.Auth.Users().ByUsername("root")
+	root, _ := a.Auth.Users().ByUsername(t.Context(), "root")
 
 	token := c.token("/admin/users")
 	c.do(http.MethodPost, "/admin/users/"+root.ID+"/delete", url.Values{"csrf_token": {token}})
 
-	if _, err := a.Auth.Users().ByUsername("root"); err != nil {
+	if _, err := a.Auth.Users().ByUsername(t.Context(), "root"); err != nil {
 		t.Error("self-deletion should be refused")
 	}
 }
@@ -179,7 +179,7 @@ func TestAdminLogoutEndsSession(t *testing.T) {
 
 func TestAdminPrefixComesFromSettings(t *testing.T) {
 	a := newTestApp(t, func(s *settings.Settings) { s.Admin.Prefix = "/control" })
-	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)
@@ -208,7 +208,7 @@ func TestRegisteredSectionIsGuardedAndMounted(t *testing.T) {
 		s.Admin.Prefix = "/backoffice"
 		s.Admin.SiteName = "Backoffice"
 	})
-	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)

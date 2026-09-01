@@ -95,6 +95,24 @@ func syncSchema(t *testing.T, a *app.App) {
 	}
 }
 
+func allUsers(t *testing.T, store auth.Store) []*auth.User {
+	t.Helper()
+	people, err := store.All(t.Context())
+	if err != nil {
+		t.Fatalf("listing users: %v", err)
+	}
+	return people
+}
+
+func userCount(t *testing.T, store auth.Store) int {
+	t.Helper()
+	total, err := store.Count(t.Context())
+	if err != nil {
+		t.Fatalf("counting users: %v", err)
+	}
+	return total
+}
+
 func sessionCount(t *testing.T, store session.ManageableStore) int {
 	t.Helper()
 	total, err := store.Count(t.Context())

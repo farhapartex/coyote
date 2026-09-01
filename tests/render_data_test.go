@@ -12,7 +12,7 @@ import (
 
 func TestSharedRenderDataDoesNotLeakBetweenRequests(t *testing.T) {
 	a := newTestApp(t)
-	if _, err := a.Auth.CreateUser(auth.NewUser{Username: "alice", Password: "correct horse battery"}); err != nil {
+	if _, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "alice", Password: "correct horse battery"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -25,7 +25,7 @@ func TestSharedRenderDataDoesNotLeakBetweenRequests(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/signin", nil)
 		a.Get("/signin", func(w http.ResponseWriter, r *http.Request) {
-			user, err := a.Auth.Authenticate("alice", "correct horse battery")
+			user, err := a.Auth.Authenticate(t.Context(), "alice", "correct horse battery")
 			if err != nil {
 				t.Error(err)
 				return

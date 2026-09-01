@@ -245,11 +245,11 @@ func TestSavingTwiceUpdatesRatherThanDuplicates(t *testing.T) {
 
 func TestLoginAndLogoutAcrossProcesses(t *testing.T) {
 	a := persistentApp(t)
-	if _, err := a.Auth.CreateSuperadmin("root", "", "supersecret"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "", "supersecret"); err != nil {
 		t.Fatal(err)
 	}
 	a.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-		user, err := a.Auth.Authenticate("root", "supersecret")
+		user, err := a.Auth.Authenticate(t.Context(), "root", "supersecret")
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/farhapartex/coyote/core/auth"
@@ -10,7 +11,7 @@ import (
 )
 
 type PermissionSyncer interface {
-	SyncPermissions() (auth.SyncReport, error)
+	SyncPermissions(ctx context.Context) (auth.SyncReport, error)
 }
 
 type Report struct {

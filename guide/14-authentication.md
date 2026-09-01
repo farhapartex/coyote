@@ -47,7 +47,7 @@ not collide, and the last active superadmin cannot be deleted, demoted, or disab
 Always through the service, so hashing and defaults are never skipped:
 
 ```go
-user, err := a.Auth.CreateUser(auth.NewUser{
+user, err := a.Auth.CreateUser(r.Context(), auth.NewUser{
 	Username:  "jane",
 	Email:     "jane@example.com",
 	FirstName: "Jane",
@@ -55,7 +55,7 @@ user, err := a.Auth.CreateUser(auth.NewUser{
 	Password:  "supersecret",
 })
 
-root, err := a.Auth.CreateSuperadmin("root", "root@example.com", "supersecret")
+root, err := a.Auth.CreateSuperadmin(ctx, "root", "root@example.com", "supersecret")
 ```
 
 New accounts are active, and not superadmin unless asked. For the first account on a fresh install
@@ -128,7 +128,7 @@ rejects anything that is not in hash format — so a plain string assigned by mi
 rather than authenticating.
 
 ```go
-a.Auth.SetPassword(userID, "new-password")
+a.Auth.SetPassword(r.Context(), userID, "new-password")
 a.Auth.ValidatePassword("candidate")      // length policy
 a.Auth.MinPasswordLength()
 ```
@@ -138,7 +138,7 @@ Lower the iteration count in tests; leave it alone in production.
 ## Signing in and out
 
 ```go
-user, err := a.Auth.Authenticate(username, password)
+user, err := a.Auth.Authenticate(r.Context(), username, password)
 if err != nil {
 	view.Error(r, "Wrong username or password.")
 	view.Redirect(w, r, "/login")
@@ -247,13 +247,13 @@ s.Auth.ResetTokenLifetime = time.Hour
 ```
 
 ```go
-token, err := a.Auth.CreateResetToken(user.ID)
+token, err := a.Auth.CreateResetToken(r.Context(), user.ID)
 // send it however you like: email, SMS, a support desk
 // see guide/35-email.md for the whole flow with a mail.Sender
 
-user, err := a.Auth.CheckResetToken(token)          // still valid?
+user, err := a.Auth.CheckResetToken(r.Context(), token)   // still valid?
 
-user, err := a.Auth.UseResetToken(token, auth.PasswordChange{
+user, err := a.Auth.UseResetToken(r.Context(), token, auth.PasswordChange{
 	New: "…", Confirm: "…",
 })
 ```
@@ -307,16 +307,21 @@ Or implement `auth.Store` over your own table and set it in settings:
 
 ```go
 type Store interface {
-	ByID(id string) (*User, error)
-	ByUsername(username string) (*User, error)
-	ByEmail(email string) (*User, error)
-	Create(u *User) error
-	Update(u *User) error
-	Delete(id string) error
-	All() []*User
-	Count() int
+	ByID(ctx context.Context, id string) (*User, error)
+	ByUsername(ctx context.Context, username string) (*User, error)
+	ByEmail(ctx context.Context, email string) (*User, error)
+	Create(ctx context.Context, u *User) error
+	Update(ctx context.Context, u *User) error
+	Delete(ctx context.Context, id string) error
+	All(ctx context.Context) ([]*User, error)
+	Count(ctx context.Context) (int, error)
 }
 ```
+
+Every method takes a context and every one that can fail says so. `auth.PermissionStore` and
+`auth.TokenStore` follow the same shape. Inside a handler the context is `r.Context()`, so a client
+that goes away cancels the query it was waiting on; from a CLI command or a background job it is
+yours to supply.
 
 ```go
 s.Auth.UserStore = myLDAPStore{}

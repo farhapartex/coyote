@@ -38,7 +38,7 @@ func (a *Admin) sessionList(w http.ResponseWriter, r *http.Request) {
 	for _, s := range live {
 		username := i18n.T(r.Context(), "anonymous")
 		if id := s.UserID(); id != "" {
-			if u, err := a.app.Auth.Users().ByID(id); err == nil {
+			if u, err := a.app.Auth.Users().ByID(r.Context(), id); err == nil {
 				username = u.Username
 			} else {
 				username = i18n.T(r.Context(), "unknown")

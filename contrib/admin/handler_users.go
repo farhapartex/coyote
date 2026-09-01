@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -11,7 +12,11 @@ import (
 
 func (a *Admin) userList(w http.ResponseWriter, r *http.Request) {
 	query := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
-	all := a.app.Auth.Users().All()
+	all, err := a.app.Auth.Users().All(r.Context())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	matched := make([]*auth.User, 0, len(all))
 	for _, u := range all {
 		if query == "" ||
@@ -29,18 +34,18 @@ func (a *Admin) userList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (a *Admin) roleChoices(userID string) ([]roleChoice, error) {
+func (a *Admin) roleChoices(ctx context.Context, userID string) ([]roleChoice, error) {
 	store := a.app.Auth.Permissions()
 	if store == nil {
 		return nil, nil
 	}
-	roles, err := store.AllRoles()
+	roles, err := store.AllRoles(ctx)
 	if err != nil {
 		return nil, err
 	}
 	held := map[string]bool{}
 	if userID != "" {
-		assigned, err := store.RolesForUser(userID)
+		assigned, err := store.RolesForUser(ctx, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -60,13 +65,13 @@ func (a *Admin) saveUserRoles(r *http.Request, userID string) error {
 	if store == nil {
 		return nil
 	}
-	return store.SetUserRoles(userID, r.PostForm["roles"])
+	return store.SetUserRoles(r.Context(), userID, r.PostForm["roles"])
 }
 
 func (a *Admin) userForm(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	data := view.Data{"Nav": "users", "IsNew": true, "Form": &auth.User{IsActive: true}}
-	choices, err := a.roleChoices(id)
+	choices, err := a.roleChoices(r.Context(), id)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -74,7 +79,7 @@ func (a *Admin) userForm(w http.ResponseWriter, r *http.Request) {
 	data["Roles"] = choices
 	data["AllowPasswordChange"] = a.app.Auth.AllowsPasswordChange()
 	if id != "" {
-		user, err := a.app.Auth.Users().ByID(id)
+		user, err := a.app.Auth.Users().ByID(r.Context(), id)
 		if err != nil {
 			a.notFound(w, r)
 			return
@@ -101,7 +106,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	password := r.PostForm.Get("password")
 
-	user, err := a.app.Auth.CreateUser(auth.NewUser{
+	user, err := a.app.Auth.CreateUser(r.Context(), auth.NewUser{
 		Username:     form.Username,
 		Email:        form.Email,
 		FirstName:    form.FirstName,
@@ -118,7 +123,7 @@ func (a *Admin) userCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if !form.IsActive {
 		user.IsActive = false
-		if err := a.app.Auth.Users().Update(user); err != nil {
+		if err := a.app.Auth.Users().Update(r.Context(), user); err != nil {
 			a.render(w, r, http.StatusBadRequest, "user_form.html", view.Data{
 				"Nav": "users", "IsNew": true, "Form": form, "Error": humanize(r.Context(), err),
 			})
@@ -139,7 +144,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	user, err := a.app.Auth.Users().ByID(id)
+	user, err := a.app.Auth.Users().ByID(r.Context(), id)
 	if err != nil {
 		a.notFound(w, r)
 		return
@@ -177,7 +182,7 @@ func (a *Admin) userUpdate(w http.ResponseWriter, r *http.Request) {
 		a.revokeUserSessions(r.Context(), user.ID)
 	}
 
-	if err := a.app.Auth.Users().Update(user); err != nil {
+	if err := a.app.Auth.Users().Update(r.Context(), user); err != nil {
 		fail(err)
 		return
 	}
@@ -199,7 +204,7 @@ func (a *Admin) userDelete(w http.ResponseWriter, r *http.Request) {
 		view.Redirect(w, r, a.prefix+"/users")
 		return
 	}
-	if err := a.app.Auth.Users().Delete(id); err != nil {
+	if err := a.app.Auth.Users().Delete(r.Context(), id); err != nil {
 		view.Flash(r, "error", humanize(r.Context(), err))
 		view.Redirect(w, r, a.prefix+"/users")
 		return

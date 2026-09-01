@@ -25,7 +25,7 @@ func syncPermissions(ctx Context) (Report, error) {
 	if !ok {
 		return Report{}, errors.New("coyote/cli: this application cannot sync permissions")
 	}
-	report, err := syncer.SyncPermissions()
+	report, err := syncer.SyncPermissions(ctx.Context())
 	if err != nil {
 		return Report{}, err
 	}

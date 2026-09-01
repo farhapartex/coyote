@@ -61,7 +61,7 @@ func bulkPortal(t *testing.T, fns ...func(*settings.Settings)) (*app.App, *clien
 		}
 	}
 
-	if _, err := a.Auth.CreateSuperadmin("root", "root@example.com", "unrelated-and-long"); err != nil {
+	if _, err := a.Auth.CreateSuperadmin(t.Context(), "root", "root@example.com", "unrelated-and-long"); err != nil {
 		t.Fatal(err)
 	}
 	portal := admin.Mount(a)
@@ -188,10 +188,10 @@ func TestAnUnknownActionIsRefused(t *testing.T) {
 
 func TestBulkDeleteNeedsThePermission(t *testing.T) {
 	a, _ := bulkPortal(t)
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	helper, err := a.Auth.CreateUser(auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
+	helper, err := a.Auth.CreateUser(t.Context(), auth.NewUser{Username: "helper", Password: "unrelated-and-long", IsStaff: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,10 +219,10 @@ func TestBulkDeleteNeedsThePermission(t *testing.T) {
 
 func staffWithGrants(t *testing.T, a *app.App, codenames ...string) *client {
 	t.Helper()
-	if _, err := a.SyncPermissions(); err != nil {
+	if _, err := a.SyncPermissions(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	helper, err := a.Auth.CreateUser(auth.NewUser{
+	helper, err := a.Auth.CreateUser(t.Context(), auth.NewUser{
 		Username: "helper", Password: "unrelated-and-long", IsStaff: true,
 	})
 	if err != nil {
