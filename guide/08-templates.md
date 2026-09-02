@@ -132,10 +132,6 @@ inline blocks carry the nonce:
 <style nonce="{{.Nonce}}">body { color: #00ADD8 }</style>
 ```
 
-## Next
-
-[Static files →](09-static-files.md)
-
 ## Two sharp edges
 
 `safe` marks a string as trusted HTML, which switches escaping off for that value:
@@ -150,3 +146,7 @@ cross-site scripting hole with extra steps.
 `.Request` is the live `*http.Request`. It is there for `.Request.URL.Path` and friends, but it also
 reaches `.Request.Header`, and printing that into a page would put the visitor's own session cookie
 on screen. Read what you need from it; do not render it whole.
+
+## Next
+
+[Static files →](09-static-files.md)

@@ -102,10 +102,6 @@ s.Logging.Logger = myLogger
 A panic in any handler is recovered, logged with its stack trace, and returned as a plain 500. The
 process stays up.
 
-## Next
-
-[Security headers and CSP →](17-security-headers.md)
-
 ## Writing your own
 
 Wrap the `http.ResponseWriter` if you must, and give the wrapper an `Unwrap() http.ResponseWriter`
@@ -116,3 +112,7 @@ connection through the whole chain rather than stopping at the first wrapper.
 A hijacked response has no headers left to set, so a session cookie minted during that request never
 reaches the client. The session itself is written before the handover, so server-side state stays
 consistent — but do not sign someone in and upgrade in the same request.
+
+## Next
+
+[Security headers and CSP →](17-security-headers.md)

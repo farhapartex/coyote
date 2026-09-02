@@ -1,5 +1,7 @@
 # 35. Email
 
+[← Back to contents](README.md)
+
 Email in Coyote is a sealed block: a one-method interface, a message type, four backends and a
 configuration struct. The framework sends nothing on your behalf. There is no `sendmail` command, no
 hook into forms, nothing on the boot path. You construct a backend when you want one and call it where
