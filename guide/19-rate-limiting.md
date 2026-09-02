@@ -16,6 +16,15 @@ A token bucket per client: `Requests` per `Window` is the sustained rate, `Burst
 ceiling. Over the limit returns **429** with `Retry-After`; every response carries `RateLimit-Limit`
 and `RateLimit-Remaining`.
 
+| Field | Default | |
+| --- | --- | --- |
+| `Requests` | none | Tokens refilled per `Window`; the sustained rate |
+| `Window` | none | The period `Requests` refills over |
+| `Burst` | `Requests` | Bucket capacity, so the most a client may spend at once |
+
+`Requests` and `Window` must be set together — either alone is a startup error, and `Burst` below
+`Requests` is refused too, since it would throttle below the rate you asked for.
+
 ## Identifying clients
 
 By IP, by default, and that IP is the connection's peer address. `X-Forwarded-For` is **ignored until

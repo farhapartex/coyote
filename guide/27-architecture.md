@@ -60,7 +60,7 @@ persistence layer does not touch it.
 ## One responsibility per file
 
 Each package is split by responsibility rather than by size — `core/settings` alone is
-`settings.go`, `defaults.go`, `database.go`, `configure.go`, `normalize.go`, `accessors.go`,
+`settings.go`, `defaults.go`, `database.go`, `configure.go`, `normalise.go`, `accessors.go`,
 `secret.go`, `env.go`, and five focused validators. No file in `core/`, `contrib/` or `admin/`
 exceeds 200 lines.
 
@@ -79,8 +79,10 @@ know transfer instead of being re-taught.
 Being explicit about what is not extensible yet:
 
 - The user model is not swappable — the framework's own code still works in terms of `*auth.User`.
-- Migrations are forward-only; there is no `down`, and they run against the default connection only,
-  so a model routed to another alias is reported but not migrated.
+- Migrations run against the default connection only, so a model routed to another alias is
+  reported but not migrated. Rolling back does exist — see [Migrations](12-migrations.md) — though
+  an operation that cannot be reversed is refused rather than guessed at, and one that would drop
+  data asks before it runs.
 - Rate limit, login-throttle and cache-statistics counters are per process, not shared.
 - Concurrent edits of one record resolve last-write-wins on the fields they share; there is no
   version column yet.

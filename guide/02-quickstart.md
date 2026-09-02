@@ -39,8 +39,8 @@ coyote createsuperadmin
 
 Now open `http://127.0.0.1:8000/admin/` and sign in.
 
-> `migrate` needs the server running — that is why this is a second terminal. See
-> [First run](24-first-run.md).
+> The commands talk to the database directly, so the server does not have to be running — the
+> second terminal is only because the first one is busy serving. See [First run](24-first-run.md).
 
 ## 4. Add a model
 

@@ -63,6 +63,7 @@ lib/            depends on nothing local
   dotenv/       the .env parser
   id/           UUID generation
   clientip/     the client address from a declared proxy count, and its rate-limit bucket
+  mail/         message building, encoding and the SMTP client
 core/           what the framework needs to exist
   app/          the application object: wiring, lifecycle, render entry point
   router/       URL dispatch, groups, static, route table
@@ -75,6 +76,9 @@ core/           what the framework needs to exist
   upload/       accepting, sealing and serving uploaded files
   auth/         the User entity, passwords, login guards
   db/           connections, pool tuning, pragmas
+  cache/        the Cache port, memory, file and Redis stores
+  i18n/         catalogs, plural rules, locale detection and formatting
+  certs/        Let's Encrypt certificates through autocert
   session/      Session, stores, cookie manager, sealing
   middleware/   logging, recovery, hosts, headers, CSRF, CSP, CORS, body and rate limits
   settings/     the settings type, defaults, validation, env helpers
@@ -85,6 +89,7 @@ contrib/        what you opt into
   scaffold/     the project template behind `coyote new`
   collect/      static fingerprinting behind `coyote collectstatic`
   accounts/     sign-in, registration and profile pages
+  messages/     extracting translatable strings behind `coyote makemessages`
 cmd/coyote/     the `coyote` command
 ```
 
