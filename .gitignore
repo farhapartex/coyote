@@ -1,4 +1,5 @@
 coyote-example
+.DS_Store
 *.test
 *.db
 *.db-wal
