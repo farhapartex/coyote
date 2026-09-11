@@ -1,0 +1,49 @@
+{{define "content"}}
+<section class="wrap">
+  <p class="muted"><a href="/orders">Your orders</a> / {{.Order.Reference}}</p>
+  <div class="section-head">
+    <h2>Order {{.Order.Reference}}</h2>
+    <span class="tag">{{.Order.StateLabel}}</span>
+  </div>
+
+  <div class="checkout">
+    <div class="panel">
+      <table>
+        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Line</th></tr></thead>
+        <tbody>
+          {{range .Order.Lines}}
+          <tr><td>{{.Title}}</td><td class="num">{{.Quantity}}</td><td class="num">{{.Unit}}</td><td class="num">{{.Line}}</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+      <div class="pad">
+        <div class="totals">
+          <div><span>Goods</span><span>{{.Order.Goods}}</span></div>
+          {{if .Order.Coupon}}<div><span>{{.Order.Coupon}}</span><span>-{{.Order.Discount}}</span></div>{{end}}
+          <div><span>Delivery</span><span>{{.Order.Shipping}}</span></div>
+          <div class="grand"><span>Total</span><span>{{.Order.Total}}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel pad">
+        <h3>Delivery</h3>
+        <ul class="timeline">
+          {{range .Order.Events}}
+          <li class="{{if .Done}}done{{end}}">
+            <div class="state">{{.StateLabel}}</div>
+            {{if .Done}}<div class="when">{{.When.Format "2 Jan 2006 15:04"}}</div>{{end}}
+            {{with .Note}}<div class="note">{{.}}</div>{{end}}
+          </li>
+          {{end}}
+        </ul>
+      </div>
+      <div class="panel pad" style="margin-top:16px">
+        <h3>Shipping to</h3>
+        <p class="muted">{{.Order.ShipTo}}<br>{{.Order.Email}}</p>
+      </div>
+    </div>
+  </div>
+</section>
+{{end}}

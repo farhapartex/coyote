@@ -8,6 +8,10 @@ count_results_of_kind() {
 	grep -c "^$1$E2E_SEP" "$E2E_RESULTS" 2>/dev/null || true
 }
 
+counted() {
+	printf '%s' "$1" | grep -c "$2" || true
+}
+
 check_passed() {
 	LAST_CHECK_OK=1
 	record_result PASS "$1"
@@ -27,6 +31,14 @@ check_skipped() {
 	LAST_CHECK_OK=0
 	record_result SKIP "$1" "${2:-}"
 	printf '  %s○%s %s %s(%s)%s\n' "$C_YELLOW" "$C_RESET" "$1" "$C_DIM" "${2:-skipped}" "$C_RESET"
+}
+
+finding() {
+	record_result FIND "$1" "${2:-}"
+	printf '  %s!%s %s\n' "$C_YELLOW" "$C_RESET" "$1"
+	if [ -n "${2:-}" ]; then
+		printf '%b\n' "${2:-}" | sed "s/^/      $C_DIM/;s/\$/$C_RESET/"
+	fi
 }
 
 note() {

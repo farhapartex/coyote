@@ -1,0 +1,43 @@
+{{define "content"}}
+<section class="wrap">
+  <div class="section-head"><h2>{{.Heading}}</h2></div>
+  <div class="listing">
+    <aside class="filters">
+      <form method="get" action="{{.FilterAction}}">
+        <h3>Department</h3>
+        <ul>
+          <li><a href="{{url "products"}}" class="{{if not .Filter.Category}}on{{end}}">Everything</a></li>
+          {{range .Categories}}
+          <li><a href="{{url "products"}}?category={{.Slug}}" class="{{if eq $.Filter.Category .Slug}}on{{end}}">{{.Name}}</a></li>
+          {{end}}
+        </ul>
+        <h3>Price</h3>
+        <label for="min">From (£)</label>
+        <input id="min" type="number" name="min" min="0" step="1" value="{{.Filter.Min}}">
+        <label for="max">To (£)</label>
+        <input id="max" type="number" name="max" min="0" step="1" value="{{.Filter.Max}}">
+        <label class="check"><input type="checkbox" name="stock" value="in" {{if .Filter.InStock}}checked{{end}}> In stock only</label>
+        <h3>Order</h3>
+        <select name="sort">
+          {{range .SortOptions}}<option value="{{.Value}}" {{if .Chosen}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        {{with .Filter.Category}}<input type="hidden" name="category" value="{{.}}">{{end}}
+        <button class="btn" type="submit">Apply</button>
+      </form>
+    </aside>
+
+    <div>
+      <div class="toolbar">
+        <span>{{.Total}} product{{if ne .Total 1}}s{{end}}</span>
+        <span>{{.SortLabel}}</span>
+      </div>
+      {{if .Products}}
+      <div class="grid">{{range .Products}}{{template "productcard" .}}{{end}}</div>
+      {{template "pager" .}}
+      {{else}}
+      <div class="panel empty">Nothing matches those filters.</div>
+      {{end}}
+    </div>
+  </div>
+</section>
+{{end}}

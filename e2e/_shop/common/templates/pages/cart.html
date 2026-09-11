@@ -1,0 +1,54 @@
+{{define "content"}}
+<section class="wrap">
+  <div class="section-head"><h2>Your cart</h2></div>
+  {{if .Cart.Lines}}
+  <div class="checkout">
+    <div class="panel">
+      <form method="post" action="/cart/update">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <table>
+          <thead><tr><th>Item</th><th class="num">Unit</th><th class="num">Quantity</th><th class="num">Subtotal</th><th></th></tr></thead>
+          <tbody>
+            {{range .Cart.Lines}}
+            <tr>
+              <td><a href="/products/{{.Slug}}">{{.Name}}</a></td>
+              <td class="num">{{.Unit}}</td>
+              <td class="num"><input class="qty" type="number" name="quantity_{{.Slug}}" value="{{.Quantity}}" min="0" max="{{.Stock}}"></td>
+              <td class="num">{{.Subtotal}}</td>
+              <td class="num">
+                <button class="btn small secondary" type="submit" form="remove-{{.Slug}}">Remove</button>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+        <div class="pad"><button class="btn secondary" type="submit">Update quantities</button></div>
+      </form>
+      {{range .Cart.Lines}}
+      <form method="post" action="/cart/remove" id="remove-{{.Slug}}">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="product" value="{{.Slug}}">
+      </form>
+      {{end}}
+    </div>
+
+    <div class="panel pad">
+      <h3>Summary</h3>
+      <div class="totals">
+        <div><span>Goods</span><span>{{.Cart.Goods}}</span></div>
+        {{if .Cart.PercentOff}}<div><span>{{.Cart.Coupon}} ({{.Cart.PercentOff}}% off)</span><span>-{{.Cart.Discount}}</span></div>{{end}}
+        <div><span>Delivery</span><span>{{.Cart.Shipping}}</span></div>
+        <div class="grand"><span>Total</span><span>{{.Cart.Total}}</span></div>
+      </div>
+      <p><a class="btn" href="/checkout">Checkout</a></p>
+      <p class="muted"><a href="/products">Keep shopping</a></p>
+    </div>
+  </div>
+  {{else}}
+  <div class="panel empty">
+    <p>Your cart is empty.</p>
+    <p><a class="btn" href="/products">Browse the shop</a></p>
+  </div>
+  {{end}}
+</section>
+{{end}}

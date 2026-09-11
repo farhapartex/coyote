@@ -14,21 +14,22 @@ chunk_begin() {
 }
 
 chunk_end() {
-	local passed failed skipped elapsed
+	local passed failed skipped found elapsed
 	passed="$(count_results_of_kind PASS)"
 	failed="$(count_results_of_kind FAIL)"
 	skipped="$(count_results_of_kind SKIP)"
+	found="$(count_results_of_kind FIND)"
 	elapsed="$(($(seconds_now) - CHUNK_STARTED))"
 
 	record_result META "duration" "$elapsed"
 	record_result META "totals" "$passed/$((passed + failed))"
 
 	if [ "$failed" -gt 0 ]; then
-		printf '  %s%d failed%s, %d passed, %d skipped in %ds\n' \
-			"$C_RED" "$failed" "$C_RESET" "$passed" "$skipped" "$elapsed"
+		printf '  %s%d failed%s, %d passed, %d skipped, %s%d finding(s)%s in %ds\n' \
+			"$C_RED" "$failed" "$C_RESET" "$passed" "$skipped" "$C_YELLOW" "$found" "$C_RESET" "$elapsed"
 	else
-		printf '  %s%d passed%s, %d skipped in %ds\n' \
-			"$C_GREEN" "$passed" "$C_RESET" "$skipped" "$elapsed"
+		printf '  %s%d passed%s, %d skipped, %s%d finding(s)%s in %ds\n' \
+			"$C_GREEN" "$passed" "$C_RESET" "$skipped" "$C_YELLOW" "$found" "$C_RESET" "$elapsed"
 	fi
 
 	if [ -n "$CHUNK_STANDALONE" ]; then

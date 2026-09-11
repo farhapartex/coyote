@@ -1,0 +1,42 @@
+{{define "base.html"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{with .Title}}{{.}} · {{end}}Thornfield Supply</title>
+<link rel="stylesheet" href="{{static "shop.css"}}">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="{{url "home"}}">Thornfield Supply</a>
+    <nav>
+      <a href="{{url "products"}}" class="{{if eq .Nav "products"}}on{{end}}">Shop</a>
+      {{range .Categories}}<a href="/categories/{{.Slug}}">{{.Name}}</a>{{end}}
+    </nav>
+    {{if .User}}
+    <a href="/orders" class="{{if eq .Nav "orders"}}on{{end}}">My orders</a>
+    <a href="/accounts/profile" class="who">{{.User.DisplayName}}</a>
+    <form method="post" action="/accounts/logout" class="signout">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit">Sign out</button>
+    </form>
+    {{else}}
+    <a href="/accounts/login">Sign in</a>
+    <a href="/accounts/register">Register</a>
+    {{end}}
+    <a class="cart-pill" href="/cart">Cart · {{.CartCount}}</a>
+  </div>
+</header>
+
+<div class="wrap">
+  {{with .Flashes}}<div class="flashes">
+    {{range .}}<div class="flash {{.Kind}}">{{.Message}}</div>{{end}}
+  </div>{{end}}
+</div>
+
+{{block "content" .}}{{end}}
+
+<footer><div class="wrap">Thornfield Supply · built on Coyote {{.Version}}</div></footer>
+</body>
+</html>{{end}}

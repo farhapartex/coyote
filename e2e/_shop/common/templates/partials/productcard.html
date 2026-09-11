@@ -1,0 +1,13 @@
+{{define "productcard"}}
+<article class="card">
+  <a class="shot" href="/products/{{.Slug}}">
+    {{if .Image}}<img src="{{media .Image}}" alt="{{.Name}}">{{else}}<span class="none">No photo</span>{{end}}
+  </a>
+  <div class="body">
+    <a class="name" href="/products/{{.Slug}}">{{.Name}}</a>
+    <div class="cat">{{.CategoryName}}</div>
+    <div class="price">{{.Price}}</div>
+    {{if not .InStock}}<div class="oos">Out of stock</div>{{end}}
+  </div>
+</article>
+{{end}}

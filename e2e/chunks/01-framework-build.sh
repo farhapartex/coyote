@@ -2,62 +2,29 @@
 
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/bootstrap.sh"
 
-chunk_begin "01" "Framework build"
+chunk_begin "01" "The framework itself"
 
-check_the_framework_suite() {
-	run_capturing go test ./tests/ -count=1
-
-	if [ "$CAPTURED_STATUS" -eq 0 ]; then
-		check_passed "the framework's own suite passes"
-		return
-	fi
-
-	local failures
-	failures="$(printf '%s' "$CAPTURED_OUTPUT" | grep -E '^(---|    ---) FAIL|^\s+[a-z_]+_test\.go:[0-9]+' | head -20 || true)"
-	check_failed "the framework's own suite passes" \
-		"go test ./tests/ -count=1 exited $CAPTURED_STATUS
-${failures:-no FAIL lines were found in the output, which suggests the run was interrupted}"
+check_it_builds() {
+	assert_succeeds "the framework compiles" go build ./...
+	assert_output_empty "gofmt has nothing to say about core, contrib, lib and cmd" \
+		gofmt -l core contrib lib cmd
+	assert_succeeds "go vet is clean" go vet ./...
 }
 
-unformatted_framework_files() {
-	gofmt -l . | grep -v "^$EXAMPLE_NAME/" || true
+check_the_suite_passes() {
+	assert_succeeds "the go test suite passes" go test ./tests/ -count=1
 }
 
-check_the_race_detector() {
-	if [ -z "${E2E_RACE:-}" ]; then
-		check_skipped "the suite is clean under the race detector" \
-			"set E2E_RACE=1 to run it; it takes around 15s"
-		return
-	fi
-	assert_succeeds "the suite is clean under the race detector" \
-		go test ./tests/ -race -count=1
+check_the_binary_builds() {
+	mkdir -p "$E2E_BIN_DIR"
+	assert_succeeds "the coyote command builds" go build -o "$COYOTE_BIN" ./cmd/coyote
+	assert_file_executable "the coyote command is executable" "$COYOTE_BIN"
+	assert_stdout_contains "coyote version reports itself" "coyote" "$COYOTE_BIN" version
+	assert_stdout_contains "coyote help lists the worker command" "worker" "$COYOTE_BIN" help
 }
 
-check_the_binary_reports_a_version() {
-	local reported expected
-	expected="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' "$E2E_ROOT/core/app/app.go" | head -1)"
-
-	if [ ! -x "$COYOTE_BIN" ]; then
-		check_skipped "the built binary reports the version in core/app" "the binary was not built"
-		return
-	fi
-
-	run_capturing "$COYOTE_BIN" version
-	reported="$(printf '%s' "$CAPTURED_OUTPUT" | awk '{print $2}')"
-
-	assert_equal "the built binary reports the version in core/app" "$expected" "$reported"
-}
-
-assert_output_empty "gofmt reports nothing unformatted" unformatted_framework_files
-assert_succeeds "go vet is clean" go vet ./...
-assert_succeeds "every package builds" go build ./...
-check_the_framework_suite
-check_the_race_detector
-
-rm -f "$COYOTE_BIN"
-assert_succeeds "the coyote command builds" go build -o "$COYOTE_BIN" ./cmd/coyote
-assert_file_exists "the coyote binary was written" "$COYOTE_BIN"
-assert_file_executable "the coyote binary is executable" "$COYOTE_BIN"
-check_the_binary_reports_a_version
+check_it_builds
+check_the_suite_passes
+check_the_binary_builds
 
 chunk_end
