@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/farhapartex/coyote/core/app"
+	"github.com/farhapartex/coyote/core/cache"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/view"
 )
@@ -77,18 +79,32 @@ func cardOf(record model.Record) productCard {
 	}
 }
 
+const categoryCacheKey = "shop:categories"
+
 func categoryLinks(ctx context.Context, a *app.App) []categoryLink {
+	links, err := cache.Remember(ctx, a.Cache(), categoryCacheKey, 5*time.Minute,
+		func(inner context.Context) ([]categoryLink, error) {
+			return readCategories(inner, a)
+		})
+	if err != nil {
+		a.Logger.Error("categories could not be listed", "error", err)
+		return nil
+	}
+	return links
+}
+
+func readCategories(ctx context.Context, a *app.App) ([]categoryLink, error) {
 	records, err := a.Store()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	schema, err := a.Describe(Category{})
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	page, err := records.List(ctx, schema, model.Query{Order: "position,name", Limit: 40})
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	out := make([]categoryLink, 0, len(page.Records))
 	for _, record := range page.Records {
@@ -98,7 +114,7 @@ func categoryLinks(ctx context.Context, a *app.App) []categoryLink {
 			Blurb: record.String("blurb"),
 		})
 	}
-	return out
+	return out, nil
 }
 
 func categoryBySlug(ctx context.Context, a *app.App, slug string) (model.Record, bool) {

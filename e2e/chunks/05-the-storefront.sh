@@ -46,7 +46,7 @@ check_the_landing_page() {
 	done
 
 	local featured
-	featured="$(printf '%s' "$HTTP_BODY" | grep -c 'class="card"')"
+	featured="$(printf '%s' "$HTTP_BODY" | grep -c 'class="card"' || true)"
 	if [ "$featured" -ge 5 ]; then
 		check_passed "the landing page renders the featured products and the departments as cards ($featured)"
 	else
@@ -88,7 +88,7 @@ check_the_listing() {
 	esac
 
 	local cards
-	cards="$(printf '%s' "$HTTP_BODY" | grep -c 'class="card"')"
+	cards="$(printf '%s' "$HTTP_BODY" | grep -c 'class="card"' || true)"
 	assert_equal "the first page shows twelve products" "12" "$cards"
 
 	case "$HTTP_BODY" in
@@ -97,7 +97,7 @@ check_the_listing() {
 	esac
 
 	http_get "/products?page=2"
-	cards="$(printf '%s' "$HTTP_BODY" | grep -c 'class="card"')"
+	cards="$(printf '%s' "$HTTP_BODY" | grep -c 'class="card"' || true)"
 	assert_equal "the second page shows the remaining eight" "8" "$cards"
 }
 

@@ -41,7 +41,7 @@ sign_in_to_the_admin() {
 	fi
 	check_failed "a superadmin signs in to the admin portal" \
 		"status ${HTTP_STATUS:-none}
-$(printf '%s' "$HTTP_BODY" | head -5)"
+$(printf '%s' "$HTTP_BODY" | head -5 || true)"
 	chunk_end
 }
 

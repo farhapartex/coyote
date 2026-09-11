@@ -1,0 +1,70 @@
+{{define "content"}}
+<section class="wrap">
+  <div class="section-head"><h2>Checkout</h2></div>
+  <div class="checkout">
+    <div class="panel pad">
+      <form method="post" action="/checkout">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <h3>Where is it going?</h3>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" name="email" value="{{.Form.Email}}" required>
+          {{with index .Problems "email"}}<div class="problem">{{.}}</div>{{end}}
+        </div>
+        <div class="field">
+          <label for="line1">Address</label>
+          <input id="line1" name="line1" value="{{.Form.Line1}}" required>
+          {{with index .Problems "line1"}}<div class="problem">{{.}}</div>{{end}}
+        </div>
+        <div class="field">
+          <label for="line2">Address, continued</label>
+          <input id="line2" name="line2" value="{{.Form.Line2}}">
+        </div>
+        <div class="field">
+          <label for="city">Town or city</label>
+          <input id="city" name="city" value="{{.Form.City}}" required>
+          {{with index .Problems "city"}}<div class="problem">{{.}}</div>{{end}}
+        </div>
+        <div class="field">
+          <label for="postcode">Postcode</label>
+          <input id="postcode" name="postcode" value="{{.Form.Postcode}}" required>
+          {{with index .Problems "postcode"}}<div class="problem">{{.}}</div>{{end}}
+        </div>
+        <button class="btn" type="submit">Place the order</button>
+      </form>
+    </div>
+
+    <div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Subtotal</th></tr></thead>
+          <tbody>
+            {{range .Cart.Lines}}
+            <tr><td>{{.Name}}</td><td class="num">{{.Quantity}}</td><td class="num">{{.Subtotal}}</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+        <div class="pad">
+          <div class="totals">
+            <div><span>Goods</span><span>{{.Cart.Goods}}</span></div>
+            {{if .Cart.PercentOff}}<div><span>{{.Cart.Coupon}} ({{.Cart.PercentOff}}% off)</span><span>-{{.Cart.Discount}}</span></div>{{end}}
+            <div><span>Delivery</span><span>{{.Cart.Shipping}}</span></div>
+            <div class="grand"><span>Total</span><span>{{.Cart.Total}}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel pad" style="margin-top:16px">
+        <form method="post" action="/checkout/coupon">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <div class="field">
+            <label for="code">Coupon code</label>
+            <input id="code" name="code" value="{{.Cart.Coupon}}" placeholder="SPRING10">
+          </div>
+          <button class="btn secondary small" type="submit">Apply</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{{end}}

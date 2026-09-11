@@ -8,6 +8,10 @@ count_results_of_kind() {
 	grep -c "^$1$E2E_SEP" "$E2E_RESULTS" 2>/dev/null || true
 }
 
+counted() {
+	printf '%s' "$1" | grep -c "$2" || true
+}
+
 check_passed() {
 	LAST_CHECK_OK=1
 	record_result PASS "$1"

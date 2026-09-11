@@ -1,0 +1,27 @@
+{{define "content"}}
+<section class="wrap">
+  <div class="section-head"><h2>Your orders</h2></div>
+  {{if .Orders}}
+  <div class="panel">
+    <table>
+      <thead><tr><th>Reference</th><th>Placed</th><th>Status</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {{range .Orders}}
+        <tr>
+          <td><a href="/orders/{{.Reference}}">{{.Reference}}</a></td>
+          <td class="muted">{{.Placed.Format "2 Jan 2006 15:04"}}</td>
+          <td><span class="tag">{{.StateLabel}}</span></td>
+          <td class="num">{{.Total}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="panel empty">
+    <p>You have not ordered anything yet.</p>
+    <p><a class="btn" href="/products">Browse the shop</a></p>
+  </div>
+  {{end}}
+</section>
+{{end}}

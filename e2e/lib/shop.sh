@@ -1,5 +1,3 @@
-SHOP_DIR="$E2E_ROOT/shop"
-SHOP_NAME="shop"
 SHOP_SOURCE="$E2E_DIR/_shop"
 
 shop_env_file() {

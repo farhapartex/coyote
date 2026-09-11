@@ -87,9 +87,9 @@ prepare_workspace() {
 	report_open
 
 	if [ -n "$OPT_FRESH" ]; then
-		if [ -d "$EXAMPLE_DIR" ]; then
-			printf '%sremoving %s%s\n' "$C_DIM" "$EXAMPLE_DIR" "$C_RESET"
-			rm -rf "$EXAMPLE_DIR"
+		if [ -d "$SHOP_DIR" ]; then
+			printf '%sremoving %s%s\n' "$C_DIM" "$SHOP_DIR" "$C_RESET"
+			rm -rf "$SHOP_DIR"
 		fi
 		printf '%sclearing every recorded chunk result%s\n' "$C_DIM" "$C_RESET"
 		report_clear_all

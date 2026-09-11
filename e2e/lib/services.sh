@@ -37,11 +37,15 @@ redis_ready() {
 }
 
 postgres_query() {
-	compose exec -T postgres psql -U "$SHOP_DB_USER" -d "$SHOP_DB_NAME" -tA -c "$1" 2>/dev/null | tr -d '\r'
+	compose exec -T postgres psql -U "$SHOP_DB_USER" -d "$SHOP_DB_NAME" -tA -c "$1" 2>/dev/null | tr -d '\r' || true
+}
+
+postgres_attempt() {
+	compose exec -T postgres psql -U "$SHOP_DB_USER" -d "$SHOP_DB_NAME" -tA -c "$1" 2>&1 | tr -d '\r' || true
 }
 
 redis_command() {
-	compose exec -T redis redis-cli "$@" 2>/dev/null | tr -d '\r'
+	compose exec -T redis redis-cli "$@" 2>/dev/null | tr -d '\r' || true
 }
 
 postgres_table_exists() {
@@ -58,4 +62,12 @@ postgres_columns() {
 
 redis_key_count() {
 	redis_command DBSIZE
+}
+
+postgres_reset() {
+	postgres_query "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null
+}
+
+redis_flush() {
+	redis_command FLUSHALL >/dev/null
 }

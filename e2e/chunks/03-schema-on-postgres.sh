@@ -8,6 +8,18 @@ chunk_begin "03" "Schema on postgres"
 
 require_previous_chunk "the shop exists" "$SHOP_DIR/settings.go"
 
+reset_the_world() {
+	postgres_reset
+	redis_flush
+	rm -rf "$SHOP_DIR/migrations"
+	mkdir -p "$SHOP_DIR/migrations"
+	printf 'package migrations\n' >"$SHOP_DIR/migrations/migrations.go"
+
+	assert_equal "postgres starts with no tables" "0" \
+		"$(postgres_query "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';")"
+	assert_equal "redis starts empty" "0" "$(redis_key_count)"
+}
+
 check_migrations_are_written() {
 	if ! shop_command makemigrations --name=catalogue; then
 		check_failed "makemigrations writes the first migration" "$(truncated_output "$CAPTURED_OUTPUT")"
@@ -114,6 +126,7 @@ check_permissions_sync() {
 	fi
 }
 
+reset_the_world
 check_migrations_are_written
 check_the_migration_applies
 check_the_ledger_is_recorded

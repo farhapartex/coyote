@@ -91,7 +91,7 @@ beside Record.String and Record.Bool in core/model/record.go."
 
 check_no_comments_in_the_scaffolded_output() {
 	local offenders
-	offenders="$(grep -rn "^[[:space:]]*//" "$SHOP_DIR"/*.go 2>/dev/null | grep -v "go:embed" | head -5)"
+	offenders="$(grep -rn "^[[:space:]]*//" "$SHOP_DIR"/*.go 2>/dev/null | grep -v "go:embed" | head -5 || true)"
 	if [ -z "$offenders" ]; then
 		check_passed "no comments in the shop's Go source"
 	else

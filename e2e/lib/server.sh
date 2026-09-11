@@ -36,7 +36,7 @@ server_start() {
 
 	set -m
 	(
-		cd "$EXAMPLE_DIR" || exit 1
+		cd "$SHOP_DIR" || exit 1
 		exec "$COYOTE_BIN" start --port="$E2E_PORT"
 	) >"$SERVER_LOG" 2>&1 &
 	SERVER_PID=$!
