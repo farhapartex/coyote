@@ -5,7 +5,7 @@
 <h1 align="center">coyote</h1>
 
 <p align="center">
-  A session-first web framework for Go, shaped like Django but sized for the standard library.
+  A full-stack web framework for Go. Server-rendered, session-first, and built on the standard library.
 </p>
 
 ---
@@ -116,3 +116,7 @@ email, internationalisation, background jobs, the admin portal, project scaffold
 middleware above.
 
 Not here yet: full-text search, a swappable user model, and soft delete.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
