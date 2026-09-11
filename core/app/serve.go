@@ -42,6 +42,8 @@ func (a *App) Serve() error {
 		s.Server.Configure(a.server)
 	}
 
+	a.startJobs()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -69,14 +71,7 @@ func (a *App) Serve() error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), s.Server.ShutdownTimeout)
 	defer cancel()
-	if closer, ok := a.sessions.(interface{ Close() }); ok {
-		closer.Close()
-	}
-	a.closeCaches()
-	if err := a.CloseDB(); err != nil {
-		a.Logger.Error("closing database", slog.Any("error", err))
-	}
-	return a.server.Shutdown(shutdownCtx)
+	return a.shutdown(shutdownCtx)
 }
 
 func (a *App) listen() error {

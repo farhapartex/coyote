@@ -6,6 +6,7 @@ import (
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/cache"
 	"github.com/farhapartex/coyote/core/i18n"
+	"github.com/farhapartex/coyote/core/jobs"
 	"github.com/farhapartex/coyote/core/view"
 )
 
@@ -106,6 +107,18 @@ func Default() Settings {
 		Logging: Logging{
 			Level:  "info",
 			Format: "text",
+		},
+		Jobs: Jobs{
+			Enabled:        false,
+			Queues:         []string{jobs.DefaultQueue},
+			Workers:        0,
+			MaxAttempts:    jobs.DefaultMaxAttempts,
+			Backoff:        10 * time.Second,
+			BackoffCeiling: time.Hour,
+			ClaimTimeout:   5 * time.Minute,
+			DrainTimeout:   30 * time.Second,
+			PollInterval:   time.Second,
+			DoneTTL:        24 * time.Hour,
 		},
 	}
 }

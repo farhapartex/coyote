@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/farhapartex/coyote/core/jobs"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/upload"
 	"gorm.io/gorm"
@@ -12,6 +13,7 @@ import (
 type Tx struct {
 	handle  *gorm.DB
 	store   model.Store
+	queue   jobs.Queue
 	uploads *upload.Service
 	pending []*upload.Ref
 }
@@ -19,6 +21,8 @@ type Tx struct {
 func (t *Tx) DB() *gorm.DB { return t.handle }
 
 func (t *Tx) Store() model.Store { return t.store }
+
+func (t *Tx) Queue() jobs.Queue { return t.queue }
 
 func (t *Tx) Keep(refs ...*upload.Ref) {
 	t.pending = append(t.pending, refs...)
@@ -35,6 +39,9 @@ func (a *App) Transaction(ctx context.Context, fn func(*Tx) error) error {
 		tx.handle = inner
 		if records, err := a.Store(); err == nil {
 			tx.store = records.WithTx(inner)
+		}
+		if a.queue != nil {
+			tx.queue = a.queue.WithTx(inner)
 		}
 		return fn(tx)
 	})

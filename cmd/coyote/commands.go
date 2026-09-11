@@ -82,6 +82,27 @@ func syncPermissions(args []string) error {
 	return invoke(append(os.Environ(), cli.EnvCommand+"="+cli.NameSyncPermissions))
 }
 
+func worker(args []string) error {
+	fs := flag.NewFlagSet("worker", flag.ContinueOnError)
+	workers := fs.Int("concurrency", 0, "how many jobs to run at once")
+	queues := fs.String("queues", "", "comma separated queues to take from")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	env := append(os.Environ(), cli.EnvCommand+"="+cli.NameWorker)
+	if *workers != 0 {
+		if *workers < 1 {
+			return fmt.Errorf("--concurrency must be at least 1, got %d", *workers)
+		}
+		env = append(env, cli.EnvWorkers+"="+strconv.Itoa(*workers))
+	}
+	if trimmed := strings.TrimSpace(*queues); trimmed != "" {
+		env = append(env, cli.EnvQueues+"="+trimmed)
+	}
+	return invoke(env)
+}
+
 func collectStatic(args []string) error {
 	fs := flag.NewFlagSet("collectstatic", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/i18n"
+	"github.com/farhapartex/coyote/core/jobs"
 	"github.com/farhapartex/coyote/core/middleware"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/router"
@@ -46,6 +47,8 @@ type App struct {
 	bundle    *i18n.Bundle
 	locales   *i18n.Detector
 	store     model.Store
+	queue     jobs.Queue
+	jobs      *jobs.Runner
 	storeOnce sync.Once
 	manifest  staticManifest
 	extras    sync.Map
@@ -119,6 +122,9 @@ func NewFrom(s Settings) *App {
 		TokenLifetime:     s.Auth.ResetTokenLifetime,
 		TrustedProxyCount: s.Security.TrustedProxyCount,
 	})
+
+	a.queue = jobQueue(s, a)
+	a.jobs = jobRunner(s, a, a.queue)
 
 	a.global = []Middleware{
 		middleware.Recoverer(a.Logger),

@@ -9,6 +9,7 @@ commands:
   new <name>        create a new project in a directory of that name
   startapp <name>   scaffold a feature package under internal/
   start             build and run the project in the current directory
+  worker            run background jobs as their own process
   makemigrations    write a migration file for changes to your models
   makemessages      extract translatable text into your catalogs
   checkmessages     report missing, fuzzy or obsolete translations
@@ -31,6 +32,10 @@ flags for new:
 flags for start:
   --port=N          listen on port N instead of the one in settings.go
   --host=H          bind to host H instead of the one in settings.go
+
+flags for worker:
+  --concurrency=N   run N jobs at once instead of the Jobs.Workers setting
+  --queues=A,B      take only from these queues instead of Jobs.Queues
 
 flags for migrate:
   --fake            record pending migrations as applied without running them
