@@ -44,6 +44,51 @@ check_every_resource_is_reachable() {
 	done
 }
 
+png_dimensions() {
+	python3 -c "
+import struct, sys
+data = open(sys.argv[1], 'rb').read(33)
+if data[:8] != b'\x89PNG\r\n\x1a\n':
+    print('notpng')
+else:
+    w, h = struct.unpack('>II', data[16:24])
+    print(f'{w}x{h}')
+" "$1" 2>/dev/null || printf 'unknown'
+}
+
+check_the_admin_serves_the_current_mascot() {
+	local served="$E2E_WORK_DIR/admin-favicon.png"
+	local asset="$E2E_ROOT/contrib/admin/assets/favicon.png"
+
+	http_get "/admin/favicon.png"
+	assert_equal "the admin logo answers 200" "200" "$HTTP_STATUS"
+	assert_equal "it is served as a png" "image/png" "$(http_header_value Content-Type)"
+
+	curl -sS --max-time 15 -o "$served" "$E2E_BASE_URL/admin/favicon.png" 2>/dev/null || true
+	if cmp -s "$served" "$asset"; then
+		check_passed "the logo the admin serves is the asset in the repository, so the embed is live"
+	else
+		check_failed "the logo the admin serves matches the repository asset" \
+			"served $(stat -f%z "$served" 2>/dev/null || echo 0) bytes, asset $(stat -f%z "$asset") bytes;
+the embedded copy is stale, so an installed framework would ship a different logo from this checkout"
+	fi
+
+	local size="$(png_dimensions "$asset")"
+	case "$size" in
+	256x256 | 512x512)
+		check_passed "the logo is $size, crisp at the 72px login logo on a retina screen"
+		;;
+	96x96)
+		check_failed "the logo is big enough for the login page" \
+			"the asset is 96x96, which is the superseded mascot; the login page renders it at 72px and
+the nav rail at 34px, so it needs to be at least 192 square to stay crisp at 2x"
+		;;
+	*)
+		check_failed "the logo is big enough for the login page" "the asset is $size, wanted 256x256"
+		;;
+	esac
+}
+
 check_the_dashboard() {
 	http_get "/admin/"
 	assert_equal "the dashboard answers 200" "200" "$HTTP_STATUS"
@@ -248,6 +293,7 @@ check_permissions_cover_the_new_models() {
 start_the_shop
 sign_in
 check_every_resource_is_reachable
+check_the_admin_serves_the_current_mascot
 check_the_dashboard
 check_inventory_can_be_adjusted
 check_a_price_change_reaches_the_shop
