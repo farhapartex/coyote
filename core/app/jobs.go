@@ -26,13 +26,34 @@ func jobRunner(s Settings, a *App, queue jobs.Queue) *jobs.Runner {
 	if queue == nil || !s.Jobs.RunsWorkers() {
 		return nil
 	}
+	return a.newRunner(queue, s.Jobs.Workers, s.Jobs.QueueNames())
+}
+
+func (a *App) Worker(workers int, queues []string) (*jobs.Runner, error) {
+	if a.queue == nil {
+		return nil, jobs.ErrNoQueue
+	}
+	if workers < 1 {
+		workers = a.Settings.Jobs.Workers
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	if len(queues) == 0 {
+		queues = a.Settings.Jobs.QueueNames()
+	}
+	return a.newRunner(a.queue, workers, queues), nil
+}
+
+func (a *App) newRunner(queue jobs.Queue, workers int, queues []string) *jobs.Runner {
+	s := a.Settings
 	handlers := a.builtinHandlers()
 	return jobs.NewRunner(jobs.RunnerOptions{
 		Queue:        queue,
 		Registry:     handlers,
 		Schedule:     a.builtinSchedule(handlers),
-		Queues:       s.Jobs.QueueNames(),
-		Workers:      s.Jobs.Workers,
+		Queues:       queues,
+		Workers:      workers,
 		PollInterval: s.Jobs.PollInterval,
 		ClaimTimeout: s.Jobs.ClaimTimeout,
 		DrainTimeout: s.Jobs.DrainTimeout,

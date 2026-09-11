@@ -45,6 +45,8 @@ func run(args []string) error {
 		return simple(cli.NameShell, rest)
 	case cli.NameDBShell:
 		return simple(cli.NameDBShell, rest)
+	case cli.NameWorker:
+		return worker(rest)
 	case cli.NameCollectStatic:
 		return collectStatic(rest)
 	case cli.NameMakeMigrations:

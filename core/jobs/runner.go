@@ -52,9 +52,10 @@ type Runner struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	stop      chan struct{}
-	stopOnce  sync.Once
 	running   sync.WaitGroup
-	started   sync.Once
+	mu        sync.Mutex
+	started   bool
+	closed    bool
 }
 
 func NewRunner(opts RunnerOptions) *Runner {
@@ -112,48 +113,71 @@ func (r *Runner) Start() {
 	if r.queue == nil {
 		return
 	}
-	r.started.Do(func() {
-		r.log.Info("jobs starting",
-			slog.Int("workers", r.workers),
-			slog.Any("queues", r.queues),
-		)
-		for i := range r.workers {
-			r.running.Add(1)
-			go r.work(workerName(r.name, i))
-		}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.started || r.closed {
+		return
+	}
+	r.started = true
+
+	r.log.Info("jobs starting",
+		slog.Int("workers", r.workers),
+		slog.Any("queues", r.queues),
+	)
+	for i := range r.workers {
 		r.running.Add(1)
-		go r.maintain()
-		r.running.Add(1)
-		go r.tick()
-	})
+		go r.work(workerName(r.name, i))
+	}
+	r.running.Add(1)
+	go r.maintain()
+	r.running.Add(1)
+	go r.tick()
 }
 
 func (r *Runner) Close() error {
-	r.stopOnce.Do(func() {
-		close(r.stop)
+	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		return nil
+	}
+	r.closed = true
+	started := r.started
+	r.mu.Unlock()
 
-		finished := make(chan struct{})
-		go func() {
-			r.running.Wait()
-			close(finished)
-		}()
-
-		select {
-		case <-finished:
-		case <-time.After(r.drain):
-			r.log.Warn("jobs did not finish draining, cancelling what is still running",
-				slog.Duration("waited", r.drain))
-			r.cancel()
-			select {
-			case <-finished:
-			case <-time.After(cancelGrace):
-				r.log.Error("a job ignored cancellation; it will be reclaimed after the claim timeout",
-					slog.Duration("claim_timeout", r.claim))
-			}
-		}
+	close(r.stop)
+	if !started {
 		r.cancel()
-	})
+		return nil
+	}
+	r.awaitDrain()
+	r.cancel()
 	return nil
+}
+
+func (r *Runner) awaitDrain() {
+	finished := make(chan struct{})
+	go func() {
+		r.running.Wait()
+		close(finished)
+	}()
+
+	select {
+	case <-finished:
+		return
+	case <-time.After(r.drain):
+	}
+
+	r.log.Warn("jobs did not finish draining, cancelling what is still running",
+		slog.Duration("waited", r.drain))
+	r.cancel()
+
+	select {
+	case <-finished:
+	case <-time.After(cancelGrace):
+		r.log.Error("a job ignored cancellation; it will be reclaimed after the claim timeout",
+			slog.Duration("claim_timeout", r.claim))
+	}
 }
 
 func (r *Runner) stopping() bool {

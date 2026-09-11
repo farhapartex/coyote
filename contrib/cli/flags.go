@@ -24,3 +24,17 @@ func flagInt(name string, fallback int) int {
 	}
 	return fallback
 }
+
+func flagList(name string) []string {
+	raw := flagSet(name)
+	if raw == "" {
+		return nil
+	}
+	out := []string{}
+	for _, part := range strings.Split(raw, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}

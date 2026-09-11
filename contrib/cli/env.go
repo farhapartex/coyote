@@ -19,6 +19,8 @@ const (
 	EnvLocale   = "COYOTE_LOCALE"
 	EnvStrict   = "COYOTE_STRICT"
 	EnvUndo     = "COYOTE_MIGRATION_UNDO"
+	EnvWorkers  = "COYOTE_JOB_WORKERS"
+	EnvQueues   = "COYOTE_JOB_QUEUES"
 )
 
 const (
@@ -26,6 +28,7 @@ const (
 	NameMigrate         = "migrate"
 	NameSyncPermissions = "syncpermissions"
 	NameCollectStatic   = "collectstatic"
+	NameWorker          = "worker"
 )
 
 func Requested() string {
