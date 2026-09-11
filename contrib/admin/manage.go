@@ -18,6 +18,7 @@ var reservedSlugs = map[string]bool{
 	"users":    true,
 	"roles":    true,
 	"sessions": true,
+	"jobs":     true,
 	"new":      true,
 	"s":        true,
 }

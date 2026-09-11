@@ -69,6 +69,34 @@ func (q *jobQueue) Fail(ctx context.Context, jobID, cause string, retryAt *time.
 	return nil
 }
 
+func (q *jobQueue) Retry(ctx context.Context, jobID string, at time.Time) error {
+	handle, err := q.handle(ctx)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	result := handle.Model(&jobs.Record{}).
+		Where("id = ? AND state IN ?", jobID, []jobs.State{jobs.Dead, jobs.Done}).
+		Updates(map[string]any{
+			"state":       jobs.Queued,
+			"run_at":      at.UTC(),
+			"attempts":    0,
+			"locked_by":   "",
+			"locked_at":   nil,
+			"last_error":  "",
+			"finished_at": nil,
+			"updated_at":  now,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("coyote/repo: retrying job %s: %w", jobID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("%w: %s has not finished, so there is nothing to retry", jobs.ErrNotFound, jobID)
+	}
+	return nil
+}
+
 func (q *jobQueue) Sweep(ctx context.Context, finishedBefore time.Time) (int, error) {
 	handle, err := q.handle(ctx)
 	if err != nil {

@@ -169,6 +169,7 @@
     <a href="{{.Prefix}}/users" class="{{if eq .Nav "users"}}on{{end}}">{{.Locale.T "Users"}}</a>
     {{if .Permissions}}<a href="{{.Prefix}}/roles" class="{{if eq .Nav "roles"}}on{{end}}">{{.Locale.T "Roles"}}</a>{{end}}
     <a href="{{.Prefix}}/sessions" class="{{if eq .Nav "sessions"}}on{{end}}">{{.Locale.T "Sessions"}}</a>
+    {{if .JobsEnabled}}<a href="{{.Prefix}}/jobs" class="{{if eq .Nav "jobs"}}on{{end}}">{{.Locale.T "Jobs"}}</a>{{end}}
     {{end}}
     {{range .Resources}}
     <a href="{{$.Prefix}}/{{.Slug}}" class="{{if eq $.Nav .Slug}}on{{end}}">{{.Title}}</a>

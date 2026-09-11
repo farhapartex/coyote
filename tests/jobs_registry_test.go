@@ -380,6 +380,8 @@ func (q *recordingQueue) Complete(context.Context, string, time.Time) error { re
 
 func (q *recordingQueue) Fail(context.Context, string, string, *time.Time) error { return nil }
 
+func (q *recordingQueue) Retry(context.Context, string, time.Time) error { return nil }
+
 func (q *recordingQueue) Heartbeat(context.Context, string, time.Time) error { return nil }
 
 func (q *recordingQueue) Recover(context.Context, time.Time) (int, error) { return 0, nil }
