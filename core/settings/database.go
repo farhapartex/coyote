@@ -81,19 +81,32 @@ func (d Database) Redacted() Database {
 }
 
 func (d Database) encodedOptions() string {
-	if len(d.Options) == 0 {
+	merged := d.engineDefaults()
+	for key, value := range d.Options {
+		merged[key] = value
+	}
+	if len(merged) == 0 {
 		return ""
 	}
-	keys := make([]string, 0, len(d.Options))
-	for k := range d.Options {
-		keys = append(keys, k)
+
+	keys := make([]string, 0, len(merged))
+	for key := range merged {
+		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+
 	values := url.Values{}
-	for _, k := range keys {
-		values.Set(k, d.Options[k])
+	for _, key := range keys {
+		values.Set(key, merged[key])
 	}
 	return values.Encode()
+}
+
+func (d Database) engineDefaults() map[string]string {
+	if d.Engine != MySQL {
+		return map[string]string{}
+	}
+	return map[string]string{"parseTime": "true", "loc": "UTC"}
 }
 
 func SQLiteDatabase(alias, name string) Database {

@@ -35,11 +35,16 @@ settings.Configure(func(s *settings.Settings) {
 | `Name` | SQLite file path, or the database name for a server engine |
 | `Host` / `Port` | Server engines only; port defaults to 5432 or 3306 |
 | `User` / `Password` | Server engines only; rejected on SQLite so mistakes are caught early |
-| `Options` | Extra DSN parameters |
+| `Options` | Extra DSN parameters; an entry here overrides a default the engine would otherwise get |
 | `MaxOpenConns`, `MaxIdleConns`, `ConnMaxLifetime`, `ConnMaxIdleTime` | Pool tuning; see below |
 
 Relative SQLite paths resolve against `BaseDir`, so the file lands in the project folder. Absolute
 paths and `:memory:` are left alone.
+
+MySQL connections carry `parseTime=true` and `loc=UTC` unless you set those keys yourself. The driver
+returns a `DATETIME` as raw bytes without the first, and reads it in the server's zone without the
+second, so a `time.Time` field would either fail to scan or drift. Set `loc` if your application
+stores local time; leave it alone otherwise.
 
 ### The pool
 
