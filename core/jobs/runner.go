@@ -20,6 +20,7 @@ const (
 type RunnerOptions struct {
 	Queue        Queue
 	Registry     *Registry
+	Schedule     *Schedule
 	Name         string
 	Queues       []string
 	Workers      int
@@ -33,29 +34,35 @@ type RunnerOptions struct {
 }
 
 type Runner struct {
-	queue    Queue
-	registry *Registry
-	name     string
-	queues   []string
-	workers  int
-	poll     time.Duration
-	claim    time.Duration
-	drain    time.Duration
-	backoff  time.Duration
-	ceiling  time.Duration
-	doneTTL  time.Duration
-	log      *slog.Logger
-	ctx      context.Context
-	cancel   context.CancelFunc
-	stop     chan struct{}
-	stopOnce sync.Once
-	running  sync.WaitGroup
-	started  sync.Once
+	queue     Queue
+	registry  *Registry
+	schedules *Schedule
+	slots     map[string]time.Time
+	slotMu    sync.Mutex
+	name      string
+	queues    []string
+	workers   int
+	poll      time.Duration
+	claim     time.Duration
+	drain     time.Duration
+	backoff   time.Duration
+	ceiling   time.Duration
+	doneTTL   time.Duration
+	log       *slog.Logger
+	ctx       context.Context
+	cancel    context.CancelFunc
+	stop      chan struct{}
+	stopOnce  sync.Once
+	running   sync.WaitGroup
+	started   sync.Once
 }
 
 func NewRunner(opts RunnerOptions) *Runner {
 	if opts.Registry == nil {
 		opts.Registry = registry
+	}
+	if opts.Schedule == nil {
+		opts.Schedule = schedules
 	}
 	if opts.Name == "" {
 		opts.Name = "worker-" + id.MustShort()
@@ -81,21 +88,23 @@ func NewRunner(opts RunnerOptions) *Runner {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Runner{
-		queue:    opts.Queue,
-		registry: opts.Registry,
-		name:     opts.Name,
-		queues:   opts.Queues,
-		workers:  opts.Workers,
-		poll:     opts.PollInterval,
-		claim:    opts.ClaimTimeout,
-		drain:    opts.DrainTimeout,
-		backoff:  opts.Backoff,
-		ceiling:  opts.Ceiling,
-		doneTTL:  opts.DoneTTL,
-		log:      opts.Logger,
-		ctx:      ctx,
-		cancel:   cancel,
-		stop:     make(chan struct{}),
+		queue:     opts.Queue,
+		registry:  opts.Registry,
+		schedules: opts.Schedule,
+		slots:     map[string]time.Time{},
+		name:      opts.Name,
+		queues:    opts.Queues,
+		workers:   opts.Workers,
+		poll:      opts.PollInterval,
+		claim:     opts.ClaimTimeout,
+		drain:     opts.DrainTimeout,
+		backoff:   opts.Backoff,
+		ceiling:   opts.Ceiling,
+		doneTTL:   opts.DoneTTL,
+		log:       opts.Logger,
+		ctx:       ctx,
+		cancel:    cancel,
+		stop:      make(chan struct{}),
 	}
 }
 
@@ -114,6 +123,8 @@ func (r *Runner) Start() {
 		}
 		r.running.Add(1)
 		go r.maintain()
+		r.running.Add(1)
+		go r.tick()
 	})
 }
 

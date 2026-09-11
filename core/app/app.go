@@ -100,8 +100,6 @@ func NewFrom(s Settings) *App {
 	}
 
 	a.Uploads = uploadService(s)
-	a.queue = jobQueue(s, a)
-	a.jobs = jobRunner(s, a, a.queue)
 
 	a.Templates = template.New(template.Options{
 		FS:       templateFS(s),
@@ -124,6 +122,9 @@ func NewFrom(s Settings) *App {
 		TokenLifetime:     s.Auth.ResetTokenLifetime,
 		TrustedProxyCount: s.Security.TrustedProxyCount,
 	})
+
+	a.queue = jobQueue(s, a)
+	a.jobs = jobRunner(s, a, a.queue)
 
 	a.global = []Middleware{
 		middleware.Recoverer(a.Logger),

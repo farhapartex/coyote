@@ -11,4 +11,6 @@ var (
 	ErrNotFound             = errors.New("coyote/jobs: no such job")
 	ErrDuplicateFingerprint = errors.New("coyote/jobs: a job with that fingerprint is already queued")
 	ErrPanicked             = errors.New("coyote/jobs: the handler panicked")
+	ErrIntervalMissing      = errors.New("coyote/jobs: a periodic job needs an interval")
+	ErrDuplicateSchedule    = errors.New("coyote/jobs: that kind is already scheduled")
 )

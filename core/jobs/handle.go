@@ -3,11 +3,23 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
-var registry = NewRegistry()
+var (
+	registry  = NewRegistry()
+	schedules = NewSchedule()
+)
 
-func Default() *Registry { return registry }
+func Handlers() *Registry { return registry }
+
+func Schedules() *Schedule { return schedules }
+
+func Every(interval time.Duration, kind string, args any) {
+	if err := schedules.Add(Periodic{Kind: kind, Every: interval, Args: args}); err != nil {
+		panic(err)
+	}
+}
 
 func Handle[T any](kind string, run func(context.Context, T) error) {
 	if err := HandleOn(registry, kind, run); err != nil {

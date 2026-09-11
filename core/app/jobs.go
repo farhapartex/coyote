@@ -26,8 +26,11 @@ func jobRunner(s Settings, a *App, queue jobs.Queue) *jobs.Runner {
 	if queue == nil || !s.Jobs.RunsWorkers() {
 		return nil
 	}
+	handlers := a.builtinHandlers()
 	return jobs.NewRunner(jobs.RunnerOptions{
 		Queue:        queue,
+		Registry:     handlers,
+		Schedule:     a.builtinSchedule(handlers),
 		Queues:       s.Jobs.QueueNames(),
 		Workers:      s.Jobs.Workers,
 		PollInterval: s.Jobs.PollInterval,
