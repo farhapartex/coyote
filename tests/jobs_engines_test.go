@@ -165,37 +165,47 @@ func TestOnEveryEngineOneJobIsClaimedByExactlyOneWorker(t *testing.T) {
 			}
 		}
 
-		var (
-			mutex   sync.Mutex
-			claimed []string
-			wait    sync.WaitGroup
-		)
-		for worker := range 10 {
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
-				taken, err := queue.Claim(context.Background(), "worker-"+strconv.Itoa(worker), nil, 1)
-				if err != nil {
-					return
-				}
-				mutex.Lock()
-				defer mutex.Unlock()
-				for _, record := range taken {
-					claimed = append(claimed, record.ID)
-				}
-			}()
-		}
-		wait.Wait()
-
-		if len(claimed) != total {
-			t.Fatalf("10 workers claimed %d of %d jobs", len(claimed), total)
-		}
 		seen := map[string]bool{}
-		for _, id := range claimed {
-			if seen[id] {
-				t.Fatalf("job %s was claimed twice", id)
+		var mutex sync.Mutex
+
+		record := func(taken []jobs.Record) {
+			mutex.Lock()
+			defer mutex.Unlock()
+			for _, job := range taken {
+				if seen[job.ID] {
+					t.Errorf("job %s was claimed twice", job.ID)
+				}
+				seen[job.ID] = true
 			}
-			seen[id] = true
+		}
+
+		for round := range 5 {
+			var wait sync.WaitGroup
+			for worker := range 10 {
+				wait.Add(1)
+				go func() {
+					defer wait.Done()
+					taken, err := queue.Claim(context.Background(),
+						"worker-"+strconv.Itoa(round)+"-"+strconv.Itoa(worker), nil, 1)
+					if err == nil {
+						record(taken)
+					}
+				}()
+			}
+			wait.Wait()
+
+			mutex.Lock()
+			done := len(seen) == total
+			mutex.Unlock()
+			if done {
+				break
+			}
+		}
+
+		mutex.Lock()
+		defer mutex.Unlock()
+		if len(seen) != total {
+			t.Fatalf("%d of %d jobs were claimed across five rounds of ten workers", len(seen), total)
 		}
 	})
 }

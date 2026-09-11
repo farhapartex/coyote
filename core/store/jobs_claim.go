@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const claimOverscan = 2
+const claimOverscan = 4
 
 func (q *jobQueue) Claim(ctx context.Context, worker string, queues []string, limit int) ([]jobs.Record, error) {
 	if limit < 1 {
