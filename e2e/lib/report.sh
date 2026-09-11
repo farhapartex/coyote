@@ -114,6 +114,9 @@ report_render_totals() {
 		esac
 	done
 
+	local findings
+	findings="$(grep -hc "^FIND$E2E_SEP" "$RESULTS_DIR"/*.result 2>/dev/null | awk '{t+=$1} END{print t+0}')"
+
 	printf '%s of %s chunks passing' "$passed" "$chunks"
 	if [ "$failed" -gt 0 ]; then
 		printf ', %s failing' "$failed"
@@ -121,7 +124,11 @@ report_render_totals() {
 	if [ "$missing" -gt 0 ]; then
 		printf ', %s never run' "$missing"
 	fi
-	printf '.\n'
+	printf '.'
+	if [ "${findings:-0}" -gt 0 ]; then
+		printf ' **%s finding(s)** recorded below.' "$findings"
+	fi
+	printf '\n'
 }
 
 report_render_consistency() {
@@ -174,6 +181,12 @@ report_render_checks() {
 			;;
 		SKIP)
 			printf -- '- [ ] %s _(skipped: %s)_\n' "$description" "${detail:-no reason given}"
+			;;
+		FIND)
+			printf -- '- **FINDING: %s**\n' "$description"
+			if [ -n "$detail" ]; then
+				printf '%b\n' "$detail" | sed 's/^/      /'
+			fi
 			;;
 		NOTE)
 			printf -- '- %s: `%s`\n' "$description" "$detail"

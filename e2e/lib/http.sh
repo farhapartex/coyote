@@ -79,3 +79,24 @@ assert_body_contains() {
 expected the body to contain: $needle"
 	return 0
 }
+
+http_form() {
+	local path="$1"
+	shift
+	local header_file curl_arguments=()
+	header_file="$(mktemp "${TMPDIR:-/tmp}/coyote-e2e-head-XXXXXX")"
+
+	local field
+	for field in "$@"; do
+		curl_arguments+=(-F "$field")
+	done
+
+	set +e
+	HTTP_BODY="$(curl -sS --max-time 30 -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+		-D "$header_file" "${curl_arguments[@]}" "$E2E_BASE_URL$path" 2>/dev/null)"
+	set -e
+
+	HTTP_HEADERS="$(cat "$header_file")"
+	HTTP_STATUS="$(printf '%s' "$HTTP_HEADERS" | awk '/^HTTP\//{code=$2} END{print code}')"
+	rm -f "$header_file"
+}

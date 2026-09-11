@@ -1,0 +1,10 @@
+{{define "pager"}}
+{{with .Page}}{{if and .Enabled (not .Single)}}
+<nav class="pager">
+  {{if .HasPrev}}<a href="{{$.PageURL}}{{.Prev}}">Previous</a>{{end}}
+  {{range .Numbers}}<a href="{{$.PageURL}}{{.}}" class="{{if eq . $.Page.Number}}on{{end}}">{{.}}</a>{{end}}
+  {{if .HasNext}}<a href="{{$.PageURL}}{{.Next}}">Next</a>{{end}}
+  <span class="muted">{{.Total}} items</span>
+</nav>
+{{end}}{{end}}
+{{end}}

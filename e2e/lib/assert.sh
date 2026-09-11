@@ -29,6 +29,14 @@ check_skipped() {
 	printf '  %s○%s %s %s(%s)%s\n' "$C_YELLOW" "$C_RESET" "$1" "$C_DIM" "${2:-skipped}" "$C_RESET"
 }
 
+finding() {
+	record_result FIND "$1" "${2:-}"
+	printf '  %s!%s %s\n' "$C_YELLOW" "$C_RESET" "$1"
+	if [ -n "${2:-}" ]; then
+		printf '%b\n' "${2:-}" | sed "s/^/      $C_DIM/;s/\$/$C_RESET/"
+	fi
+}
+
 note() {
 	record_result NOTE "$1" "${2:-}"
 	printf '  %s·%s %s: %s\n' "$C_DIM" "$C_RESET" "$1" "${2:-}"

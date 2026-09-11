@@ -1,20 +1,7 @@
-ADMIN_USERNAME="e2eadmin"
-ADMIN_EMAIL="e2e@example.test"
-ADMIN_PASSWORD="Harness-7712-Secret"
 ADMIN_PREFIX="/admin"
 
-admin_superadmin_exists() {
-	[ -n "$(app_sqlite_query "SELECT id FROM users WHERE username='$ADMIN_USERNAME';")" ]
-}
-
-admin_create_superadmin() {
-	COYOTE_SUPERADMIN_USERNAME="$ADMIN_USERNAME" \
-		COYOTE_SUPERADMIN_EMAIL="$ADMIN_EMAIL" \
-		COYOTE_SUPERADMIN_PASSWORD="$ADMIN_PASSWORD" \
-		app_run_command createsuperadmin
-}
-
 admin_login() {
+	local username="$1" password="$2"
 	http_reset_session
 	http_get "$ADMIN_PREFIX/login"
 
@@ -26,8 +13,8 @@ admin_login() {
 
 	http_post "$ADMIN_PREFIX/login" \
 		"csrf_token=$token" \
-		"username=$ADMIN_USERNAME" \
-		"password=$ADMIN_PASSWORD" \
+		"username=$username" \
+		"password=$password" \
 		"next=$ADMIN_PREFIX/"
 
 	[ "$HTTP_STATUS" = "303" ] || [ "$HTTP_STATUS" = "302" ]
@@ -42,6 +29,10 @@ admin_submit() {
 	local path="$1"
 	shift
 	local token
-	token="$(http_csrf_token)"
-	http_post "$path" "csrf_token=$token" "$@"
+	token="$(admin_token_for "$path")"
+	if [ -z "$token" ]; then
+		return 1
+	fi
+	http_form "$path" "csrf_token=$token" "$@"
+	[ "$HTTP_STATUS" = "303" ] || [ "$HTTP_STATUS" = "302" ]
 }

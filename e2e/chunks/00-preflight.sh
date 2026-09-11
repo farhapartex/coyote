@@ -1,82 +1,91 @@
 #!/usr/bin/env bash
 
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/bootstrap.sh"
+. "$E2E_DIR/lib/services.sh"
+. "$E2E_DIR/lib/shop.sh"
 
-chunk_begin "00" "Preflight"
+chunk_begin "00" "Preflight and services"
 
-MINIMUM_GO_VERSION="1.25"
+check_tooling() {
+	assert_command_exists "go is on PATH" go
+	assert_command_exists "curl is on PATH" curl
+	assert_command_exists "git is on PATH" git
+	assert_command_exists "docker is on PATH" docker
 
-check_bash_is_new_enough() {
-	if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
-		check_passed "bash is version 4 or newer"
+	local version
+	version="$(go_version)"
+	if version_at_least "$version" "1.25.0"; then
+		check_passed "go is 1.25 or newer"
 	else
-		check_failed "bash is version 4 or newer" \
-			"found ${BASH_VERSION}; macOS ships 3.2 at /bin/bash, install a newer one with brew install bash"
+		check_failed "go is 1.25 or newer" "found $version"
 	fi
 }
 
-check_go_is_new_enough() {
-	local found
-	found="$(go_version)"
-
-	if [ -z "$found" ]; then
-		check_failed "go is on PATH" "go could not be executed"
-		return
+check_docker_is_running() {
+	if services_available; then
+		check_passed "the docker daemon is reachable"
+		return 0
 	fi
-	if version_at_least "$found" "$MINIMUM_GO_VERSION"; then
-		check_passed "go is $MINIMUM_GO_VERSION or newer"
-	else
-		check_failed "go is $MINIMUM_GO_VERSION or newer" "found $found"
-	fi
+	check_failed "the docker daemon is reachable" \
+		"docker info failed; start Docker Desktop and run this again"
+	chunk_end
 }
 
-check_port_is_free() {
-	local holder
-	holder="$(lsof -ti:"$E2E_PORT" 2>/dev/null || true)"
-
-	if [ -z "$holder" ]; then
+check_the_port_is_free() {
+	if [ -z "$(lsof -ti:"$E2E_PORT" 2>/dev/null)" ]; then
 		check_passed "port $E2E_PORT is free"
-		return
+		return 0
 	fi
-	check_failed "port $E2E_PORT is free" \
-		"held by pid(s) $(printf '%s' "$holder" | tr '\n' ' ')
-free it with: lsof -ti:$E2E_PORT | xargs kill -9"
+	lsof -ti:"$E2E_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
+	sleep 1
+	if [ -z "$(lsof -ti:"$E2E_PORT" 2>/dev/null)" ]; then
+		check_skipped "port $E2E_PORT is free" "a stale listener was killed first"
+		return 0
+	fi
+	check_failed "port $E2E_PORT is free" "still held by $(lsof -ti:"$E2E_PORT" | tr '\n' ' ')"
 }
 
-report_optional_tool() {
-	local name="$1" purpose="$2"
-	if command -v "$name" >/dev/null 2>&1; then
-		note "$name" "available, $purpose"
+check_services_come_up() {
+	if services_up; then
+		check_passed "docker compose brings postgres and redis up"
 	else
-		check_skipped "$name is available" "not installed; $purpose"
+		check_failed "docker compose brings postgres and redis up" \
+			"$(compose ps 2>&1 | head -10)"
+		chunk_end
+	fi
+
+	if postgres_ready; then
+		check_passed "postgres accepts connections on $SHOP_DB_PORT"
+	else
+		check_failed "postgres accepts connections on $SHOP_DB_PORT" "$(compose logs postgres 2>&1 | tail -10)"
+	fi
+
+	if redis_ready; then
+		check_passed "redis answers PING on $SHOP_REDIS_ADDR"
+	else
+		check_failed "redis answers PING on $SHOP_REDIS_ADDR" "$(compose logs redis 2>&1 | tail -10)"
 	fi
 }
 
-check_bash_is_new_enough
-assert_command_exists "go is on PATH" go
-check_go_is_new_enough
-assert_command_exists "curl is on PATH" curl
-assert_command_exists "git is on PATH" git
-check_port_is_free
+record_environment() {
+	note "commit" "$(repository_commit)"
+	note "platform" "$(platform_name)"
+	note "go" "$(go_version)"
+	note "docker" "$(docker --version 2>/dev/null | sed 's/Docker version //')"
+	note "compose" "$(docker compose version --short 2>/dev/null)"
+	note "postgres" "$(postgres_query 'SHOW server_version;')"
+	note "redis" "$(redis_command INFO server 2>/dev/null | sed -n 's/^redis_version:\(.*\)$/\1/p')"
+	if repository_is_dirty; then
+		note "working tree" "dirty, so this run does not describe a clean commit"
+	else
+		note "working tree" "clean"
+	fi
+}
 
-note "commit" "$(repository_commit)"
-note "platform" "$(platform_name)"
-note "bash" "$BASH_VERSION"
-
-if repository_is_dirty; then
-	note "working tree" "dirty, so this run does not describe a clean commit"
-else
-	note "working tree" "clean"
-fi
-
-if [ -d "$EXAMPLE_DIR" ]; then
-	note "example directory" "present; chunk 03 owns creating it"
-else
-	note "example directory" "absent"
-fi
-
-report_optional_tool jq "used for JSON assertions"
-report_optional_tool sqlite3 "used for direct schema assertions"
-report_optional_tool redis-server "used by the Redis cache checks"
+check_tooling
+check_docker_is_running
+check_the_port_is_free
+check_services_come_up
+record_environment
 
 chunk_end

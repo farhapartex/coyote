@@ -1,0 +1,35 @@
+{{define "content"}}
+<section class="wrap">
+  <p class="muted"><a href="{{url "products"}}">Shop</a> / <a href="/categories/{{.Product.CategorySlug}}">{{.Product.CategoryName}}</a></p>
+  <div class="detail">
+    <div class="shot">
+      {{if .Product.Image}}<img src="{{media .Product.Image}}" alt="{{.Product.Name}}">{{else}}<span class="none">No photo</span>{{end}}
+    </div>
+    <div>
+      <h1>{{.Product.Name}}</h1>
+      <div class="cat">{{.Product.CategoryName}}</div>
+      <div class="price">{{.Product.Price}}</div>
+      {{if .Product.InStock}}
+      <div class="stock">{{.Product.Stock}} in stock, ships today</div>
+      {{else}}
+      <div class="stock out">Out of stock</div>
+      {{end}}
+      <p class="copy">{{.Product.Description}}</p>
+
+      <form method="post" action="/cart/add">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <input type="hidden" name="product" value="{{.Product.Slug}}">
+        <input class="qty" type="number" name="quantity" value="1" min="1" max="{{.Product.Stock}}" {{if not .Product.InStock}}disabled{{end}}>
+        <button class="btn" type="submit" {{if not .Product.InStock}}disabled{{end}}>Add to cart</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+{{if .Related}}
+<section class="wrap">
+  <div class="section-head"><h2>Also in {{.Product.CategoryName}}</h2></div>
+  <div class="grid">{{range .Related}}{{template "productcard" .}}{{end}}</div>
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,33 @@
+{{define "content"}}
+<div class="hero">
+  <div class="wrap">
+    <h1>Workshop tools, built to outlast you</h1>
+    <p>Hand tools and workshop supplies from makers who still answer the telephone. Everything in
+    stock ships the same day.</p>
+  </div>
+</div>
+
+<section class="wrap">
+  <div class="section-head">
+    <h2>Featured</h2>
+    <a href="{{url "products"}}">Everything in the shop →</a>
+  </div>
+  {{if .Featured}}
+  <div class="grid">{{range .Featured}}{{template "productcard" .}}{{end}}</div>
+  {{else}}
+  <div class="panel empty">Nothing is featured yet.</div>
+  {{end}}
+</section>
+
+<section class="wrap">
+  <div class="section-head"><h2>Departments</h2></div>
+  <div class="grid">
+    {{range .Categories}}
+    <article class="card"><div class="body">
+      <a class="name" href="/categories/{{.Slug}}">{{.Name}}</a>
+      <div class="cat">{{.Blurb}}</div>
+    </div></article>
+    {{end}}
+  </div>
+</section>
+{{end}}
