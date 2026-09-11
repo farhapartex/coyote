@@ -68,16 +68,31 @@ already on.
 [`database`](13-sessions.md) when either matters, or `cookie` when you want no shared state at all
 and can live without revocation.
 
+## Background workers
+
+With [jobs](36-jobs.md) on, run the workers as their own process rather than inside the web process:
+
+```
+coyote worker --concurrency=8
+coyote worker --concurrency=4 --queues=email
+```
+
+`Jobs.Workers` stays `0` on the web processes, so they never claim work. Scale the two independently,
+and give the worker process the same settings, `.env` and database as the web one — it is the same
+binary reading the same `settings.go`.
+
 ## Shutdown
 
 `Run` handles SIGINT and SIGTERM: it stops accepting connections, gives in-flight requests
-`Server.ShutdownTimeout` (10s by default, 20s under the deployed presets) to finish, then closes the
-database.
+`Server.ShutdownTimeout` (10s by default, 20s under the deployed presets) to finish, then drains the
+job workers, and only then closes the caches, the session store and the database. That order matters:
+a request or a job still running must not lose its database mid-flight.
 
 ```
-INFO shutting down signal=terminated
-INFO stopped
+INFO shutting down
 ```
+
+`coyote worker` drains the same way on the same signals, bounded by `Jobs.DrainTimeout`.
 
 ## Logging
 

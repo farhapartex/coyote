@@ -109,7 +109,8 @@ directory, under whatever path the field asks for.
 staged, trashed, err := a.Uploads.Sweep(ctx)
 ```
 
-Run it from a periodic job. It never touches committed files.
+It never touches committed files. With [background jobs](36-jobs.md) on, the framework already
+schedules this every six hours as `coyote.uploads.sweep`; call it yourself only if jobs are off.
 
 ## What is checked, and why
 

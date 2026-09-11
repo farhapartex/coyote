@@ -34,6 +34,7 @@ straight to the one you need.
 | [33. Caching](33-caching.md) | Backends, Remember, fragments, page and query caching |
 | [34. Internationalisation](34-internationalisation.md) | Catalogs, plurals, locale detection, RTL |
 | [35. Email](35-email.md) | The `Sender` interface, four backends, your own backend |
+| [36. Background jobs](36-jobs.md) | Declaring, enqueueing, workers, retries, scheduling |
 | [8. Templates](08-templates.md) | Layouts, partials, pages, functions |
 | [9. Static files](09-static-files.md) | Embedded or from disk |
 

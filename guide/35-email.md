@@ -357,10 +357,13 @@ See [Authentication](14-authentication.md) for the token store, lifetimes and `P
 
 ## What is not here
 
-No queue, no retry policy, no scheduled sending, no template-to-email helper, no bounce handling, no
-open or click tracking. Each one is a policy decision, and `Sender` is the seam where you supply your
-own.
+No template-to-email helper, no bounce handling, no open or click tracking. Each one is a policy
+decision, and `Sender` is the seam where you supply your own.
+
+Queueing, retries and scheduled sending are not in this package either, but you no longer have to
+build them: put the `Send` call in a job and you get all three. See [Background
+jobs](36-jobs.md).
 
 ## Next
 
-[Architecture →](27-architecture.md)
+[Background jobs →](36-jobs.md)

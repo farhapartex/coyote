@@ -43,6 +43,8 @@ What you can replace, and the contract you implement:
 | Cache storage | `cache.Cache` (+ `Namespacer`, `Counter`, `Multi`, `Pinger`) | `Caches[].Store` |
 | File storage | `storage.Storage` | `Uploads.Storage` |
 | Email delivery | `mail.Sender` | `Email.Sender` |
+| Job queue | `jobs.Queue` | `Jobs.Queue` |
+| Job handlers | `jobs.Handler`, registered by name | `jobs.Handle` |
 | Password rules | `auth.PasswordRule` | `Auth.PasswordRules` |
 | Login limits | `auth.LoginLimiter` | supplied to the service |
 | Pagination | `view.Paginator` | `Pagination.Paginator` |
@@ -60,9 +62,10 @@ persistence layer does not touch it.
 ## One responsibility per file
 
 Each package is split by responsibility rather than by size — `core/settings` alone is
-`settings.go`, `defaults.go`, `database.go`, `configure.go`, `normalise.go`, `accessors.go`,
-`secret.go`, `env.go`, and five focused validators. No file in `core/`, `contrib/` or `admin/`
-exceeds 200 lines.
+`settings.go`, `defaults.go`, `database.go`, `configure.go`, `normalize.go`, `accessors.go`,
+`secret.go`, `env.go`, and eight focused validators. Around 200 lines is the working limit for a
+file; sixteen sit above it today, the longest at 313, and each one is a split waiting to happen
+rather than a file that earned the length.
 
 ## Standard library first
 
@@ -84,6 +87,11 @@ Being explicit about what is not extensible yet:
   an operation that cannot be reversed is refused rather than guessed at, and one that would drop
   data asks before it runs.
 - Rate limit, login-throttle and cache-statistics counters are per process, not shared.
+- Job latency is bounded by `Jobs.PollInterval`, because no engine here offers a portable blocking
+  read. A shared database as a queue is comfortable into the low thousands of jobs a minute; past
+  that it wants `SELECT … FOR UPDATE SKIP LOCKED`, which SQLite does not have. See [Background
+  jobs](36-jobs.md).
+- Periodic jobs run on intervals, not calendar schedules; there is no cron syntax.
 - Concurrent edits of one record resolve last-write-wins on the fields they share; there is no
   version column yet.
 - The cache cannot be shared with the session store yet; `Sessions.Backend` has no `cache` option.

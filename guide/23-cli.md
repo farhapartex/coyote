@@ -20,6 +20,7 @@ the same commands; `coyote` is shorter, `go tool coyote` is pinned.
 | --- | --- |
 | `coyote new <name>` | Create a new project in a directory of that name |
 | `coyote start` | Build and run the project, reporting migration and user state first |
+| `coyote worker` | Run background jobs as their own process |
 | `coyote makemigrations` | Diff your models against the snapshot and write a migration file |
 | `coyote migrate` | Apply migrations that have not been applied yet |
 | `coyote sqlmigrate` | Print the SQL a pending migration would run, without applying it |
@@ -44,6 +45,8 @@ the same commands; `coyote` is shorter, `go tool coyote` is pinned.
 | `--skip-deps` | `new` | Write the files without running the `go` toolchain |
 | `--port=N` | `start` | Listen on N instead of the port in `settings.go` |
 | `--host=H` | `start` | Bind to H instead of the host in `settings.go` |
+| `--concurrency=N` | `worker` | Run N jobs at once instead of `Jobs.Workers` |
+| `--queues=A,B` | `worker` | Take only from these queues instead of `Jobs.Queues` |
 | `--name=NAME` | `makemigrations` | Name the migration instead of guessing one |
 | `--undo` | `makemigrations` | Delete the newest migration if it was never applied, and rewind the snapshot |
 | `--locale=TAG` | `makemessages`, `checkmessages` | One locale instead of every supported one |
