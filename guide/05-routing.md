@@ -52,7 +52,7 @@ Groups nest, and prefixes accumulate.
 Three scopes, from widest to narrowest:
 
 ```go
-a.Use(middleware.RequireHTTPS)          // every request
+a.Use(middleware.RequireHTTPS(1))       // every request
 api := a.Group("/api", requireToken)    // every route in the group
 a.Post("/notes", createNote, requireLogin) // this route only
 ```

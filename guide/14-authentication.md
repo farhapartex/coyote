@@ -273,7 +273,8 @@ user, err := a.Auth.UseResetToken(r.Context(), token, auth.PasswordChange{
   through `SetPassword` does this, whichever path reached it.
 - The token is burned *before* the password is written. If the write then fails, the link is dead
   and the password is unchanged — the safe direction to fail in.
-- Expiring, with `Tokens().Sweep(before)` to clear old rows.
+- Expiring, with `Tokens().Sweep(before)` to clear old rows. With [background jobs](36-jobs.md) on,
+  `coyote.tokens.sweep` runs that daily for you.
 - The table only exists when `ResetTokens` is on, so projects that do not want it get no schema.
 
 No mail is sent by the framework. Nothing here needs an SMTP server, and nothing here decides your

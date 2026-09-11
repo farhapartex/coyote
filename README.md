@@ -54,8 +54,11 @@ func main() {
   pages and query results. The Redis client is standard library, so it costs no dependency.
 - **Internationalisation** — gettext catalogs, plural rules read from each translator's own file,
   locale detection, and an admin portal that is already translated and right-to-left correct.
-- **One CLI** — `makemigrations`, `migrate`, `createsuperadmin`, `start`, pinned to your project as
-  a Go tool.
+- **Background jobs** — a queue in your own database, so a job commits in the same transaction as the
+  data it is about. Retries with backoff, a dead-letter state you can retry from the portal, interval
+  scheduling, and workers either in the web process or as `coyote worker`. No broker, no dependency.
+- **One CLI** — `makemigrations`, `migrate`, `createsuperadmin`, `start`, `worker`, pinned to your
+  project as a Go tool.
 
 ## Install
 
@@ -83,7 +86,7 @@ Start with the [quick start](guide/02-quickstart.md), or browse the full
 | **Getting started** | [Installation](guide/01-installation.md) · [Quick start](guide/02-quickstart.md) · [Project layout](guide/03-project-layout.md) | |
 | **Configuration** | [Settings](guide/04-settings.md) | |
 | **Requests** | [Routing](guide/05-routing.md) · [Named routes](guide/06-named-routes.md) · [Views](guide/07-views.md) · [Templates](guide/08-templates.md) · [Static files](guide/09-static-files.md) · [Forms](guide/30-forms.md) · [Uploads](guide/31-uploads.md) · [Pagination](guide/32-pagination.md) | |
-| **Data** | [Models](guide/10-models.md) · [Database](guide/11-database.md) · [Migrations](guide/12-migrations.md) · [Caching](guide/33-caching.md) · [Internationalisation](guide/34-internationalisation.md) · [Email](guide/35-email.md) | |
+| **Data** | [Models](guide/10-models.md) · [Database](guide/11-database.md) · [Migrations](guide/12-migrations.md) · [Caching](guide/33-caching.md) · [Internationalisation](guide/34-internationalisation.md) · [Email](guide/35-email.md) · [Background jobs](guide/36-jobs.md) | |
 | **Users** | [Sessions](guide/13-sessions.md) · [Authentication](guide/14-authentication.md) · [Admin portal](guide/15-admin.md) · [Permissions](guide/28-permissions.md) · [Accounts](guide/29-accounts.md) | |
 | **Security** | [Middleware](guide/16-middleware.md) · [Headers and CSP](guide/17-security-headers.md) · [CSRF](guide/18-csrf.md) · [Rate limiting](guide/19-rate-limiting.md) · [CORS](guide/20-cors.md) · [Compression](guide/21-compression.md) · [HTTPS](guide/22-https.md) | |
 | **Operations** | [CLI](guide/23-cli.md) · [First run](guide/24-first-run.md) · [Deployment](guide/25-deployment.md) · [Testing](guide/26-testing.md) · [Architecture](guide/27-architecture.md) | |
@@ -108,7 +111,8 @@ tracked in git. There is no checked-in example app to run; `coyote new myshop` g
 ## Status
 
 Coyote is in active development on phase 1. Working today: settings, routing, sessions,
-authentication and permissions, templates, forms, file uploads, pagination, migrations, caching, the
-admin portal, project scaffolding, and the security middleware above.
+authentication and permissions, templates, forms, file uploads, pagination, migrations, caching,
+email, internationalisation, background jobs, the admin portal, project scaffolding, and the security
+middleware above.
 
 Not here yet: full-text search, a swappable user model, and soft delete.

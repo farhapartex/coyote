@@ -192,6 +192,17 @@ framework itself never reads the environment — only your `settings.go` does, w
 | `Auth.Throttle` | on, 5 per 15 min | Login attempt limits; see [Authentication](14-authentication.md) |
 | `Auth.Permissions` | `true` | Register the permission and role tables; see [Permissions](28-permissions.md) |
 | `Auth.AllowPasswordChange` | `true` | Off hides the form and makes the route 404 |
+| `Jobs.Enabled` | `false` | Off means no table, no goroutine, no admin page; see [Background jobs](36-jobs.md) |
+| `Jobs.Queue` | none | Supply your own `jobs.Queue` instead of the database one |
+| `Jobs.Queues` | `["default"]` | Which queues a worker takes from |
+| `Jobs.Workers` | `0` | Workers inside the web process; production uses `coyote worker` |
+| `Jobs.MaxAttempts` | `3` | `jobs.Forever` retries without a ceiling |
+| `Jobs.Backoff` | `10s` | How long the first retry waits |
+| `Jobs.BackoffCeiling` | `1h` | The longest any retry waits |
+| `Jobs.ClaimTimeout` | `5m` | A job silent this long is reclaimed from its worker |
+| `Jobs.DrainTimeout` | `30s` | How long a worker gets to finish on shutdown |
+| `Jobs.PollInterval` | `1s` | How often a worker looks for work |
+| `Jobs.DoneTTL` | `24h` | Finished jobs are deleted after this; `0` keeps them |
 | `Auth.ResetTokens` | `false` | Register the reset-token table |
 | `Auth.ResetTokenLifetime` | `1h` | How long a reset token stays valid |
 | `Auth.PermissionStore` | database-backed | Any `auth.PermissionStore` |
