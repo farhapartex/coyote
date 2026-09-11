@@ -132,15 +132,24 @@ jobs:
 
       - name: the engine matrix actually ran, rather than skipping
         run: |
-          output="$(go test ./tests/ -run TestOnEveryEngine -count=1 -v)"
-          echo "$output"
+          set +e
+          go test ./tests/ -run TestOnEveryEngine -count=1 -v 2>&1 | tee engines.log
+          status="${PIPESTATUS[0]}"
+          set -e
+
           for engine in sqlite postgres mysql; do
-            if ! printf '%s' "$output" | grep -q "PASS: TestOnEveryEngine.*/$engine"; then
+            if ! grep -q "PASS: TestOnEveryEngine.*/$engine" engines.log; then
               echo
               echo "no subtest passed on $engine; the matrix skipped it instead of running it"
               exit 1
             fi
           done
+
+          if [ "$status" -ne 0 ]; then
+            echo
+            echo "every engine ran, but the matrix reported failures; see the output above"
+            exit "$status"
+          fi
 
       - name: the whole suite, with every engine reachable
         run: go test ./tests/ -count=1
