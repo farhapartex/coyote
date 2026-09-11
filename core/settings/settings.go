@@ -46,6 +46,7 @@ type Settings struct {
 	Admin      Admin
 	Logging    Logging
 	Email      Email
+	Jobs       Jobs
 
 	secretKeyGenerated bool
 	commandOverrides   []string

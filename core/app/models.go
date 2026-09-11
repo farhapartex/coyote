@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/farhapartex/coyote/core/auth"
+	"github.com/farhapartex/coyote/core/jobs"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/session"
 )
@@ -13,6 +14,9 @@ func defaultModels(s Settings) *model.Registry {
 	}
 	if s.Auth.ResetTokens {
 		registry.Add(model.Of(auth.ResetToken{}))
+	}
+	if s.Jobs.Enabled {
+		registry.Add(model.Of(jobs.Record{}))
 	}
 	if s.Auth.Permissions {
 		registry.Add(
