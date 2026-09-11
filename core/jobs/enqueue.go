@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func Enqueue[T any](ctx context.Context, target Queue, kind string, args T, opts ...Options) (string, error) {
+func Enqueue(ctx context.Context, target Queue, kind string, args any, opts ...Options) (string, error) {
 	if target == nil {
 		return "", ErrNoQueue
 	}

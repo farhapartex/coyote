@@ -3,8 +3,9 @@ package jobs
 import "time"
 
 const (
-	DefaultQueue = "default"
-	Forever      = -1
+	DefaultQueue       = "default"
+	DefaultMaxAttempts = 3
+	Forever            = -1
 )
 
 type Job struct {
