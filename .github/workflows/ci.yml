@@ -1,0 +1,155 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: format, vet and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt reports nothing
+        run: |
+          unformatted="$(gofmt -l core contrib lib cmd tests)"
+          if [ -n "$unformatted" ]; then
+            echo "these files are not gofmt clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: the static binary promise holds
+        run: CGO_ENABLED=0 go build -o /dev/null ./cmd/coyote
+
+      - name: go.mod and go.sum are tidy
+        run: |
+          cp go.mod go.mod.before
+          cp go.sum go.sum.before
+          go mod tidy
+          if ! diff -q go.mod.before go.mod || ! diff -q go.sum.before go.sum; then
+            echo "go mod tidy changed the module files; commit the result"
+            diff -u go.mod.before go.mod || true
+            exit 1
+          fi
+
+      - name: no replace directive points outside the module
+        run: |
+          if grep -nE '^\s*replace\s+.*=>\s*(\.|/|[A-Za-z]:)' go.mod; then
+            echo
+            echo "go.mod replaces a dependency with a local path."
+            echo "That breaks the module for everyone who fetches it; remove it before merging."
+            exit 1
+          fi
+
+  test:
+    name: tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: test
+        run: go test ./tests/ -count=1
+
+      - name: test under the race detector
+        run: go test ./tests/ -race -count=1
+
+  engines:
+    name: tests on sqlite, postgres and mysql
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: coyote_test
+          POSTGRES_USER: coyote
+          POSTGRES_PASSWORD: coyote
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U coyote -d coyote_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: coyote_test
+          MYSQL_USER: coyote
+          MYSQL_PASSWORD: coyote
+          MYSQL_ROOT_PASSWORD: coyote-root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ucoyote -pcoyote"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      COYOTE_TEST_POSTGRES_DSN: postgres://coyote:coyote@127.0.0.1:5432/coyote_test
+      COYOTE_TEST_MYSQL_DSN: mysql://coyote:coyote@127.0.0.1:3306/coyote_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: the engine matrix actually ran, rather than skipping
+        run: |
+          set +e
+          go test ./tests/ -run TestOnEveryEngine -count=1 -v 2>&1 | tee engines.log
+          status="${PIPESTATUS[0]}"
+          set -e
+
+          for engine in sqlite postgres mysql; do
+            if ! grep -q "PASS: TestOnEveryEngine.*/$engine" engines.log; then
+              echo
+              echo "no subtest passed on $engine; the matrix skipped it instead of running it"
+              exit 1
+            fi
+          done
+
+          if [ "$status" -ne 0 ]; then
+            echo
+            echo "every engine ran, but the matrix reported failures; see the output above"
+            exit "$status"
+          fi
+
+      - name: the whole suite, with every engine reachable
+        run: go test ./tests/ -count=1

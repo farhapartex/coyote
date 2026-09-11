@@ -206,12 +206,81 @@ func TestDatabaseDSNs(t *testing.T) {
 	want := []string{
 		"/tmp/app.db?_pragma=busy_timeout%285000%29",
 		"postgres://app:s3cret@db.example.com:6543/shop?sslmode=require",
-		"app:s3cret@tcp(127.0.0.1:3306)/shop?parseTime=true",
+		"app:s3cret@tcp(127.0.0.1:3306)/shop?loc=UTC&parseTime=true",
 	}
 	for i, expected := range want {
 		if got := s.Databases[i].DSN(); got != expected {
 			t.Errorf("Databases[%d].DSN() = %q, want %q", i, got, expected)
 		}
+	}
+}
+
+func TestAMySQLDSNCarriesTheDefaultsTheDriverNeeds(t *testing.T) {
+	db := settings.Database{
+		Engine: settings.MySQL, Name: "shop",
+		Host: "127.0.0.1", Port: 3306, User: "app", Password: "s3cret",
+	}
+
+	dsn := db.DSN()
+	if !strings.Contains(dsn, "parseTime=true") {
+		t.Errorf("DSN() = %q, want parseTime=true; without it go-sql-driver returns []byte for "+
+			"DATETIME and every time.Time column fails to scan", dsn)
+	}
+	if !strings.Contains(dsn, "loc=UTC") {
+		t.Errorf("DSN() = %q, want loc=UTC; without it the driver parses timestamps in the "+
+			"server's zone while the framework writes UTC", dsn)
+	}
+}
+
+func TestOnlyMySQLGetsThoseDefaults(t *testing.T) {
+	for _, db := range []settings.Database{
+		{Engine: settings.Postgres, Name: "shop", Host: "h", Port: 5432, User: "app"},
+		{Engine: settings.SQLite, Name: "/tmp/app.db"},
+	} {
+		if dsn := db.DSN(); strings.Contains(dsn, "parseTime") || strings.Contains(dsn, "loc=") {
+			t.Errorf("%s DSN() = %q, want no mysql-only parameters", db.Engine, dsn)
+		}
+	}
+}
+
+func TestSuppliedOptionsWinOverTheDefaults(t *testing.T) {
+	chosen := settings.Database{
+		Engine: settings.MySQL, Name: "shop", Host: "h", Port: 3306,
+		Options: map[string]string{"loc": "Local"},
+	}
+	dsn := chosen.DSN()
+	if !strings.Contains(dsn, "loc=Local") {
+		t.Errorf("DSN() = %q, want the supplied loc to win", dsn)
+	}
+	if strings.Contains(dsn, "loc=UTC") {
+		t.Errorf("DSN() = %q, want the default loc replaced, not appended", dsn)
+	}
+	if !strings.Contains(dsn, "parseTime=true") {
+		t.Errorf("DSN() = %q, want the other default still applied", dsn)
+	}
+}
+
+func TestExtraOptionsDoNotDisplaceTheDefaults(t *testing.T) {
+	db := settings.Database{
+		Engine: settings.MySQL, Name: "shop", Host: "h", Port: 3306,
+		Options: map[string]string{"charset": "utf8mb4"},
+	}
+	dsn := db.DSN()
+	for _, want := range []string{"charset=utf8mb4", "parseTime=true", "loc=UTC"} {
+		if !strings.Contains(dsn, want) {
+			t.Errorf("DSN() = %q, want it to contain %s", dsn, want)
+		}
+	}
+}
+
+func TestATimeZoneNameIsEscapedInTheDSN(t *testing.T) {
+	db := settings.Database{
+		Engine: settings.MySQL, Name: "shop", Host: "h", Port: 3306,
+		Options: map[string]string{"loc": "America/New_York"},
+	}
+	if dsn := db.DSN(); !strings.Contains(dsn, "loc=America%2FNew_York") {
+		t.Errorf("DSN() = %q, want the slash escaped; go-sql-driver requires loc to be "+
+			"url-escaped and rejects a bare slash", dsn)
 	}
 }
 
