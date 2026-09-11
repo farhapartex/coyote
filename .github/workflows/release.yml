@@ -1,0 +1,112 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: verify the tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: the tag matches app.Version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' core/app/app.go)"
+          if [ "$tag" != "$declared" ]; then
+            echo "the tag is v$tag but core/app/app.go declares Version = \"$declared\""
+            echo "set them to the same value, then move the tag"
+            exit 1
+          fi
+          echo "releasing v$tag"
+
+      - name: gofmt reports nothing
+        run: |
+          unformatted="$(gofmt -l core contrib lib cmd tests)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: no replace directive points outside the module
+        run: |
+          if grep -nE '^\s*replace\s+.*=>\s*(\.|/|[A-Za-z]:)' go.mod; then
+            echo "go.mod replaces a dependency with a local path; a tagged module must not"
+            exit 1
+          fi
+
+      - name: test
+        run: go test ./tests/ -count=1
+
+      - name: test under the race detector
+        run: go test ./tests/ -race -count=1
+
+      - name: a licence is present
+        run: test -f LICENSE
+
+  release:
+    name: build and publish
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: build the command for every platform
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          version="${GITHUB_REF_NAME}"
+          mkdir -p dist
+
+          build() {
+            local os="$1" arch="$2" extension="$3"
+            local stage="build/coyote_${version}_${os}_${arch}"
+            mkdir -p "$stage"
+            GOOS="$os" GOARCH="$arch" go build \
+              -trimpath -ldflags "-s -w" \
+              -o "$stage/coyote${extension}" ./cmd/coyote
+            cp LICENSE README.md "$stage/"
+            if [ "$extension" = ".exe" ]; then
+              (cd build && zip -qr "../dist/coyote_${version}_${os}_${arch}.zip" "coyote_${version}_${os}_${arch}")
+            else
+              tar -czf "dist/coyote_${version}_${os}_${arch}.tar.gz" -C build "coyote_${version}_${os}_${arch}"
+            fi
+          }
+
+          build linux amd64 ""
+          build linux arm64 ""
+          build darwin amd64 ""
+          build darwin arm64 ""
+          build windows amd64 ".exe"
+
+          (cd dist && sha256sum *.tar.gz *.zip >"coyote_${version}_checksums.txt")
+          ls -l dist
+
+      - name: publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag \
+            dist/*
