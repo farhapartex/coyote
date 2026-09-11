@@ -9,6 +9,7 @@ import (
 
 	"github.com/farhapartex/coyote/core/auth"
 	"github.com/farhapartex/coyote/core/i18n"
+	"github.com/farhapartex/coyote/core/jobs"
 	"github.com/farhapartex/coyote/core/middleware"
 	"github.com/farhapartex/coyote/core/model"
 	"github.com/farhapartex/coyote/core/router"
@@ -46,6 +47,7 @@ type App struct {
 	bundle    *i18n.Bundle
 	locales   *i18n.Detector
 	store     model.Store
+	queue     jobs.Queue
 	storeOnce sync.Once
 	manifest  staticManifest
 	extras    sync.Map
@@ -97,6 +99,7 @@ func NewFrom(s Settings) *App {
 	}
 
 	a.Uploads = uploadService(s)
+	a.queue = jobQueue(s, a)
 
 	a.Templates = template.New(template.Options{
 		FS:       templateFS(s),
