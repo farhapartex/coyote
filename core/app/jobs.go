@@ -19,3 +19,35 @@ func jobQueue(s Settings, a *App) jobs.Queue {
 }
 
 func (a *App) Queue() jobs.Queue { return a.queue }
+
+func (a *App) Jobs() *jobs.Runner { return a.jobs }
+
+func jobRunner(s Settings, a *App, queue jobs.Queue) *jobs.Runner {
+	if queue == nil || !s.Jobs.RunsWorkers() {
+		return nil
+	}
+	return jobs.NewRunner(jobs.RunnerOptions{
+		Queue:        queue,
+		Queues:       s.Jobs.QueueNames(),
+		Workers:      s.Jobs.Workers,
+		PollInterval: s.Jobs.PollInterval,
+		ClaimTimeout: s.Jobs.ClaimTimeout,
+		DrainTimeout: s.Jobs.DrainTimeout,
+		Backoff:      s.Jobs.Backoff,
+		Ceiling:      s.Jobs.BackoffCeiling,
+		DoneTTL:      s.Jobs.DoneTTL,
+		Logger:       a.Logger,
+	})
+}
+
+func (a *App) startJobs() {
+	if a.jobs != nil {
+		a.jobs.Start()
+	}
+}
+
+func (a *App) drainJobs() {
+	if a.jobs != nil {
+		_ = a.jobs.Close()
+	}
+}

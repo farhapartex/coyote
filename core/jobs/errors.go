@@ -10,4 +10,5 @@ var (
 	ErrNoQueue              = errors.New("coyote/jobs: no queue is configured")
 	ErrNotFound             = errors.New("coyote/jobs: no such job")
 	ErrDuplicateFingerprint = errors.New("coyote/jobs: a job with that fingerprint is already queued")
+	ErrPanicked             = errors.New("coyote/jobs: the handler panicked")
 )

@@ -7,6 +7,7 @@ import (
 
 func (a *App) shutdown(ctx context.Context) error {
 	drained := a.server.Shutdown(ctx)
+	a.drainJobs()
 	a.closeStores()
 	return drained
 }

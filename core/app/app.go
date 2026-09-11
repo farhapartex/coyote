@@ -48,6 +48,7 @@ type App struct {
 	locales   *i18n.Detector
 	store     model.Store
 	queue     jobs.Queue
+	jobs      *jobs.Runner
 	storeOnce sync.Once
 	manifest  staticManifest
 	extras    sync.Map
@@ -100,6 +101,7 @@ func NewFrom(s Settings) *App {
 
 	a.Uploads = uploadService(s)
 	a.queue = jobQueue(s, a)
+	a.jobs = jobRunner(s, a, a.queue)
 
 	a.Templates = template.New(template.Options{
 		FS:       templateFS(s),
