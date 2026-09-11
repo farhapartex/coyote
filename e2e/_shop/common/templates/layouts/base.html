@@ -14,7 +14,17 @@
       <a href="{{url "products"}}" class="{{if eq .Nav "products"}}on{{end}}">Shop</a>
       {{range .Categories}}<a href="/categories/{{.Slug}}">{{.Name}}</a>{{end}}
     </nav>
-    {{if .User}}<a href="/orders">My orders</a>{{else}}<a href="/accounts/login">Sign in</a>{{end}}
+    {{if .User}}
+    <a href="/orders" class="{{if eq .Nav "orders"}}on{{end}}">My orders</a>
+    <a href="/accounts/profile" class="who">{{.User.DisplayName}}</a>
+    <form method="post" action="/accounts/logout" class="signout">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit">Sign out</button>
+    </form>
+    {{else}}
+    <a href="/accounts/login">Sign in</a>
+    <a href="/accounts/register">Register</a>
+    {{end}}
     <a class="cart-pill" href="/cart">Cart · {{.CartCount}}</a>
   </div>
 </header>

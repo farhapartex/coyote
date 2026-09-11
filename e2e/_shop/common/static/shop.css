@@ -56,6 +56,22 @@ a:hover { text-decoration: underline; }
 .masthead nav a { color: var(--ink-2); }
 .masthead nav a.on { color: var(--brand); font-weight: 600; }
 
+.masthead .who { color: var(--ink); font-weight: 600; }
+
+.signout { margin: 0; }
+
+.signout button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.signout button:hover { color: var(--crit); text-decoration: underline; }
+
 .cart-pill {
   display: inline-flex;
   align-items: center;

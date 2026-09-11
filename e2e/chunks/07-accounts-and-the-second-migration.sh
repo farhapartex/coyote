@@ -161,6 +161,77 @@ check_registration_signs_you_in() {
 	esac
 }
 
+check_the_header_offers_the_way_in_and_out() {
+	http_reset_session
+	http_get "/"
+	case "$HTTP_BODY" in
+	*'href="/accounts/login"'*) check_passed "an anonymous shopper is offered a sign-in link" ;;
+	*) check_failed "an anonymous shopper is offered a sign-in link" "no sign-in link in the header" ;;
+	esac
+	case "$HTTP_BODY" in
+	*'href="/accounts/register"'*) check_passed "and a register link" ;;
+	*) check_failed "an anonymous shopper is offered a register link" "no register link in the header" ;;
+	esac
+	case "$HTTP_BODY" in
+	*"Sign out"*) check_failed "an anonymous shopper is not offered a sign-out" "sign out is on the page" ;;
+	*) check_passed "an anonymous shopper is not offered a sign-out" ;;
+	esac
+
+	http_get "/accounts/login"
+	local token
+	token="$(http_csrf_token)"
+	http_post "/accounts/login" "csrf_token=$token" "username=$SHOPPER_USER" "password=$SHOPPER_PASSWORD"
+
+	http_get "/"
+	case "$HTTP_BODY" in
+	*"Sign out"*) check_passed "a signed-in shopper is offered a sign-out on every page" ;;
+	*) check_failed "a signed-in shopper is offered a sign-out on every page" \
+		"the storefront header has no way to sign out, so a customer is stuck signed in" ;;
+	esac
+	case "$HTTP_BODY" in
+	*"Edith Pargeter"*) check_passed "the header greets them by name" ;;
+	*) check_failed "the header greets them by name" "no display name in the header" ;;
+	esac
+	case "$HTTP_BODY" in
+	*'action="/accounts/logout"'*) check_passed "signing out is a POST, so it cannot be triggered by a link" ;;
+	*) check_failed "signing out is a POST" "no logout form in the header" ;;
+	esac
+
+	http_get "/products"
+	case "$HTTP_BODY" in
+	*"Sign out"*) check_passed "and it is there on the listing too, not just the landing page" ;;
+	*) check_failed "the sign-out is on every page" "missing from /products" ;;
+	esac
+}
+
+check_signing_out_from_the_storefront() {
+	http_get "/"
+	local token
+	token="$(http_csrf_token)"
+	http_post "/accounts/logout" "csrf_token=$token"
+	if [ "$HTTP_STATUS" = "303" ] || [ "$HTTP_STATUS" = "302" ]; then
+		check_passed "the header sign-out signs the shopper out"
+	else
+		check_failed "the header sign-out signs the shopper out" "status $HTTP_STATUS"
+	fi
+
+	http_get "/"
+	case "$HTTP_BODY" in
+	*"Sign out"*) check_failed "and the header goes back to offering sign in" "still signed in" ;;
+	*) check_passed "and the header goes back to offering sign in" ;;
+	esac
+
+	http_get "/orders"
+	if [ "$HTTP_STATUS" = "303" ] || [ "$HTTP_STATUS" = "302" ]; then
+		check_passed "their orders are behind the login again"
+	else
+		check_failed "their orders are behind the login again" "status $HTTP_STATUS"
+	fi
+
+	http_post "/accounts/logout" "probe=1"
+	assert_equal "signing out without a token is refused" "403" "$HTTP_STATUS"
+}
+
 check_sign_out_and_in() {
 	local token
 	http_get "/accounts/profile"
@@ -240,6 +311,8 @@ check_the_foreign_keys_are_real
 start_the_shop
 check_registration
 check_registration_signs_you_in
+check_the_header_offers_the_way_in_and_out
+check_signing_out_from_the_storefront
 check_sign_out_and_in
 check_orders_need_a_session
 check_the_customer_is_the_user
