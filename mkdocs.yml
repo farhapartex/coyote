@@ -1,0 +1,95 @@
+site_name: Coyote
+site_description: A full-stack web framework for Go. Server-rendered, session-first, and built on the standard library.
+site_url: https://coyote.readthedocs.io/
+repo_url: https://github.com/farhapartex/coyote
+repo_name: farhapartex/coyote
+edit_uri: edit/main/guide/
+copyright: Copyright &copy; 2026 Md Nazmul Hasan
+
+docs_dir: guide
+
+theme:
+  name: material
+  logo: assets/coyote.png
+  favicon: assets/favicon.png
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+
+nav:
+  - Home: README.md
+  - Getting started:
+      - 01-installation.md
+      - 02-quickstart.md
+      - 03-project-layout.md
+  - Configuration:
+      - 04-settings.md
+  - Handling requests:
+      - 05-routing.md
+      - 06-named-routes.md
+      - 07-views.md
+      - 30-forms.md
+      - 31-uploads.md
+      - 32-pagination.md
+      - 33-caching.md
+      - 34-internationalisation.md
+      - 35-email.md
+      - 36-jobs.md
+      - 08-templates.md
+      - 09-static-files.md
+  - Data:
+      - 10-models.md
+      - 11-database.md
+      - 12-migrations.md
+  - Users:
+      - 13-sessions.md
+      - 14-authentication.md
+      - 15-admin.md
+      - 28-permissions.md
+      - 29-accounts.md
+  - Middleware and security:
+      - 16-middleware.md
+      - 17-security-headers.md
+      - 18-csrf.md
+      - 19-rate-limiting.md
+      - 20-cors.md
+      - 21-compression.md
+      - 22-https.md
+  - Operations:
+      - 23-cli.md
+      - 24-first-run.md
+      - 25-deployment.md
+      - 26-testing.md
+      - 27-architecture.md
