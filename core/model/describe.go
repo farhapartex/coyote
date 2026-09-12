@@ -53,7 +53,7 @@ func Describe(handle *gorm.DB, entity any) (*Schema, error) {
 			AutoIncrement: field.AutoIncrement,
 			Generated:     field.AutoIncrement || isTimestamp(field.DBName),
 			Sensitive:     options.Sensitive || (!options.Public && isSensitive(field.DBName)),
-			Default:       field.DefaultValue,
+			Default:       sqlDefault(kind, field.DefaultValue),
 			UploadPath:    options.Path,
 			Accept:        options.Accept,
 		}
@@ -138,6 +138,16 @@ func labelFor(column string, kind Kind) string {
 		return strings.TrimSuffix(column, "_at")
 	}
 	return column
+}
+
+func sqlDefault(kind Kind, value string) string {
+	if value == "" || (kind != KindString && kind != KindText) {
+		return value
+	}
+	if strings.HasPrefix(value, "'") {
+		return value
+	}
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
 func isTimestamp(column string) bool {
