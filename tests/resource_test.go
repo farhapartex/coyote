@@ -266,6 +266,9 @@ func TestDynamicFormReflectsColumnTypes(t *testing.T) {
 	if strings.Count(body, "required") < 2 {
 		t.Error("not-null columns should render as required")
 	}
+	if !strings.Contains(body, `<input type="hidden" name="is_published" value="">`) {
+		t.Error("a checkbox needs a hidden companion, or the browser sends nothing when it is cleared")
+	}
 }
 
 func TestDynamicCRUDOverHTTP(t *testing.T) {
