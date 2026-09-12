@@ -1,4 +1,4 @@
-# 35. Email
+# Email
 
 [← Back to contents](README.md)
 

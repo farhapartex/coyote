@@ -1,4 +1,4 @@
-# 36. Background jobs
+# Background jobs
 
 [← Back to contents](README.md)
 
