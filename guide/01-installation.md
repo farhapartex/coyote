@@ -23,7 +23,7 @@ That is the only long path you will ever type. Everything after it is `coyote â€
 
 ```
 $ coyote version
-coyote 0.4.0
+coyote 0.1.0
 ```
 
 If the shell cannot find it, `go install` put the binary somewhere not on your `PATH`:
