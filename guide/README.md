@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../assets/coyote.png" alt="Coyote" width="180">
+  <img src="assets/coyote.png" alt="Coyote" width="180">
 </p>
 
 <h1 align="center">Coyote documentation</h1>
