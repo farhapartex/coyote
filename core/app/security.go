@@ -16,13 +16,17 @@ func securityPolicies(s Settings) []Middleware {
 	if s.Security.CORS.Enabled() {
 		out = append(out, middleware.CORS(s.Security.CORS))
 	}
-	if s.Security.Compress {
-		out = append(out, middleware.Compress(s.Security.CompressLevel))
-	}
 	if s.Security.RateLimit.Enabled() {
 		out = append(out, middleware.RateLimit(s.Security.RateLimit, s.Security.TrustedProxyCount))
 	}
 	return out
+}
+
+func compression(s Settings) Middleware {
+	if !s.Security.Compress {
+		return nil
+	}
+	return middleware.Compress(s.Security.CompressLevel)
 }
 
 func csrfGuard(s Settings, sessions *session.Manager) Middleware {

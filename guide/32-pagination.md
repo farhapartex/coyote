@@ -77,8 +77,7 @@ hand-edited URL cannot produce an empty screen or a negative offset.
 
 ## Your own paginator
 
-Django's `pagination_class` has no direct equivalent in Go, because Go has no classes. The
-equivalent is an **interface**:
+Go has no classes to subclass, so a paging strategy is swapped through an **interface**:
 
 ```go
 type Paginator interface {

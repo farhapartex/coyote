@@ -43,7 +43,7 @@ framework exists beyond the arguments you pass them.
 
 ## MVT
 
-Coyote follows Model–View–Template, the same split Django uses. The names differ from MVC:
+Coyote follows Model–View–Template. The names differ from MVC:
 
 | Layer | What it is | Where |
 | --- | --- | --- |
@@ -51,7 +51,7 @@ Coyote follows Model–View–Template, the same split Django uses. The names di
 | **View** | the code that answers a request | your handlers, `core/view` |
 | **Template** | the HTML | your `templates/`, `core/template` |
 
-Routing plays the part of Django's `urls.py` and lives in `core/router`.
+Routing is declared apart from the handlers it dispatches to, and lives in `core/router`.
 
 ## The framework itself
 

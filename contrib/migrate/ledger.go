@@ -26,7 +26,7 @@ func NewLedger(handle *gorm.DB) *Ledger { return &Ledger{handle: handle} }
 func (l *Ledger) Ensure(ctx context.Context) error {
 	statement := fmt.Sprintf(
 		`CREATE TABLE IF NOT EXISTS %s (
-  id TEXT NOT NULL PRIMARY KEY,
+  id VARCHAR(191) NOT NULL PRIMARY KEY,
   checksum TEXT NOT NULL,
   applied_at TIMESTAMP NOT NULL,
   duration_ms INTEGER NOT NULL
