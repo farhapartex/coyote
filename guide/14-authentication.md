@@ -67,8 +67,8 @@ coyote createsuperadmin
 
 ## Passwords
 
-PBKDF2-SHA256 with `Auth.PBKDF2Iterations` (600,000 by default) and a 16-byte random salt, stored in
-the Django-style `pbkdf2_sha256$iterations$salt$hash` format.
+PBKDF2-SHA256 with `Auth.PBKDF2Iterations` (600,000 by default) and a 16-byte random salt, stored as
+`pbkdf2_sha256$iterations$salt$hash` so the parameters travel with the hash.
 
 ### Strength rules
 
@@ -351,8 +351,8 @@ s.Auth.UserStore = myLDAPStore{}
 `auth.Guarded(store)` wraps any store with the superadmin-protection rules, so a custom backend
 keeps them.
 
-A fully swappable user model — the equivalent of Django's `AUTH_USER_MODEL` — is not here yet; the
-framework's own code still works in terms of `*auth.User`.
+A fully swappable user model — pointing the framework at a user type of your own — is not here
+yet; the framework's own code still works in terms of `*auth.User`.
 
 ## Next
 

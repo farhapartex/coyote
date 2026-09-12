@@ -86,7 +86,8 @@ can opt in the same way with `coyote:"file"`.
 
 ## The two-phase commit
 
-This is the part most frameworks leave to you, and it is why Django projects accumulate dead files.
+This is the part most frameworks leave to you, and it is why upload directories fill with dead
+files.
 
 ```
 Accept  →  staged/<path>/ab/cd/<digest>.png   nothing references it yet
