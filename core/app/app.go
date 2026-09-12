@@ -139,6 +139,9 @@ func NewFrom(s Settings) *App {
 	if pages := a.pageCache(s); pages != nil {
 		a.global = append(a.global, pages)
 	}
+	if encoding := compression(s); encoding != nil {
+		a.global = append(a.global, encoding)
+	}
 	a.global = append(a.global, sessions.Middleware)
 	if guard := csrfGuard(s, sessions); guard != nil {
 		a.global = append(a.global, guard)
