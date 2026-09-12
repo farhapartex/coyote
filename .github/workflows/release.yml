@@ -14,11 +14,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: the tag is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "$GITHUB_REF_NAME points at a commit that is not an ancestor of main"
+            echo "tag a commit that has been merged, then move the tag"
+            exit 1
+          fi
 
       - name: the tag matches app.Version
         run: |
@@ -58,9 +69,79 @@ jobs:
       - name: a licence is present
         run: test -f LICENSE
 
+  engines:
+    name: the tag runs on sqlite, postgres and mysql
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: coyote_test
+          POSTGRES_USER: coyote
+          POSTGRES_PASSWORD: coyote
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U coyote -d coyote_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: coyote_test
+          MYSQL_USER: coyote
+          MYSQL_PASSWORD: coyote
+          MYSQL_ROOT_PASSWORD: coyote-root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ucoyote -pcoyote"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      COYOTE_TEST_POSTGRES_DSN: postgres://coyote:coyote@127.0.0.1:5432/coyote_test
+      COYOTE_TEST_MYSQL_DSN: mysql://coyote:coyote@127.0.0.1:3306/coyote_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: no engine is skipped on the way to a tag
+        run: |
+          set +e
+          go test ./tests/ -run TestOnEveryEngine -count=1 -v 2>&1 | tee engines.log
+          status="${PIPESTATUS[0]}"
+          set -e
+
+          for engine in sqlite postgres mysql; do
+            if ! grep -q "PASS: TestOnEveryEngine.*/$engine" engines.log; then
+              echo
+              echo "no subtest passed on $engine; a tag must not ship untested against it"
+              exit 1
+            fi
+          done
+
+          if [ "$status" -ne 0 ]; then
+            echo
+            echo "every engine ran, but the matrix reported failures; see the output above"
+            exit "$status"
+          fi
+
+      - name: the whole suite, with every engine reachable
+        run: go test ./tests/ -count=1
+
   release:
     name: build and publish
-    needs: verify
+    needs: [verify, engines]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

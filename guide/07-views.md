@@ -147,7 +147,7 @@ refuses two JSON values in one body.
 ## Generic views
 
 For the ordinary list/detail/create/update/delete shapes, the framework can supply the handler.
-Django does this with class-based views; Go has no classes, so it is an options struct plus hooks:
+Go has no classes to subclass, so the shape is an options struct plus hooks:
 
 ```go
 schema, _ := a.Describe(Product{})

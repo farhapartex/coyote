@@ -1,7 +1,9 @@
 package tests
 
 import (
+	"compress/gzip"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -447,5 +449,79 @@ func TestPageCacheIgnoresQueryParametersItWasNotToldAbout(t *testing.T) {
 	}
 	if renders.Load() != 2 {
 		t.Errorf("the handler ran %d times, want one per distinct page value", renders.Load())
+	}
+}
+
+func TestACachedPageStaysDecodableWhenCompressionIsOn(t *testing.T) {
+	a, _ := newPageCacheApp(t, func(s *settings.Settings) {
+		s.Security.Compress = true
+		s.PageCache.Paths = []string{"/"}
+	})
+	var renders atomic.Int64
+	a.Get("/long", func(w http.ResponseWriter, r *http.Request) {
+		renders.Add(1)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, strings.Repeat("coyote ", 400))
+	})
+
+	ask := func() *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, "/long", nil)
+		request.Header.Set("Accept-Encoding", "gzip")
+		recorder := httptest.NewRecorder()
+		a.Handler().ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	first := ask()
+	if first.Header().Get(middleware.CacheStatusHeader) != middleware.CacheMiss {
+		t.Fatalf("first = %q, want MISS", first.Header().Get(middleware.CacheStatusHeader))
+	}
+
+	second := ask()
+	if second.Header().Get(middleware.CacheStatusHeader) != middleware.CacheHit {
+		t.Fatalf("second = %q, want HIT", second.Header().Get(middleware.CacheStatusHeader))
+	}
+	if renders.Load() != 1 {
+		t.Errorf("the handler ran %d times, want 1", renders.Load())
+	}
+
+	if encoding := second.Header().Get("Content-Encoding"); encoding != "gzip" {
+		t.Fatalf("Content-Encoding = %q, want gzip", encoding)
+	}
+	reader, err := gzip.NewReader(second.Body)
+	if err != nil {
+		t.Fatalf("the hit claims gzip but the body is not gzip: %v", err)
+	}
+	decoded, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("the hit claims gzip but the body will not decode: %v", err)
+	}
+	if string(decoded) != strings.Repeat("coyote ", 400) {
+		t.Errorf("decoded %d bytes, want the rendered page", len(decoded))
+	}
+}
+
+func TestAClientThatCannotGunzipGetsThePlainPage(t *testing.T) {
+	a, _ := newPageCacheApp(t, func(s *settings.Settings) {
+		s.Security.Compress = true
+		s.PageCache.Paths = []string{"/"}
+	})
+	a.Get("/long", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, strings.Repeat("coyote ", 400))
+	})
+
+	compressed := httptest.NewRequest(http.MethodGet, "/long", nil)
+	compressed.Header.Set("Accept-Encoding", "gzip")
+	a.Handler().ServeHTTP(httptest.NewRecorder(), compressed)
+
+	plain := httptest.NewRecorder()
+	a.Handler().ServeHTTP(plain, httptest.NewRequest(http.MethodGet, "/long", nil))
+
+	if encoding := plain.Header().Get("Content-Encoding"); encoding != "" {
+		t.Fatalf("Content-Encoding = %q, want none for a client that did not ask for gzip", encoding)
+	}
+	if plain.Body.String() != strings.Repeat("coyote ", 400) {
+		t.Errorf("a client without gzip was served %d bytes of something else", plain.Body.Len())
 	}
 }

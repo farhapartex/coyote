@@ -19,9 +19,10 @@ SecureHeaders      X-Content-Type-Options, X-Frame-Options, Referrer-Policy
 HSTS               only when Server.TLS.HSTS is set
 CSP                only when Security.CSP is set
 CORS               only when Security.CORS has origins
-Compress           only when Security.Compress is on
 RateLimit          only when Security.RateLimit is set
+Locale             resolves the request locale when Locales has more than one
 PageCache          only when PageCache.Enabled; skips any request carrying the session cookie
+Compress           only when Security.Compress is on
 Session            loads the session, writes the cookie on the way out
 CSRF               unless Security.CSRF is off; an unsafe method needs a valid token
 Auth               resolves the current user
@@ -34,6 +35,11 @@ route middleware
   ↓
 your handler
 ```
+
+Compress sits inside PageCache deliberately. The cache stores what compression produced,
+so a hit serves the compressed bytes straight from the cache without gzipping again, and
+the stored headers always match the stored body. The entry keys on `Accept-Encoding`, so a
+client that cannot gunzip still gets the plain page.
 
 The conditional ones cost nothing when their setting is unset — they are not added to the chain at
 all.

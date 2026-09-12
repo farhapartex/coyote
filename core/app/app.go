@@ -21,7 +21,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const Version = "0.4.0"
+const Version = "0.1.0"
 
 type (
 	Settings   = settings.Settings
@@ -138,6 +138,9 @@ func NewFrom(s Settings) *App {
 	a.global = append(a.global, a.locales.Middleware)
 	if pages := a.pageCache(s); pages != nil {
 		a.global = append(a.global, pages)
+	}
+	if encoding := compression(s); encoding != nil {
+		a.global = append(a.global, encoding)
 	}
 	a.global = append(a.global, sessions.Middleware)
 	if guard := csrfGuard(s, sessions); guard != nil {
